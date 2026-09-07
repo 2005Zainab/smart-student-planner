@@ -1,5 +1,6 @@
 import { AppShell } from "./components/layout/AppShell";
 import { LoginPage } from "./components/pages/LoginPage";
+import { RegisterPage } from "./components/pages/RegisterPage";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 
 function App() {
@@ -7,7 +8,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<Navigate replace to="/login" />} />
+        <Route path="/register" element={<RegisterPage />} />
         <Route element={<AppShell />}>
           <Route path="/dashboard" element={null} />
           <Route path="/tasks" element={null} />
