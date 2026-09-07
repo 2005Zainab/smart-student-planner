@@ -1,5 +1,6 @@
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeToggle } from "./ThemeToggle";
+import { useLocation } from "react-router";
 
 const pageTitles = {
   "/dashboard": "Dashboard",
@@ -8,7 +9,8 @@ const pageTitles = {
 };
 
 function Header() {
-  const title = pageTitles[window.location.pathname] ?? "Smart Student Planner";
+  const { pathname } = useLocation();
+  const title = pageTitles[pathname] ?? "Smart Student Planner";
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b px-4">

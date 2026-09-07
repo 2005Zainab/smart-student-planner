@@ -9,14 +9,16 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Link, useNavigate } from "react-router";
 
 function LoginPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   function handleSubmit(event) {
     event.preventDefault();
-    window.location.href = "/dashboard";
+    navigate("/dashboard");
   }
 
   return (
@@ -59,12 +61,12 @@ function LoginPage() {
           </form>
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
-            <a
+            <Link
               className="font-medium text-foreground underline underline-offset-4"
-              href="/register"
+              to="/register"
             >
               Register
-            </a>
+            </Link>
           </p>
         </CardContent>
       </Card>

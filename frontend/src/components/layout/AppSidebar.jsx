@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { NavLink, useLocation } from "react-router";
 
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -24,7 +25,7 @@ const navigation = [
 ];
 
 function AppSidebar() {
-  const currentPath = window.location.pathname;
+  const { pathname } = useLocation();
 
   return (
     <Sidebar collapsible="icon">
@@ -48,8 +49,8 @@ function AppSidebar() {
             {navigation.map(({ label, href, icon: Icon }) => (
               <SidebarMenuItem key={href}>
                 <SidebarMenuButton
-                  isActive={currentPath === href}
-                  render={<a href={href} />}
+                  isActive={pathname === href}
+                  render={<NavLink to={href} />}
                   tooltip={label}
                 >
                   <Icon />
