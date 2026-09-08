@@ -2,6 +2,7 @@ import { AppShell } from "./components/layout/AppShell";
 import { LoginPage } from "./components/pages/LoginPage";
 import { RegisterPage } from "./components/pages/RegisterPage";
 import { DashboardPage } from "./components/pages/DashboardPage";
+import { TasksPage } from "./components/pages/TasksPage";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 
 function App() {
@@ -12,7 +13,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route element={<AppShell />}>
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/tasks" element={null} />
+          <Route path="/tasks" element={<TasksPage />} />
           <Route path="/calendar" element={null} />
         </Route>
         <Route path="*" element={<Navigate replace to="/dashboard" />} />
