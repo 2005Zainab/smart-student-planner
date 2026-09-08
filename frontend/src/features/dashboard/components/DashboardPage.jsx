@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -59,9 +60,12 @@ function DashboardPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle>Tasks to Prioritize</CardTitle>
-            <Button render={<Link to="/tasks" />} size="sm" variant="outline">
+            <Link
+              to="/tasks"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
               View all
-            </Button>
+            </Link>
           </CardHeader>
           <CardContent className="space-y-2">
             {tasks.map((task) => (
@@ -103,13 +107,12 @@ function DashboardPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle>Weekly Schedule</CardTitle>
-            <Button
-              render={<Link to="/calendar" />}
-              size="sm"
-              variant="outline"
+            <Link
+              to="/calendar"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
             >
-              View calendar
-            </Button>
+              View all
+            </Link>
           </CardHeader>
           <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             {schedule.map(({ day, items }) => (
