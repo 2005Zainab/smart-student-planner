@@ -14,6 +14,12 @@
   "type": "commonjs",
   "dependencies": {
     "express": "^5.2.1",
+    "firebase": "^12.18.0",
     "nodemon": "^3.1.14"
+  },
+  "allowScripts": {
+    "firebase@12.18.0": true,
+    "@firebase/util@1.15.3": true,
+    "protobufjs@7.6.6": true
   }
 }
