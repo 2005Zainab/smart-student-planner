@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { MoreHorizontal, Plus } from "lucide-react";
+import { format } from "date-fns";
+import { CalendarDays, MoreHorizontal, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,6 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -134,6 +141,53 @@ function TaskForm({ draft, setDraft, onSave, onCancel }) {
           </Select>
         </div>
       </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="task-due-date">Due date</Label>
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button
+                  className="w-full justify-start font-normal"
+                  id="task-due-date"
+                  type="button"
+                  variant="outline"
+                />
+              }
+            >
+              <CalendarDays />
+              {draft.dueDate ? format(draft.dueDate, "PPP") : "Choose a date"}
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                onSelect={(dueDate) => setDraft({ ...draft, dueDate })}
+                selected={draft.dueDate}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="task-status">Status</Label>
+          <Select
+            onValueChange={(status) => setDraft({ ...draft, status })}
+            value={draft.status}
+          >
+            <SelectTrigger
+              aria-label="Status"
+              className="w-full"
+              id="task-status"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="To Do">To Do</SelectItem>
+              <SelectItem value="In Progress">In Progress</SelectItem>
+              <SelectItem value="Completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
       <div className="flex justify-end gap-2">
         <Button onClick={onCancel} type="button" variant="outline">
           Cancel
@@ -148,6 +202,7 @@ function TasksPage() {
   const [tasks, setTasks] = useState(initialTasks);
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [draft, setDraft] = useState({
     title: "",
@@ -156,22 +211,33 @@ function TasksPage() {
     priority: "Medium",
     status: "To Do",
   });
-  const openEditor = () => {
-    setDraft({
-      title: "",
-      description: "",
-      subject: "",
-      priority: "Medium",
-      status: "To Do",
-    });
+  const openEditor = (task = null) => {
+    setEditingTaskId(task?.id ?? null);
+    setDraft(
+      task ?? {
+        title: "",
+        description: "",
+        subject: "",
+        priority: "Medium",
+        status: "To Do",
+        dueDate: undefined,
+      },
+    );
     if (window.matchMedia("(max-width: 767px)").matches)
       setMobileEditorOpen(true);
     else setEditorOpen(true);
   };
   const saveTask = () => {
-    setTasks((current) => [...current, { ...draft, id: Date.now() }]);
+    setTasks((current) =>
+      editingTaskId === null
+        ? [...current, { ...draft, id: Date.now() }]
+        : current.map((task) =>
+            task.id === editingTaskId ? { ...draft, id: editingTaskId } : task,
+          ),
+    );
     setEditorOpen(false);
     setMobileEditorOpen(false);
+    setEditingTaskId(null);
   };
   const toggleTask = (id) =>
     setTasks((current) =>
@@ -205,6 +271,7 @@ function TasksPage() {
               <TaskRow
                 key={task.id}
                 task={task}
+                onEdit={() => openEditor(task)}
                 onDelete={() => setDeleteId(task.id)}
                 onToggle={() => toggleTask(task.id)}
               />
@@ -215,6 +282,7 @@ function TasksPage() {
               <TaskRow
                 key={task.id}
                 task={task}
+                onEdit={() => openEditor(task)}
                 onDelete={() => setDeleteId(task.id)}
                 onToggle={() => toggleTask(task.id)}
               />
@@ -229,9 +297,13 @@ function TasksPage() {
       </Card>
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
         <DialogContent>
-          <DialogTitle>Add task</DialogTitle>
+          <DialogTitle>
+            {editingTaskId === null ? "Add task" : "Edit task"}
+          </DialogTitle>
           <DialogDescription>
-            Create a task for your study plan.
+            {editingTaskId === null
+              ? "Create a task for your study plan."
+              : "Update the details for this task."}
           </DialogDescription>
           <TaskForm
             draft={draft}
@@ -244,9 +316,13 @@ function TasksPage() {
       <Sheet open={mobileEditorOpen} onOpenChange={setMobileEditorOpen}>
         <SheetContent className="overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Add task</SheetTitle>
+            <SheetTitle>
+              {editingTaskId === null ? "Add task" : "Edit task"}
+            </SheetTitle>
             <SheetDescription>
-              Create a task for your study plan.
+              {editingTaskId === null
+                ? "Create a task for your study plan."
+                : "Update the details for this task."}
             </SheetDescription>
           </SheetHeader>
           <div className="p-4">
@@ -289,7 +365,7 @@ function TasksPage() {
   );
 }
 
-function TaskRow({ task, onDelete, onToggle }) {
+function TaskRow({ task, onEdit, onDelete, onToggle }) {
   return (
     <div className="flex items-start gap-3 p-4">
       <Checkbox
@@ -326,6 +402,7 @@ function TaskRow({ task, onDelete, onToggle }) {
           <MoreHorizontal />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
           <DropdownMenuItem onClick={onDelete}>Delete</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
