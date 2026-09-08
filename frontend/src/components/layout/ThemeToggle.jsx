@@ -1,20 +1,15 @@
 import { Moon, Sun } from "lucide-react";
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/theme/theme-provider";
 
 function ThemeToggle() {
-  const [isDark, setIsDark] = useState(() =>
-    document.documentElement.classList.contains("dark"),
-  );
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDark);
-  }, [isDark]);
+  const { setTheme, theme } = useTheme();
+  const isDark = theme === "dark";
 
   return (
     <Button
       aria-label={isDark ? "Use light theme" : "Use dark theme"}
-      onClick={() => setIsDark((dark) => !dark)}
+      onClick={() => setTheme(isDark ? "light" : "dark")}
       size="icon"
       variant="ghost"
     >

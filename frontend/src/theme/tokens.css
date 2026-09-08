@@ -1,0 +1,5 @@
+@theme inline {
+  --color-high-priority: var(--high-priority);
+  --color-medium-priority: var(--medium-priority);
+  --color-low-priority: var(--low-priority);
+}

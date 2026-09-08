@@ -1,7 +1,7 @@
+import { ThemeProvider } from "@/theme/theme-provider";
+
 function Provider({ children }) {
-  // Wrap with global providers here as app grows:
-  // ThemeProvider, AuthProvider, etc.
-  return children;
+  return <ThemeProvider>{children}</ThemeProvider>;
 }
 
 export { Provider };
