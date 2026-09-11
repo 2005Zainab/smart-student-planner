@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { TaskForm } from "./TaskForm";
 import { TaskRow } from "./TaskRow";
 import { httpClient } from "../../../shared/http-client";
+import { toast } from "@/components/ui/toast";
 import {
   Dialog,
   DialogContent,
@@ -116,6 +117,10 @@ function TasksPage() {
         method: "DELETE"
       });
       setTasks((current) => current.filter((task) => task.id !== id));
+      toast.add({
+        title: "Task Deleted",
+        type: "success",
+      });
     } catch (err) {
       console.log(err);
     } finally {
