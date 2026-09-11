@@ -30,7 +30,7 @@ import {
 
 const initialTasks = [
   {
-    id: 1,
+    id: "1",
     title: "Complete research outline",
     description: "Draft the thesis and supporting points.",
     subject: "History",
@@ -89,8 +89,8 @@ function TasksPage() {
       editingTaskId === null
         ? [...current, { ...draft, id: Date.now() }]
         : current.map((task) =>
-            task.id === editingTaskId ? { ...draft, id: editingTaskId } : task,
-          ),
+          task.id === editingTaskId ? { ...draft, id: editingTaskId } : task,
+        ),
     );
     setEditorOpen(false);
     setMobileEditorOpen(false);
@@ -101,12 +101,29 @@ function TasksPage() {
       current.map((task) =>
         task.id === id
           ? {
-              ...task,
-              status: task.status === "Completed" ? "To Do" : "Completed",
-            }
+            ...task,
+            status: task.status === "Completed" ? "To Do" : "Completed",
+          }
           : task,
       ),
     );
+
+  //Deletes tasks from Firestore using Express API route then updates local UI
+  const deleteTask = async (id) => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/tasks/${id}`, {
+        method: "DELETE"
+      });
+      if (!response.ok) {
+        throw new Error("Task Failed to Delete");
+      }
+      setTasks((current) => current.filter((task) => task.id !== id));
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setDeleteId(null);
+    }
+  };
 
   return (
     <main className="flex-1 space-y-6 p-4 md:p-6">
@@ -207,10 +224,7 @@ function TasksPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                setTasks((current) =>
-                  current.filter((task) => task.id !== deleteId),
-                );
-                setDeleteId(null);
+                deleteTask(deleteId);
               }}
             >
               Delete
