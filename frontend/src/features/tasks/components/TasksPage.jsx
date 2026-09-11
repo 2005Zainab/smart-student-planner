@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TaskForm } from "./TaskForm";
 import { TaskRow } from "./TaskRow";
+import { httpClient } from "../../../shared/http-client";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +31,7 @@ import {
 
 const initialTasks = [
   {
-    id: "1",
+    id: 1,
     title: "Complete research outline",
     description: "Draft the thesis and supporting points.",
     subject: "History",
@@ -111,12 +112,9 @@ function TasksPage() {
   //Deletes tasks from Firestore using Express API route then updates local UI
   const deleteTask = async (id) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/tasks/${id}`, {
+      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
         method: "DELETE"
       });
-      if (!response.ok) {
-        throw new Error("Task Failed to Delete");
-      }
       setTasks((current) => current.filter((task) => task.id !== id));
     } catch (err) {
       console.log(err);
