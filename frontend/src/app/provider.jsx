@@ -1,7 +1,12 @@
 import { ThemeProvider } from "@/theme/theme-provider";
+import { AuthProvider } from "@/shared/auth-provider";
 
 function Provider({ children }) {
-  return <ThemeProvider>{children}</ThemeProvider>;
+  return (
+    <AuthProvider>
+      <ThemeProvider>{children}</ThemeProvider>
+    </AuthProvider>
+  );
 }
 
 export { Provider };
