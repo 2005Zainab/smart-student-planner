@@ -5,8 +5,9 @@ import { Toaster } from "@/components/ui/toast";
 function Provider({ children }) {
   return (
     <AuthProvider>
-      <ThemeProvider>{children}</ThemeProvider>
-      <Toaster/>
+      <ThemeProvider>
+        <Toaster>{children}</Toaster>
+        </ThemeProvider>
     </AuthProvider>
   );
 }
