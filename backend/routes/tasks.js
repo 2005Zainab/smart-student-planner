@@ -1,32 +1,13 @@
 import express from 'express';
 import { db } from '../src/firebase.js';
-import { getAuth } from 'firebase-admin/auth';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
 //Try to delete task
-router.delete('/:id', async (req, res) =>{
+router.delete('/:id', requireAuth, async (req, res) =>{
 
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-        return res.status(401).json({message: "No token was provided"})
-    }
-
-    const idToken = authHeader.split("Bearer ")[1];
-
-    if(!idToken){
-        return res.status(401).json({message: "No token was provided"});
-    }
-
-    let verifiedToken;
-    try{
-        verifiedToken = await getAuth().verifyIdToken(idToken);
-    }catch(err){
-        return res.status(401).json({message: "Token is invalid or Expired"});
-    }
-
-    const uid = verifiedToken.uid;
+    const uid = req.user.uid;
 
     try{
         const taskDoc = db.collection("tasks").doc(req.params.id);
