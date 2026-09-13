@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TaskForm } from "./TaskForm";
-import { TaskRow } from "./TaskRow";
+import { TaskList } from "./TaskList";
 import { httpClient } from "../../../shared/http-client";
 import { toast } from "@/components/ui/toast";
 import {
@@ -29,36 +29,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const initialTasks = [
-  {
-    id: 1,
-    title: "Complete research outline",
-    description: "Draft the thesis and supporting points.",
-    subject: "History",
-    priority: "High",
-    status: "To Do",
-  },
-  {
-    id: 2,
-    title: "Review calculus exercises",
-    description: "Work through the assigned problem set.",
-    subject: "Mathematics",
-    priority: "Medium",
-    status: "In Progress",
-  },
-  {
-    id: 3,
-    title: "Read chapter 6",
-    description: "Take notes on the key concepts.",
-    subject: "Biology",
-    priority: "Low",
-    status: "Completed",
-  },
-];
+import { useTasks } from "../hooks/useTasks";
 
 function TasksPage() {
-  const [tasks, setTasks] = useState(initialTasks);
+  const { tasks, setTasks, isLoading, error } = useTasks();
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState(null);
@@ -91,8 +65,8 @@ function TasksPage() {
       editingTaskId === null
         ? [...current, { ...draft, id: Date.now() }]
         : current.map((task) =>
-          task.id === editingTaskId ? { ...draft, id: editingTaskId } : task,
-        ),
+            task.id === editingTaskId ? { ...draft, id: editingTaskId } : task,
+          ),
     );
     setEditorOpen(false);
     setMobileEditorOpen(false);
@@ -103,9 +77,9 @@ function TasksPage() {
       current.map((task) =>
         task.id === id
           ? {
-            ...task,
-            status: task.status === "Completed" ? "To Do" : "Completed",
-          }
+              ...task,
+              status: task.status === "Completed" ? "To Do" : "Completed",
+            }
           : task,
       ),
     );
@@ -114,7 +88,7 @@ function TasksPage() {
   const deleteTask = async (id) => {
     try {
       await httpClient(`http://localhost:3000/api/tasks/${id}`, {
-        method: "DELETE"
+        method: "DELETE",
       });
       setTasks((current) => current.filter((task) => task.id !== id));
       toast.add({
@@ -143,33 +117,14 @@ function TasksPage() {
       </div>
       <Card>
         <CardContent className="p-0">
-          <div className="hidden divide-y md:block">
-            {tasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                onEdit={() => openEditor(task)}
-                onDelete={() => setDeleteId(task.id)}
-                onToggle={() => toggleTask(task.id)}
-              />
-            ))}
-          </div>
-          <div className="divide-y md:hidden">
-            {tasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                onEdit={() => openEditor(task)}
-                onDelete={() => setDeleteId(task.id)}
-                onToggle={() => toggleTask(task.id)}
-              />
-            ))}
-          </div>
-          {tasks.length === 0 && (
-            <p className="p-8 text-center text-sm text-muted-foreground">
-              No tasks yet.
-            </p>
-          )}
+          <TaskList
+            tasks={tasks}
+            isLoading={isLoading}
+            error={error}
+            onEdit={openEditor}
+            onDelete={setDeleteId}
+            onToggle={toggleTask}
+          />
         </CardContent>
       </Card>
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
