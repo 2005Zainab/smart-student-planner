@@ -17,6 +17,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { NavLink, useLocation } from "react-router";
+import { useLogout } from "@/features/auth/hooks/use-logout";
+import { useNavigate } from "react-router";
+import { useAuth } from "@/shared/auth-provider";
+import { getAuthErrorMessage } from "@/features/auth/utils/get-auth-error-message";
 
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -26,6 +30,16 @@ const navigation = [
 
 function AppSidebar() {
   const { pathname } = useLocation();
+  const { user } = useAuth();
+  const { error, isPending, logout } = useLogout();
+  const navigate = useNavigate();
+  const userName = user?.displayName ?? user?.email ?? "Student";
+  async function handleLogout() {
+    try {
+      await logout();
+      navigate("/login");
+    } catch {}
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -69,15 +83,22 @@ function AppSidebar() {
                 render={<SidebarMenuButton tooltip="Profile" />}
               >
                 <User />
-                <span>Smith</span>
+                <span>{userName}</span>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Sign out</DropdownMenuItem>
+                <DropdownMenuItem disabled={isPending} onClick={handleLogout}>
+                  {isPending ? "Signing out..." : "Sign out"}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
+        {error && (
+          <p className="px-2 text-xs text-destructive" role="alert">
+            {getAuthErrorMessage(error, "We could not sign you out. Try again.")}
+          </p>
+        )}
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

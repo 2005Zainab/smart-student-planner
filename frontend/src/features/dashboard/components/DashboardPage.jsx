@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAuth } from "@/shared/auth-provider";
 
 const initialTasks = [
   {
@@ -34,7 +35,9 @@ const schedule = [
 ];
 
 function DashboardPage() {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState(initialTasks);
+  const userName = user?.displayName ?? user?.email ?? "Student";
 
   function toggleTask(taskId) {
     setTasks((currentTasks) =>
@@ -49,7 +52,7 @@ function DashboardPage() {
       <section>
         <p className="text-sm text-muted-foreground">Monday, September 7</p>
         <h2 className="mt-1 text-2xl font-semibold tracking-tight">
-          Good morning, Smith
+          Good morning, {userName}
         </h2>
         <p className="mt-1 text-muted-foreground">
           Here is what is on your study plan today.

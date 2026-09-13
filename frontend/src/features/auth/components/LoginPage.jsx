@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Card,
   CardContent,
@@ -10,15 +11,21 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link, useNavigate } from "react-router";
+import { useLogin } from "../hooks/use-login";
+import { getAuthErrorMessage } from "../utils/get-auth-error-message";
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { error, isPending, login } = useLogin();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    navigate("/dashboard");
+    try {
+      await login({ email, password });
+      navigate("/dashboard");
+    } catch {}
   }
 
   return (
@@ -55,10 +62,21 @@ function LoginPage() {
                 value={password}
               />
             </div>
-            <Button className="w-full" type="submit">
-              Sign in
+            <Button className="w-full" disabled={isPending} type="submit">
+              {isPending ? (
+                <>
+                  <Spinner data-icon="inline-start" /> Signing in...
+                </>
+              ) : (
+                "Sign in"
+              )}
             </Button>
           </form>
+          {error && (
+            <p className="mt-3 text-sm text-destructive" role="alert">
+              {getAuthErrorMessage(error)}
+            </p>
+          )}
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
             <Link

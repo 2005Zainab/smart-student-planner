@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TaskForm } from "./TaskForm";
 import { TaskRow } from "./TaskRow";
+import { httpClient } from "../../../shared/http-client";
+import { toast } from "@/components/ui/toast";
 import {
   Dialog,
   DialogContent,
@@ -89,8 +91,8 @@ function TasksPage() {
       editingTaskId === null
         ? [...current, { ...draft, id: Date.now() }]
         : current.map((task) =>
-            task.id === editingTaskId ? { ...draft, id: editingTaskId } : task,
-          ),
+          task.id === editingTaskId ? { ...draft, id: editingTaskId } : task,
+        ),
     );
     setEditorOpen(false);
     setMobileEditorOpen(false);
@@ -101,12 +103,30 @@ function TasksPage() {
       current.map((task) =>
         task.id === id
           ? {
-              ...task,
-              status: task.status === "Completed" ? "To Do" : "Completed",
-            }
+            ...task,
+            status: task.status === "Completed" ? "To Do" : "Completed",
+          }
           : task,
       ),
     );
+
+  //Deletes tasks from Firestore using Express API route then updates local UI
+  const deleteTask = async (id) => {
+    try {
+      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
+        method: "DELETE"
+      });
+      setTasks((current) => current.filter((task) => task.id !== id));
+      toast.add({
+        title: "Task Deleted",
+        type: "success",
+      });
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setDeleteId(null);
+    }
+  };
 
   return (
     <main className="flex-1 space-y-6 p-4 md:p-6">
@@ -207,10 +227,7 @@ function TasksPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                setTasks((current) =>
-                  current.filter((task) => task.id !== deleteId),
-                );
-                setDeleteId(null);
+                deleteTask(deleteId);
               }}
             >
               Delete
