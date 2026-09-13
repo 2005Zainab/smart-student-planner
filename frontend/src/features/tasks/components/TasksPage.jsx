@@ -32,7 +32,7 @@ import {
 
 const initialTasks = [
   {
-    id: "q9GNZTQiae7pjpiO8A07",
+    id: 1,
     title: "Complete research outline",
     description: "Draft the thesis and supporting points.",
     subject: "History",
