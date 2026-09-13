@@ -63,6 +63,8 @@ function TasksPage() {
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
+  const [saveError, setSaveError] = useState(null);
   const [draft, setDraft] = useState({
     title: "",
     description: "",
@@ -86,18 +88,42 @@ function TasksPage() {
       setMobileEditorOpen(true);
     else setEditorOpen(true);
   };
-  const saveTask = () => {
-    setTasks((current) =>
-      editingTaskId === null
-        ? [...current, { ...draft, id: Date.now() }]
-        : current.map((task) =>
-          task.id === editingTaskId ? { ...draft, id: editingTaskId } : task,
-        ),
-    );
+  const saveTask = async () => {
+    //Blank title check, can't be empty or blank space
+    if (!draft.title || draft.title.trim() === "") {
+      setEmptyTitleCheck("Title Cannot Be Empty");
+      return;
+    }
+
+    setEmptyTitleCheck(null);
+    setSaveError(null);
+
+    //Add task (only local right now)
+    if (editingTaskId === null) {
+      setTasks((current) => [...current, { ...draft, id: Date.now() }]);
+    } else {
+      //edit task sends to backend to check and save to firestore via PATCH route
+      try {
+        await httpClient(`http://localhost:3000/api/tasks/${editingTaskId}`, {
+          method: "PATCH",
+          body: JSON.stringify(draft),
+        });
+        setTasks((current) =>
+          current.map((task) =>
+            task.id === editingTaskId ? { ...draft, id: editingTaskId } : task,
+          ),
+        );
+      } catch (err) {
+        console.log(err);
+        setSaveError(err.message || "Failed to save task");
+        return;
+      }
+    }
     setEditorOpen(false);
     setMobileEditorOpen(false);
     setEditingTaskId(null);
   };
+
   const toggleTask = (id) =>
     setTasks((current) =>
       current.map((task) =>
@@ -187,6 +213,8 @@ function TasksPage() {
             onCancel={() => setEditorOpen(false)}
             onSave={saveTask}
             setDraft={setDraft}
+            titleError={emptyTitleCheck}
+            saveError={saveError}
           />
         </DialogContent>
       </Dialog>
@@ -208,6 +236,8 @@ function TasksPage() {
               onCancel={() => setMobileEditorOpen(false)}
               onSave={saveTask}
               setDraft={setDraft}
+              titleError={emptyTitleCheck}
+              saveError={saveError}
             />
           </div>
         </SheetContent>

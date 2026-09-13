@@ -18,14 +18,14 @@ router.delete('/:id', requireAuth, async (req, res) => {
         }
 
         if (taskSnap.data().userId != uid) {
-            return res.status(403).json({ error: "Unauthorized to delete this task: You do not own this task" });
+            return res.status(403).json({ message: "Unauthorized to delete this task: You do not own this task" });
         }
 
         await taskDoc.delete();
         res.status(200).json({ message: 'Task Deleted' });
     } catch (err) {
         console.log(err);
-        res.status(500).json({ error: 'Failed to Delete Task' });
+        res.status(500).json({ message: 'Failed to Delete Task' });
     }
 });
 
@@ -48,7 +48,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
         }
 
         if (taskSnap.data().userId != uid) {
-            return res.status(403).json({ error: "Unauthorized to edit this task: You do not own this task" });
+            return res.status(403).json({ message: "Unauthorized to edit this task: You do not own this task" });
         }
 
         await taskDoc.update({ title, description, subject, priority, status, dueDate });
@@ -56,7 +56,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
 
     } catch (err) {
         console.log(err);
-        res.status(500).json({ error: 'Failed to Update Task' })
+        res.status(500).json({ message: 'Failed to Update Task' })
     }
 });
 

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-function TaskForm({ draft, setDraft, onSave, onCancel }) {
+function TaskForm({ draft, setDraft, onSave, onCancel, titleError, saveError }) {
   return (
     <form
       className="space-y-4"
@@ -34,9 +34,11 @@ function TaskForm({ draft, setDraft, onSave, onCancel }) {
           onChange={(event) =>
             setDraft({ ...draft, title: event.target.value })
           }
-          required
           value={draft.title}
         />
+        {titleError &&(
+          <p className = "text-sm text-destructive">{titleError}</p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="task-description">Description</Label>
@@ -128,6 +130,9 @@ function TaskForm({ draft, setDraft, onSave, onCancel }) {
           </Select>
         </div>
       </div>
+      {saveError &&(
+        <p className="text-sm text-destructive">{saveError}</p>
+      )}
       <div className="flex justify-end gap-2">
         <Button onClick={onCancel} type="button" variant="outline">
           Cancel

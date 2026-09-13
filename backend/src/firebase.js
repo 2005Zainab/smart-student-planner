@@ -13,6 +13,8 @@ initializeApp({
 })
 
 export const db = getFirestore();
+//allows optional fields to be left empty
+db.settings({ ignoreUndefinedProperties: true });
 /*
 createUserWithEmailAndPassword(auth, email, password)
   .then((userCredential) => {
