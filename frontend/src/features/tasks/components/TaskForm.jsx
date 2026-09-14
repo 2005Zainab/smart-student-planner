@@ -34,10 +34,14 @@ function TaskForm({ draft, setDraft, onSave, onCancel, titleError, saveError }) 
           onChange={(event) =>
             setDraft({ ...draft, title: event.target.value })
           }
+          maxLength={200}
           value={draft.title}
         />
-        {titleError &&(
-          <p className = "text-sm text-destructive">{titleError}</p>
+        {draft.title.length >= 200 && (
+          <p className="text-sm text-medium-priority">Title cannot be more than 200 characters</p>
+        )}
+        {titleError && (
+          <p className="text-sm text-destructive">{titleError}</p>
         )}
       </div>
       <div className="space-y-2">
@@ -47,8 +51,12 @@ function TaskForm({ draft, setDraft, onSave, onCancel, titleError, saveError }) 
           onChange={(event) =>
             setDraft({ ...draft, description: event.target.value })
           }
+          maxLength={1000}
           value={draft.description}
         />
+        {draft.description.length >= 1000 && (
+          <p className="text-sm text-medium-priority">Description cannot be more than 1000 characters</p>
+        )}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
@@ -58,9 +66,13 @@ function TaskForm({ draft, setDraft, onSave, onCancel, titleError, saveError }) 
             onChange={(event) =>
               setDraft({ ...draft, subject: event.target.value })
             }
+            maxLength={200}
             required
             value={draft.subject}
           />
+          {draft.subject.length >= 200 && (
+            <p className="text-sm text-medium-priority">Subject cannot be more than 200 characters</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="task-priority">Priority</Label>
@@ -130,7 +142,7 @@ function TaskForm({ draft, setDraft, onSave, onCancel, titleError, saveError }) 
           </Select>
         </div>
       </div>
-      {saveError &&(
+      {saveError && (
         <p className="text-sm text-destructive">{saveError}</p>
       )}
       <div className="flex justify-end gap-2">

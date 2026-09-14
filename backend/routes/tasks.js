@@ -3,6 +3,9 @@ import { db } from '../src/firebase.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
+const ALLOWED_FIELDS = ["title", "description", "subject", "priority", "status", "dueDate"];
+const ALLOWED_PRIORITIES = ["low", "medium", "high"];
+const ALLOWED_STATUSES = ["to do", "in progress", "completed"];
 
 //Try to delete task
 router.delete('/:id', requireAuth, async (req, res) => {
@@ -31,12 +34,86 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
 router.patch('/:id', requireAuth, async (req, res) => {
     const uid = req.user.uid;
-    const { title, description, subject, priority, status, dueDate } = req.body;
+    const updates = {};
+
+    for (const key of ALLOWED_FIELDS) {
+        if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+            updates[key] = req.body[key];
+        }
+    }
+
+    if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No valid fields updated" });
+    }
 
     //Not allowed blank/empty title, rejects before updating firestore
-    if (!title || title.trim() === "") {
-        return res.status(400).json({ message: "Title cannot be empty or blank" });
+    if ("title" in updates) {
+        if (typeof updates.title !== "string" || updates.title.trim() === "") {
+            return res.status(400).json({ message: "Title cannot be empty or blank" });
+        }
+        //Cap title edits to 200 chars
+        updates.title = updates.title.trim();
+        if (updates.title.length > 200) {
+            return res.status(400).json({ message: "Title cannot be more than 200 characters" });
+        }
     }
+
+    //prevent non string entries
+    if ("description" in updates) {
+        if (typeof updates.description !== "string") {
+            return res.status(400).json({ message: "Description must be text" });
+        }
+        //Cap description edits to 1000 chars
+        updates.description = updates.description.trim();
+        if (updates.description.length > 1000) {
+            return res.status(400).json({ message: "Description cannot be more than 1000 characters" });
+        }
+    }
+
+    //prevent non string entries
+    if ("subject" in updates) {
+        if (typeof updates.subject !== "string") {
+            return res.status(400).json({ message: "Subject must be text" });
+        }
+        //Cap subject edits to 200 chars
+        updates.subject = updates.subject.trim();
+        if (updates.subject.length > 200) {
+            return res.status(400).json({ message: "Subject cannot be more than 200 characters" });
+        }
+    }
+
+    //prevent non string entries
+    if ("priority" in updates) {
+        if (typeof updates.priority !== "string") {
+            return res.status(400).json({ message: "Not a valid priority" });
+        }
+        //Check case sensitivity
+        if (!ALLOWED_PRIORITIES.includes(updates.priority.trim().toLowerCase())) {
+            return res.status(400).json({ message: "Not a valid priority" });
+        }
+        updates.priority = updates.priority.trim();
+    }
+
+    //prevent non string entries
+    if ("status" in updates) {
+        if (typeof updates.status !== "string") {
+            return res.status(400).json({ message: "Not a valid status" });
+        }
+        //Check case sensitivity
+        if (!ALLOWED_STATUSES.includes(updates.status.trim().toLowerCase())) {
+            return res.status(400).json({ message: "Not a valid status" });
+        }
+        updates.status = updates.status.trim();
+    }
+
+    if ("dueDate" in updates) {
+        const dateParsed = new Date(updates.dueDate);
+        if (isNaN(dateParsed.getTime())) {
+            return res.status(400).json({ message: "Not a valid due date" });
+        }
+        updates.dueDate = dateParsed.toISOString();
+    }
+
 
     try {
         //Fetches task first and checks it exists and who owns it
@@ -51,7 +128,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
             return res.status(403).json({ message: "Unauthorized to edit this task: You do not own this task" });
         }
 
-        await taskDoc.update({ title, description, subject, priority, status, dueDate });
+        await taskDoc.update(updates);
         res.status(200).json({ message: 'Task Updated' });
 
     } catch (err) {
