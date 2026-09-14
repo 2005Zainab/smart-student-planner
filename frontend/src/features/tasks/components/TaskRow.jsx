@@ -45,6 +45,7 @@ function TaskRow({ task, onEdit, onDelete, onToggle, isLoading }) {
         {task.priority}
       </Badge>
       <Badge variant="outline">{task.status}</Badge>
+      <Badge variant="outline">{task.dueDate}</Badge>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
