@@ -1,6 +1,14 @@
 import { TaskRow } from "./TaskRow";
 
-function TaskList({ tasks, isLoading, error, onEdit, onDelete, onToggle }) {
+function TaskList({
+  tasks,
+  isLoading,
+  error,
+  onEdit,
+  onDelete,
+  onToggle,
+  onView,
+}) {
   if (isLoading) {
     return (
       <div className="divide-y">
@@ -36,6 +44,7 @@ function TaskList({ tasks, isLoading, error, onEdit, onDelete, onToggle }) {
           onEdit={() => onEdit(task)}
           onDelete={() => onDelete(task.id)}
           onToggle={() => onToggle(task.id)}
+          onView={() => onView(task)}
         />
       ))}
     </div>

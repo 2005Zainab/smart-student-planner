@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-function TaskForm({ draft, setDraft, onSave, onCancel }) {
+function TaskForm({ draft, setDraft, onSave, onCancel, readOnly = false }) {
   return (
     <form
       className="space-y-4"
@@ -34,6 +34,7 @@ function TaskForm({ draft, setDraft, onSave, onCancel }) {
           onChange={(event) =>
             setDraft({ ...draft, title: event.target.value })
           }
+          disabled={readOnly}
           required
           value={draft.title}
         />
@@ -45,6 +46,7 @@ function TaskForm({ draft, setDraft, onSave, onCancel }) {
           onChange={(event) =>
             setDraft({ ...draft, description: event.target.value })
           }
+          disabled={readOnly}
           value={draft.description}
         />
       </div>
@@ -56,6 +58,7 @@ function TaskForm({ draft, setDraft, onSave, onCancel }) {
             onChange={(event) =>
               setDraft({ ...draft, subject: event.target.value })
             }
+            disabled={readOnly}
             required
             value={draft.subject}
           />
@@ -63,6 +66,7 @@ function TaskForm({ draft, setDraft, onSave, onCancel }) {
         <div className="space-y-2">
           <Label htmlFor="task-priority">Priority</Label>
           <Select
+            disabled={readOnly}
             onValueChange={(priority) => setDraft({ ...draft, priority })}
             value={draft.priority}
           >
@@ -89,6 +93,7 @@ function TaskForm({ draft, setDraft, onSave, onCancel }) {
               render={
                 <Button
                   className="w-full justify-start font-normal"
+                  disabled={readOnly}
                   id="task-due-date"
                   type="button"
                   variant="outline"
@@ -110,6 +115,7 @@ function TaskForm({ draft, setDraft, onSave, onCancel }) {
         <div className="space-y-2">
           <Label htmlFor="task-status">Status</Label>
           <Select
+            disabled={readOnly}
             onValueChange={(status) => setDraft({ ...draft, status })}
             value={draft.status}
           >
@@ -128,12 +134,14 @@ function TaskForm({ draft, setDraft, onSave, onCancel }) {
           </Select>
         </div>
       </div>
-      <div className="flex justify-end gap-2">
-        <Button onClick={onCancel} type="button" variant="outline">
-          Cancel
-        </Button>
-        <Button type="submit">Save task</Button>
-      </div>
+      {!readOnly && (
+        <div className="flex justify-end gap-2">
+          <Button onClick={onCancel} type="button" variant="outline">
+            Cancel
+          </Button>
+          <Button type="submit">Save task</Button>
+        </div>
+      )}
     </form>
   );
 }

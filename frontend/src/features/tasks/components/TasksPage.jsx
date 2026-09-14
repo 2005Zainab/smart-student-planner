@@ -35,6 +35,7 @@ function TasksPage() {
   const { tasks, setTasks, isLoading, error } = useTasks();
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
+  const [formMode, setFormMode] = useState("create");
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [draft, setDraft] = useState({
@@ -44,7 +45,8 @@ function TasksPage() {
     priority: "Medium",
     status: "To Do",
   });
-  const openEditor = (task = null) => {
+  const openEditor = (task = null, mode = task ? "edit" : "create") => {
+    setFormMode(mode);
     setEditingTaskId(task?.id ?? null);
     setDraft(
       task ?? {
@@ -60,6 +62,12 @@ function TasksPage() {
       setMobileEditorOpen(true);
     else setEditorOpen(true);
   };
+  const closeEditor = () => {
+    setEditorOpen(false);
+    setMobileEditorOpen(false);
+    setFormMode("create");
+    setEditingTaskId(null);
+  };
   const saveTask = () => {
     setTasks((current) =>
       editingTaskId === null
@@ -68,9 +76,7 @@ function TasksPage() {
             task.id === editingTaskId ? { ...draft, id: editingTaskId } : task,
           ),
     );
-    setEditorOpen(false);
-    setMobileEditorOpen(false);
-    setEditingTaskId(null);
+    closeEditor();
   };
   const toggleTask = (id) =>
     setTasks((current) =>
@@ -111,7 +117,7 @@ function TasksPage() {
             Keep your coursework moving forward.
           </p>
         </div>
-        <Button onClick={openEditor}>
+        <Button onClick={() => openEditor()}>
           <Plus /> Add task
         </Button>
       </div>
@@ -121,47 +127,70 @@ function TasksPage() {
             tasks={tasks}
             isLoading={isLoading}
             error={error}
-            onEdit={openEditor}
+            onEdit={(task) => openEditor(task, "edit")}
             onDelete={setDeleteId}
             onToggle={toggleTask}
+            onView={(task) => openEditor(task, "view")}
           />
         </CardContent>
       </Card>
-      <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
+      <Dialog
+        open={editorOpen}
+        onOpenChange={(open) => (open ? setEditorOpen(true) : closeEditor())}
+      >
         <DialogContent>
           <DialogTitle>
-            {editingTaskId === null ? "Add task" : "Edit task"}
+            {formMode === "view"
+              ? "View task"
+              : editingTaskId === null
+                ? "Add task"
+                : "Edit task"}
           </DialogTitle>
           <DialogDescription>
-            {editingTaskId === null
-              ? "Create a task for your study plan."
-              : "Update the details for this task."}
+            {formMode === "view"
+              ? "Review the details for this task."
+              : editingTaskId === null
+                ? "Create a task for your study plan."
+                : "Update the details for this task."}
           </DialogDescription>
           <TaskForm
             draft={draft}
-            onCancel={() => setEditorOpen(false)}
+            onCancel={closeEditor}
             onSave={saveTask}
+            readOnly={formMode === "view"}
             setDraft={setDraft}
           />
         </DialogContent>
       </Dialog>
-      <Sheet open={mobileEditorOpen} onOpenChange={setMobileEditorOpen}>
+      <Sheet
+        open={mobileEditorOpen}
+        onOpenChange={(open) =>
+          open ? setMobileEditorOpen(true) : closeEditor()
+        }
+      >
         <SheetContent className="overflow-y-auto">
           <SheetHeader>
             <SheetTitle>
-              {editingTaskId === null ? "Add task" : "Edit task"}
+              {formMode === "view"
+                ? "View task"
+                : editingTaskId === null
+                  ? "Add task"
+                  : "Edit task"}
             </SheetTitle>
             <SheetDescription>
-              {editingTaskId === null
-                ? "Create a task for your study plan."
-                : "Update the details for this task."}
+              {formMode === "view"
+                ? "Review the details for this task."
+                : editingTaskId === null
+                  ? "Create a task for your study plan."
+                  : "Update the details for this task."}
             </SheetDescription>
           </SheetHeader>
           <div className="p-4">
             <TaskForm
               draft={draft}
-              onCancel={() => setMobileEditorOpen(false)}
+              onCancel={closeEditor}
               onSave={saveTask}
+              readOnly={formMode === "view"}
               setDraft={setDraft}
             />
           </div>
