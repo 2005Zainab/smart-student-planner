@@ -57,6 +57,31 @@ const initialTasks = [
   },
 ];
 
+function getPriorityFromDueDate(dueDate) {
+  if (!dueDate) return "Medium";
+
+  const today = new Date();
+  const due = new Date(dueDate);
+
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+
+  const differenceInTime = due.getTime() - today.getTime();
+  const daysUntilDue = Math.ceil(
+    differenceInTime / (1000 * 60 * 60 * 24),
+  );
+
+  if (daysUntilDue <= 3) {
+    return "High";
+  }
+
+  if (daysUntilDue <= 7) {
+    return "Medium";
+  }
+
+  return "Low";
+}
+
 function TasksPage() {
   const [tasks, setTasks] = useState(initialTasks);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -69,7 +94,9 @@ function TasksPage() {
     subject: "",
     priority: "Medium",
     status: "To Do",
+    dueDate: undefined,
   });
+
   const openEditor = (task = null) => {
     setEditingTaskId(task?.id ?? null);
     setDraft(
@@ -86,18 +113,30 @@ function TasksPage() {
       setMobileEditorOpen(true);
     else setEditorOpen(true);
   };
+
   const saveTask = () => {
+    const priority = getPriorityFromDueDate(draft.dueDate);
+
+    const updatedDraft = {
+      ...draft,
+      priority,
+    };
+
     setTasks((current) =>
       editingTaskId === null
-        ? [...current, { ...draft, id: Date.now() }]
+        ? [...current, { ...updatedDraft, id: Date.now() }]
         : current.map((task) =>
-          task.id === editingTaskId ? { ...draft, id: editingTaskId } : task,
+          task.id === editingTaskId
+            ? { ...updatedDraft, id: editingTaskId }
+            : task,
         ),
     );
+
     setEditorOpen(false);
     setMobileEditorOpen(false);
     setEditingTaskId(null);
   };
+
   const toggleTask = (id) =>
     setTasks((current) =>
       current.map((task) =>
@@ -141,6 +180,7 @@ function TasksPage() {
           <Plus /> Add task
         </Button>
       </div>
+
       <Card>
         <CardContent className="p-0">
           <div className="hidden divide-y md:block">
@@ -154,6 +194,7 @@ function TasksPage() {
               />
             ))}
           </div>
+
           <div className="divide-y md:hidden">
             {tasks.map((task) => (
               <TaskRow
@@ -165,6 +206,7 @@ function TasksPage() {
               />
             ))}
           </div>
+
           {tasks.length === 0 && (
             <p className="p-8 text-center text-sm text-muted-foreground">
               No tasks yet.
@@ -172,16 +214,19 @@ function TasksPage() {
           )}
         </CardContent>
       </Card>
+
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
         <DialogContent>
           <DialogTitle>
             {editingTaskId === null ? "Add task" : "Edit task"}
           </DialogTitle>
+
           <DialogDescription>
             {editingTaskId === null
               ? "Create a task for your study plan."
               : "Update the details for this task."}
           </DialogDescription>
+
           <TaskForm
             draft={draft}
             onCancel={() => setEditorOpen(false)}
@@ -190,18 +235,21 @@ function TasksPage() {
           />
         </DialogContent>
       </Dialog>
+
       <Sheet open={mobileEditorOpen} onOpenChange={setMobileEditorOpen}>
         <SheetContent className="overflow-y-auto">
           <SheetHeader>
             <SheetTitle>
               {editingTaskId === null ? "Add task" : "Edit task"}
             </SheetTitle>
+
             <SheetDescription>
               {editingTaskId === null
                 ? "Create a task for your study plan."
                 : "Update the details for this task."}
             </SheetDescription>
           </SheetHeader>
+
           <div className="p-4">
             <TaskForm
               draft={draft}
@@ -212,6 +260,7 @@ function TasksPage() {
           </div>
         </SheetContent>
       </Sheet>
+
       <AlertDialog
         open={deleteId !== null}
         onOpenChange={(open) => !open && setDeleteId(null)}
@@ -219,12 +268,15 @@ function TasksPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete task?</AlertDialogTitle>
+
             <AlertDialogDescription>
               This task will be removed from your study plan.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
+
             <AlertDialogAction
               onClick={() => {
                 deleteTask(deleteId);
