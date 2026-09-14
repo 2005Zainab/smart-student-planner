@@ -24,7 +24,7 @@ router.get("/", requireAuth, async (req, res) => {
     res.status(200).json(tasks);
   } catch (err) {
     console.log(err);
-    res.status(500).json({ error: "Failed to fetch tasks" });
+    res.status(500).json({ message: "Failed to fetch tasks" });
   }
 });
 
