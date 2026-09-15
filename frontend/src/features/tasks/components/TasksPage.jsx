@@ -164,6 +164,7 @@ function TasksPage() {
       if (newStatus === "Completed") {
         const toastId = toast.add({
           title: "Task Completed",
+          description: task.title,
           type: "success",
           timeout: 10000,
           actionProps: {
