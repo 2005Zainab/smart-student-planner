@@ -14,10 +14,12 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
   return isLoading ? (
     <div className="flex items-start gap-3 p-4">
       <Skeleton className="h-5 w-5" />
+
       <div className="min-w-0 flex-1">
         <Skeleton className="h-4 w-full" />
         <Skeleton className="mt-1 h-3 w-1/2" />
       </div>
+
       <Skeleton className="h-5 w-12" />
       <Skeleton className="h-5 w-12" />
       <Skeleton className="h-5 w-5" />
@@ -41,6 +43,7 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
         onClick={(event) => event.stopPropagation()}
         onCheckedChange={onToggle}
       />
+
       <div className="min-w-0 flex-1">
         <p
           className={
@@ -51,13 +54,36 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
         >
           {task.title}
         </p>
-        <p className="mt-1 text-sm text-muted-foreground">{task.subject}</p>
+
+        <p className="mt-1 text-sm text-muted-foreground">
+          {task.subject}
+        </p>
+
+        {task.label && (
+          <Badge className="mt-2" variant="outline">
+            {task.label}
+          </Badge>
+        )}
       </div>
-      <Badge variant={task.priority === "High" ? "destructive" : "secondary"}>
+
+      <Badge
+        variant={
+          task.priority === "High"
+            ? "destructive"
+            : "secondary"
+        }
+      >
         {task.priority}
       </Badge>
-      <Badge variant="outline">{task.status}</Badge>
-      <Badge variant="outline">{task.dueDate}</Badge>
+
+      <Badge variant="outline">
+        {task.status}
+      </Badge>
+
+      <Badge variant="outline">
+        {task.dueDate}
+      </Badge>
+
       <DropdownMenu>
         <DropdownMenuTrigger
           onClick={(event) => event.stopPropagation()}
@@ -71,13 +97,19 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
         >
           <MoreHorizontal />
         </DropdownMenuTrigger>
+
         <DropdownMenuContent
           align="end"
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
-          <DropdownMenuItem onClick={onDelete}>Delete</DropdownMenuItem>
+          <DropdownMenuItem onClick={onEdit}>
+            Edit
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={onDelete}>
+            Delete
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
