@@ -1,24 +1,63 @@
 import { useState } from "react";
+import { useTasks } from "../../tasks/hooks/useTasks";
+import { httpClient } from "../../../shared/http-client";
 
 function CalendarPage() {
-  const [calendarItem, setCalendarItem] = useState({
-    id: 1,
-    title: "COMP602 Study Session",
-    date: "2026-09-15",
-    time: "10:00",
+  const { tasks, setTasks, isLoading, error } = useTasks();
+
+  const [editingTask, setEditingTask] = useState(null);
+  const [draft, setDraft] = useState({
+    title: "",
+    dueDate: "",
   });
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(calendarItem);
+  const calendarTasks = tasks.filter((task) => task.dueDate);
 
-  function startEditing() {
-    setDraft(calendarItem);
-    setIsEditing(true);
+  const startEditing = (task) => {
+    setEditingTask(task);
+    setDraft({
+      title: task.title,
+      dueDate: task.dueDate,
+    });
+  };
+
+  const saveChanges = async () => {
+    try {
+      await httpClient(
+        `http://localhost:3000/api/tasks/${editingTask.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            title: draft.title,
+            dueDate: draft.dueDate,
+          }),
+        },
+      );
+
+      setTasks((current) =>
+        current.map((task) =>
+          task.id === editingTask.id
+            ? {
+                ...task,
+                title: draft.title,
+                dueDate: draft.dueDate,
+              }
+            : task,
+        ),
+      );
+
+      setEditingTask(null);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  if (isLoading) {
+    return <p className="p-6">Loading calendar...</p>;
   }
 
-  function saveChanges() {
-    setCalendarItem(draft);
-    setIsEditing(false);
+  if (error) {
+    return <p className="p-6">Unable to load calendar tasks.</p>;
   }
 
   return (
@@ -30,57 +69,62 @@ function CalendarPage() {
         </p>
       </div>
 
-      <div className="rounded-lg border p-4">
-        {!isEditing ? (
-          <>
-            <h3 className="font-semibold">{calendarItem.title}</h3>
-            <p>Date: {calendarItem.date}</p>
-            <p>Time: {calendarItem.time}</p>
+      {calendarTasks.length === 0 && (
+        <p>No tasks with due dates yet.</p>
+      )}
 
-            <button
-              className="mt-4 rounded bg-black px-4 py-2 text-white"
-              onClick={startEditing}
-            >
-              Edit
-            </button>
-          </>
-        ) : (
-          <div className="space-y-3">
-            <input
-              className="w-full rounded border p-2"
-              value={draft.title}
-              onChange={(event) =>
-                setDraft({ ...draft, title: event.target.value })
-              }
-            />
+      {calendarTasks.map((task) => (
+        <div
+          key={task.id}
+          className="rounded-lg border p-4"
+        >
+          {editingTask?.id === task.id ? (
+            <div className="space-y-3">
+              <input
+                className="w-full rounded border p-2"
+                value={draft.title}
+                onChange={(event) =>
+                  setDraft({
+                    ...draft,
+                    title: event.target.value,
+                  })
+                }
+              />
 
-            <input
-              className="w-full rounded border p-2"
-              type="date"
-              value={draft.date}
-              onChange={(event) =>
-                setDraft({ ...draft, date: event.target.value })
-              }
-            />
+              <input
+                className="w-full rounded border p-2"
+                type="date"
+                value={draft.dueDate || ""}
+                onChange={(event) =>
+                  setDraft({
+                    ...draft,
+                    dueDate: event.target.value,
+                  })
+                }
+              />
 
-            <input
-              className="w-full rounded border p-2"
-              type="time"
-              value={draft.time}
-              onChange={(event) =>
-                setDraft({ ...draft, time: event.target.value })
-              }
-            />
+              <button
+                className="rounded bg-black px-4 py-2 text-white"
+                onClick={saveChanges}
+              >
+                Save changes
+              </button>
+            </div>
+          ) : (
+            <>
+              <h3 className="font-semibold">{task.title}</h3>
+              <p>Date: {task.dueDate}</p>
 
-            <button
-              className="rounded bg-black px-4 py-2 text-white"
-              onClick={saveChanges}
-            >
-              Save changes
-            </button>
-          </div>
-        )}
-      </div>
+              <button
+                className="mt-4 rounded bg-black px-4 py-2 text-white"
+                onClick={() => startEditing(task)}
+              >
+                Edit
+              </button>
+            </>
+          )}
+        </div>
+      ))}
     </main>
   );
 }
