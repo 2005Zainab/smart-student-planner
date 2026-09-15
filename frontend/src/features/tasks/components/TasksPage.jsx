@@ -35,7 +35,7 @@ import {
 
 const initialTasks = [
   {
-    id: 1,
+    id: "JS3GV0ZXQvoilDUtpyjk",
     title: "Complete research outline",
     description: "Draft the thesis and supporting points.",
     subject: "History",
@@ -67,6 +67,8 @@ function TasksPage() {
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [creatingTask, setCreatingTask] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
+  const [saveError, setSaveError] = useState(null);
 
   const [draft, setDraft] = useState({
     title: "",
@@ -78,6 +80,9 @@ function TasksPage() {
   });
 
   const openEditor = (task = null) => {
+    setEmptyTitleCheck(null);
+    setSaveError(null);
+
     if (task) {
       setCreatingTask(false);
       setEditingTaskId(task.id);
@@ -107,9 +112,14 @@ function TasksPage() {
   };
 
   const saveTask = async () => {
+    //Blank title check, can't be empty or blank space
     if (!draft.title || draft.title.trim() === "") {
+      setEmptyTitleCheck("Title Cannot Be Empty");
       return;
     }
+
+    setEmptyTitleCheck(null);
+    setSaveError(null);
 
     const taskToSave = {
       title: draft.title,
@@ -151,6 +161,7 @@ function TasksPage() {
         });
       } catch (err) {
         console.log(err);
+        setSaveError(err.message || "Failed to add task");
 
         toast.add({
           title: "Failed to add task",
@@ -225,12 +236,7 @@ function TasksPage() {
           );
         } catch (err) {
           console.log(err);
-
-          toast.add({
-            title: "Failed to save task",
-            type: "error",
-          });
-
+          setSaveError(err.message || "Failed to save task");
           return;
         }
       }
@@ -255,6 +261,8 @@ function TasksPage() {
     setMobileEditorOpen(false);
     setEditingTaskId(null);
     setCreatingTask(false);
+    setEmptyTitleCheck(null);
+    setSaveError(null);
   };
 
   const toggleTask = (id) =>
@@ -375,6 +383,8 @@ function TasksPage() {
             onCancel={cancelEditor}
             onSave={saveTask}
             setDraft={setDraft}
+            titleError={emptyTitleCheck}
+            saveError={saveError}
           />
         </DialogContent>
       </Dialog>
@@ -408,6 +418,8 @@ function TasksPage() {
               onCancel={cancelEditor}
               onSave={saveTask}
               setDraft={setDraft}
+              titleError={emptyTitleCheck}
+              saveError={saveError}
             />
           </div>
         </SheetContent>
