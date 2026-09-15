@@ -143,20 +143,23 @@ function TasksPage() {
   const toggleTask = async (id) => {
     const task = tasks.find((existingTask) => existingTask.id === id);
     const originalStatus = task.status;
-    const newStatus = originalStatus === "Completed" ? "To Do" : "Completed";
+    const newStatus = originalStatus === "Completed" ? (task.previousStatus ?? "To Do") : "Completed";
+
+    const patchUpdate = newStatus === "Completed" ? { status: newStatus, previousStatus: originalStatus }
+      : { status: newStatus };
 
 
     try {
       await httpClient(`http://localhost:3000/api/tasks/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify(patchUpdate),
       });
       setTasks((current) =>
         current.map((existingTask) =>
           existingTask.id === id
             ? {
               ...existingTask,
-              status: newStatus
+              ...patchUpdate,
             } : existingTask),
       );
 

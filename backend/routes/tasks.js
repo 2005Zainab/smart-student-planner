@@ -10,6 +10,7 @@ const ALLOWED_FIELDS = [
   "priority",
   "status",
   "dueDate",
+  "previousStatus",
 ];
 const ALLOWED_PRIORITIES = ["low", "medium", "high"];
 const ALLOWED_STATUSES = ["to do", "in progress", "completed"];
