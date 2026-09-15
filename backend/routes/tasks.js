@@ -146,4 +146,16 @@ router.patch('/:id', requireAuth, async (req, res) => {
     }
 });
 
+// router.get('/', requireAuth, async (req, res) => {
+//     const uid = req.user.uid;
+//     try {
+//         const tasksSnapshot = await db.collection("tasks").where("userId", "==", uid).get();
+//         const tasks = tasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+//         res.status(200).json({ tasks });
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).json({ message: 'Failed to fetch tasks' });
+//     }
+// });
+
 export default router;
