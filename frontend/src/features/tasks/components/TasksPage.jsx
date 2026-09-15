@@ -186,7 +186,7 @@ function TasksPage() {
             Keep your coursework moving forward.
           </p>
         </div>
-        <Button onClick={openEditor}>
+        <Button onClick={() => openEditor()}>
           <Plus /> Add task
         </Button>
       </div>
