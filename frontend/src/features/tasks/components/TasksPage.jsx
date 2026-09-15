@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { format, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TaskForm } from "./TaskForm";
-import { TaskRow } from "./TaskRow";
+import { TaskList } from "./TaskList";
 import { httpClient } from "../../../shared/http-client";
 import { toast } from "@/components/ui/toast";
 import {
@@ -29,40 +30,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const initialTasks = [
-  {
-    id: 1,
-    title: "Complete research outline",
-    description: "Draft the thesis and supporting points.",
-    subject: "History",
-    priority: "High",
-    status: "To Do",
-  },
-  {
-    id: 2,
-    title: "Review calculus exercises",
-    description: "Work through the assigned problem set.",
-    subject: "Mathematics",
-    priority: "Medium",
-    status: "In Progress",
-  },
-  {
-    id: 3,
-    title: "Read chapter 6",
-    description: "Take notes on the key concepts.",
-    subject: "Biology",
-    priority: "Low",
-    status: "Completed",
-  },
-];
+import { useTasks } from "../hooks/useTasks";
 
 function TasksPage() {
-  const [tasks, setTasks] = useState(initialTasks);
+  const { tasks, setTasks, isLoading, error } = useTasks();
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
+  const [formMode, setFormMode] = useState("create");
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
+  const [saveError, setSaveError] = useState(null);
   const [draft, setDraft] = useState({
     title: "",
     description: "",
@@ -70,42 +48,105 @@ function TasksPage() {
     priority: "Medium",
     status: "To Do",
   });
-  const openEditor = (task = null) => {
+  const openEditor = (task = null, mode = task ? "edit" : "create") => {
+    setFormMode(mode);
     setEditingTaskId(task?.id ?? null);
     setDraft(
-      task ?? {
-        title: "",
-        description: "",
-        subject: "",
-        priority: "Medium",
-        status: "To Do",
-        dueDate: undefined,
-      },
+      task
+        ? {
+            ...task,
+            dueDate:
+              typeof task.dueDate === "string"
+                ? parseISO(task.dueDate)
+                : task.dueDate,
+          }
+        : {
+            title: "",
+            description: "",
+            subject: "",
+            priority: "Medium",
+            status: "To Do",
+            dueDate: undefined,
+          },
     );
     if (window.matchMedia("(max-width: 767px)").matches)
       setMobileEditorOpen(true);
     else setEditorOpen(true);
   };
-  const saveTask = () => {
-    setTasks((current) =>
-      editingTaskId === null
-        ? [...current, { ...draft, id: Date.now() }]
-        : current.map((task) =>
-          task.id === editingTaskId ? { ...draft, id: editingTaskId } : task,
-        ),
-    );
+  const closeEditor = () => {
     setEditorOpen(false);
     setMobileEditorOpen(false);
+    setFormMode("create");
     setEditingTaskId(null);
   };
+  const saveTask = async () => {
+    //Blank title check, can't be empty or blank space
+    if (!draft.title || draft.title.trim() === "") {
+      setEmptyTitleCheck("Title Cannot Be Empty");
+      return;
+    }
+
+    setEmptyTitleCheck(null);
+    setSaveError(null);
+
+    //Add task (only local right now)
+    if (editingTaskId === null) {
+      setTasks((current) => [...current, { ...draft, id: Date.now() }]);
+    } else {
+      //edit task sends to backend to check and save to firestore via PATCH route
+
+      // Convert the editor Date back to the API's local YYYY-MM-DD format.
+      const correctTimeZone = {
+        ...draft,
+        dueDate: draft.dueDate
+          ? draft.dueDate instanceof Date
+            ? format(draft.dueDate, "yyyy-MM-dd")
+            : draft.dueDate
+          : undefined,
+      };
+
+      const original = tasks.find((task) => task.id === editingTaskId);
+      const changes = Object.keys(correctTimeZone).reduce((acc, key) => {
+        if (correctTimeZone[key] !== original?.[key]) {
+          acc[key] = correctTimeZone[key];
+        }
+        return acc;
+      }, {});
+
+      if (Object.keys(changes).length === 0) {
+        setEditorOpen(false);
+        setMobileEditorOpen(false);
+        setEditingTaskId(null);
+        return;
+      }
+
+      try {
+        await httpClient(`http://localhost:3000/api/tasks/${editingTaskId}`, {
+          method: "PATCH",
+          body: JSON.stringify(changes),
+        });
+        setTasks((current) =>
+          current.map((task) =>
+            task.id === editingTaskId ? { ...task, ...changes } : task,
+          ),
+        );
+      } catch (err) {
+        console.log(err);
+        setSaveError(err.message || "Failed to save task");
+        return;
+      }
+    }
+    closeEditor();
+  };
+
   const toggleTask = (id) =>
     setTasks((current) =>
       current.map((task) =>
         task.id === id
           ? {
-            ...task,
-            status: task.status === "Completed" ? "To Do" : "Completed",
-          }
+              ...task,
+              status: task.status === "Completed" ? "To Do" : "Completed",
+            }
           : task,
       ),
     );
@@ -114,7 +155,7 @@ function TasksPage() {
   const deleteTask = async (id) => {
     try {
       await httpClient(`http://localhost:3000/api/tasks/${id}`, {
-        method: "DELETE"
+        method: "DELETE",
       });
       setTasks((current) => current.filter((task) => task.id !== id));
       toast.add({
@@ -137,77 +178,85 @@ function TasksPage() {
             Keep your coursework moving forward.
           </p>
         </div>
-        <Button onClick={openEditor}>
+        <Button onClick={() => openEditor()}>
           <Plus /> Add task
         </Button>
       </div>
       <Card>
         <CardContent className="p-0">
-          <div className="hidden divide-y md:block">
-            {tasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                onEdit={() => openEditor(task)}
-                onDelete={() => setDeleteId(task.id)}
-                onToggle={() => toggleTask(task.id)}
-              />
-            ))}
-          </div>
-          <div className="divide-y md:hidden">
-            {tasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                onEdit={() => openEditor(task)}
-                onDelete={() => setDeleteId(task.id)}
-                onToggle={() => toggleTask(task.id)}
-              />
-            ))}
-          </div>
-          {tasks.length === 0 && (
-            <p className="p-8 text-center text-sm text-muted-foreground">
-              No tasks yet.
-            </p>
-          )}
+          <TaskList
+            tasks={tasks}
+            isLoading={isLoading}
+            error={error}
+            onEdit={(task) => openEditor(task, "edit")}
+            onDelete={setDeleteId}
+            onToggle={toggleTask}
+            onView={(task) => openEditor(task, "view")}
+          />
         </CardContent>
       </Card>
-      <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
+      <Dialog
+        open={editorOpen}
+        onOpenChange={(open) => (open ? setEditorOpen(true) : closeEditor())}
+      >
         <DialogContent>
           <DialogTitle>
-            {editingTaskId === null ? "Add task" : "Edit task"}
+            {formMode === "view"
+              ? "View task"
+              : editingTaskId === null
+                ? "Add task"
+                : "Edit task"}
           </DialogTitle>
           <DialogDescription>
-            {editingTaskId === null
-              ? "Create a task for your study plan."
-              : "Update the details for this task."}
+            {formMode === "view"
+              ? "Review the details for this task."
+              : editingTaskId === null
+                ? "Create a task for your study plan."
+                : "Update the details for this task."}
           </DialogDescription>
           <TaskForm
             draft={draft}
-            onCancel={() => setEditorOpen(false)}
+            onCancel={closeEditor}
             onSave={saveTask}
+            readOnly={formMode === "view"}
             setDraft={setDraft}
+            titleError={emptyTitleCheck}
+            saveError={saveError}
           />
         </DialogContent>
       </Dialog>
-      <Sheet open={mobileEditorOpen} onOpenChange={setMobileEditorOpen}>
+      <Sheet
+        open={mobileEditorOpen}
+        onOpenChange={(open) =>
+          open ? setMobileEditorOpen(true) : closeEditor()
+        }
+      >
         <SheetContent className="overflow-y-auto">
           <SheetHeader>
             <SheetTitle>
-              {editingTaskId === null ? "Add task" : "Edit task"}
+              {formMode === "view"
+                ? "View task"
+                : editingTaskId === null
+                  ? "Add task"
+                  : "Edit task"}
             </SheetTitle>
             <SheetDescription>
-              {editingTaskId === null
-                ? "Create a task for your study plan."
-                : "Update the details for this task."}
+              {formMode === "view"
+                ? "Review the details for this task."
+                : editingTaskId === null
+                  ? "Create a task for your study plan."
+                  : "Update the details for this task."}
             </SheetDescription>
           </SheetHeader>
           <div className="p-4">
             <TaskForm
               draft={draft}
-              onCancel={() => setMobileEditorOpen(false)}
+              onCancel={closeEditor}
               onSave={saveTask}
+              readOnly={formMode === "view"}
               setDraft={setDraft}
+              titleError={emptyTitleCheck}
+              saveError={saveError}
             />
           </div>
         </SheetContent>
