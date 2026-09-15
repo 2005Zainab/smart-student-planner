@@ -41,6 +41,7 @@ function TasksPage() {
   const [deleteId, setDeleteId] = useState(null);
   const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
   const [saveError, setSaveError] = useState(null);
+  const [previousStatusLookup, setPreviousStatusLookup] = useState({});
   const [draft, setDraft] = useState({
     title: "",
     description: "",
@@ -139,29 +140,27 @@ function TasksPage() {
     closeEditor();
   };
 
-  //Saves the tasks status via the PATCH backend route when toggleTask box is clicked
-  const toggleTask = async (id) => {
-    const task = tasks.find((existingTask) => existingTask.id === id);
-    const originalStatus = task.status;
-    const newStatus = originalStatus === "Completed" ? (task.previousStatus ?? "To Do") : "Completed";
+    //Saves the tasks status via the PATCH backend route when toggleTask box is clicked
+    const toggleTask = async (id) => {
+      const task = tasks.find((existingTask) => existingTask.id === id);
+      const originalStatus = task.status;
+      const newStatus = originalStatus === "Completed" ? (previousStatusLookup[id] ?? "To Do") : "Completed";
 
-    const patchUpdate = newStatus === "Completed" ? { status: newStatus, previousStatus: originalStatus }
-      : { status: newStatus };
+      if(newStatus === "Completed"){
+        setPreviousStatusLookup((current) =>  ({ ...current, [id]: originalStatus   }));
+      }
 
-
-    try {
-      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(patchUpdate),
-      });
-      setTasks((current) =>
-        current.map((existingTask) =>
-          existingTask.id === id
-            ? {
-              ...existingTask,
-              ...patchUpdate,
-            } : existingTask),
-      );
+      try {
+        await httpClient(`http://localhost:3000/api/tasks/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: newStatus}),
+        });
+        setTasks((current) =>
+          current.map((existingTask) =>
+            existingTask.id === id ? {... existingTask, status: newStatus }
+                : existingTask,
+              ),
+        );
 
       //Toast for undo task whenever a task is clicked to completed
       if (newStatus === "Completed") {
@@ -173,7 +172,7 @@ function TasksPage() {
           actionProps: {
             children: "Undo",
             onClick: () => {
-              undoCompleted(id, originalStatus);
+              undoCompleted(id, previousStatusLookup[id] ?? originalStatus);
               toast.close(toastId);
             },
           },
