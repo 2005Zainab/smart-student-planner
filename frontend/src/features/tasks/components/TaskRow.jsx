@@ -8,13 +8,37 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 
-function TaskRow({ task, onEdit, onDelete, onToggle }) {
-  return (
+function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
+  return isLoading ? (
     <div className="flex items-start gap-3 p-4">
+      <Skeleton className="h-5 w-5" />
+      <div className="min-w-0 flex-1">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="mt-1 h-3 w-1/2" />
+      </div>
+      <Skeleton className="h-5 w-12" />
+      <Skeleton className="h-5 w-12" />
+      <Skeleton className="h-5 w-5" />
+    </div>
+  ) : (
+    <div
+      className="flex cursor-pointer items-start gap-3 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      onClick={onView}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onView();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
       <Checkbox
         aria-label={`Mark ${task.title} complete`}
         checked={task.status === "Completed"}
+        onClick={(event) => event.stopPropagation()}
         onCheckedChange={onToggle}
       />
       <div className="min-w-0 flex-1">
@@ -33,8 +57,10 @@ function TaskRow({ task, onEdit, onDelete, onToggle }) {
         {task.priority}
       </Badge>
       <Badge variant="outline">{task.status}</Badge>
+      <Badge variant="outline">{task.dueDate}</Badge>
       <DropdownMenu>
         <DropdownMenuTrigger
+          onClick={(event) => event.stopPropagation()}
           render={
             <Button
               aria-label={`Actions for ${task.title}`}
@@ -45,7 +71,11 @@ function TaskRow({ task, onEdit, onDelete, onToggle }) {
         >
           <MoreHorizontal />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent
+          align="end"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
           <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
           <DropdownMenuItem onClick={onDelete}>Delete</DropdownMenuItem>
         </DropdownMenuContent>
