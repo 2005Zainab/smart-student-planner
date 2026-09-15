@@ -6,6 +6,8 @@ const router = express.Router();
 const ALLOWED_FIELDS = ["title", "description", "subject", "priority", "status", "dueDate"];
 const ALLOWED_PRIORITIES = ["low", "medium", "high"];
 const ALLOWED_STATUSES = ["to do", "in progress", "completed"];
+const PRIORITY_DISPLAY = {low : "Low", medium : "Medium", high : "High"};
+const STATUS_DISPLAY = {"to do" : "To Do", "in progress" : "In Progress", "completed" : "Completed"};
 
 //Try to delete task
 router.delete('/:id', requireAuth, async (req, res) => {
@@ -48,7 +50,10 @@ router.patch('/:id', requireAuth, async (req, res) => {
 
     //Not allowed blank/empty title, rejects before updating firestore
     if ("title" in updates) {
-        if (typeof updates.title !== "string" || updates.title.trim() === "") {
+        if (typeof updates.title !== "string") {
+            return res.status(400).json({ message: "Title has to be a string" });
+        }
+        if (updates.title.trim() === "") {
             return res.status(400).json({ message: "Title cannot be empty or blank" });
         }
         //Cap title edits to 200 chars
@@ -88,10 +93,11 @@ router.patch('/:id', requireAuth, async (req, res) => {
             return res.status(400).json({ message: "Not a valid priority" });
         }
         //Check case sensitivity
-        if (!ALLOWED_PRIORITIES.includes(updates.priority.trim().toLowerCase())) {
+        const trimmedLower = updates.priority.trim().toLowerCase();
+        if (!ALLOWED_PRIORITIES.includes(trimmedLower)) {
             return res.status(400).json({ message: "Not a valid priority" });
         }
-        updates.priority = updates.priority.trim();
+        updates.priority = PRIORITY_DISPLAY[trimmedLower];
     }
 
     //prevent non string entries
@@ -100,10 +106,11 @@ router.patch('/:id', requireAuth, async (req, res) => {
             return res.status(400).json({ message: "Not a valid status" });
         }
         //Check case sensitivity
-        if (!ALLOWED_STATUSES.includes(updates.status.trim().toLowerCase())) {
+        const trimmedLower = updates.status.trim().toLowerCase();
+        if (!ALLOWED_STATUSES.includes(trimmedLower)) {
             return res.status(400).json({ message: "Not a valid status" });
         }
-        updates.status = updates.status.trim();
+        updates.status = STATUS_DISPLAY[trimmedLower];
     }
 
     if ("dueDate" in updates) {

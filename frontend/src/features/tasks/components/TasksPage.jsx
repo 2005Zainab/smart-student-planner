@@ -32,7 +32,7 @@ import {
 
 const initialTasks = [
   {
-    id: 1,
+    id: "JS3GV0ZXQvoilDUtpyjk",
     title: "Complete research outline",
     description: "Draft the thesis and supporting points.",
     subject: "History",
@@ -103,14 +103,37 @@ function TasksPage() {
       setTasks((current) => [...current, { ...draft, id: Date.now() }]);
     } else {
       //edit task sends to backend to check and save to firestore via PATCH route
+
+      //converts dueDate to YYYY-MM-DD to prevent JSON.stringfy converting to UTC timezone
+      const correctTimeZone = {
+        ...draft,
+        dueDate: draft.dueDate ? draft.dueDate.toLocaleDateString('en-CA')
+          : undefined,
+      };
+
+      const original = tasks.find(task => task.id === editingTaskId);
+      const changes = Object.keys(correctTimeZone).reduce((acc, key) => {
+        if (correctTimeZone[key] !== original?.[key]) {
+          acc[key] = correctTimeZone[key];
+        }
+        return acc;
+      }, {});
+
+      if (Object.keys(changes).length === 0) {
+        setEditorOpen(false);
+        setMobileEditorOpen(false);
+        setEditingTaskId(null);
+        return;
+      }
+
       try {
         await httpClient(`http://localhost:3000/api/tasks/${editingTaskId}`, {
           method: "PATCH",
-          body: JSON.stringify(draft),
+          body: JSON.stringify(changes),
         });
         setTasks((current) =>
           current.map((task) =>
-            task.id === editingTaskId ? { ...draft, id: editingTaskId } : task,
+            task.id === editingTaskId ? { ...task, ...changes } : task,
           ),
         );
       } catch (err) {
