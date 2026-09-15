@@ -6,12 +6,14 @@ import { TaskForm } from "./TaskForm";
 import { TaskRow } from "./TaskRow";
 import { httpClient } from "../../../shared/http-client";
 import { toast } from "@/components/ui/toast";
+
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 import {
   Sheet,
   SheetContent,
@@ -19,6 +21,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -96,19 +99,142 @@ function TasksPage() {
       setDraft(newTask);
     }
 
-    if (window.matchMedia("(max-width: 767px)").matches)
+    if (window.matchMedia("(max-width: 767px)").matches) {
       setMobileEditorOpen(true);
-    else setEditorOpen(true);
+    } else {
+      setEditorOpen(true);
+    }
   };
 
-  const saveTask = () => {
-    setTasks((current) =>
-      current.map((task) =>
-        task.id === editingTaskId
-          ? { ...draft, id: editingTaskId }
-          : task,
-      ),
-    );
+  const saveTask = async () => {
+    if (!draft.title || draft.title.trim() === "") {
+      return;
+    }
+
+    const taskToSave = {
+      title: draft.title,
+      description: draft.description,
+      subject: draft.subject,
+      priority: draft.priority,
+      status: draft.status,
+      dueDate: draft.dueDate
+        ? draft.dueDate.toLocaleDateString("en-CA")
+        : null,
+    };
+
+    if (creatingTask) {
+      try {
+        const savedTask = await httpClient(
+          "http://localhost:3000/api/tasks",
+          {
+            method: "POST",
+            body: JSON.stringify(taskToSave),
+          },
+        );
+
+        const taskForScreen = {
+          ...savedTask,
+          dueDate: savedTask.dueDate
+            ? new Date(savedTask.dueDate + "T00:00:00")
+            : undefined,
+        };
+
+        setTasks((current) =>
+          current.map((task) =>
+            task.id === editingTaskId ? taskForScreen : task,
+          ),
+        );
+
+        toast.add({
+          title: "Task Added",
+          type: "success",
+        });
+      } catch (err) {
+        console.log(err);
+
+        toast.add({
+          title: "Failed to add task",
+          type: "error",
+        });
+
+        return;
+      }
+    } else {
+      const original = tasks.find(
+        (task) => task.id === editingTaskId,
+      );
+
+      const changes = {};
+
+      if (taskToSave.title !== original?.title) {
+        changes.title = taskToSave.title;
+      }
+
+      if (taskToSave.description !== original?.description) {
+        changes.description = taskToSave.description;
+      }
+
+      if (taskToSave.subject !== original?.subject) {
+        changes.subject = taskToSave.subject;
+      }
+
+      if (taskToSave.priority !== original?.priority) {
+        changes.priority = taskToSave.priority;
+      }
+
+      if (taskToSave.status !== original?.status) {
+        changes.status = taskToSave.status;
+      }
+
+      const originalDueDate =
+        original?.dueDate instanceof Date
+          ? original.dueDate.toLocaleDateString("en-CA")
+          : original?.dueDate ?? null;
+
+      if (taskToSave.dueDate !== originalDueDate) {
+        changes.dueDate = taskToSave.dueDate;
+      }
+
+      if (Object.keys(changes).length > 0) {
+        try {
+          await httpClient(
+            `http://localhost:3000/api/tasks/${editingTaskId}`,
+            {
+              method: "PATCH",
+              body: JSON.stringify(changes),
+            },
+          );
+
+          setTasks((current) =>
+            current.map((task) =>
+              task.id === editingTaskId
+                ? {
+                    ...task,
+                    ...changes,
+                    dueDate:
+                      changes.dueDate !== undefined
+                        ? changes.dueDate
+                          ? new Date(
+                              changes.dueDate + "T00:00:00",
+                            )
+                          : undefined
+                        : task.dueDate,
+                  }
+                : task,
+            ),
+          );
+        } catch (err) {
+          console.log(err);
+
+          toast.add({
+            title: "Failed to save task",
+            type: "error",
+          });
+
+          return;
+        }
+      }
+    }
 
     setEditorOpen(false);
     setMobileEditorOpen(false);
@@ -119,7 +245,9 @@ function TasksPage() {
   const cancelEditor = () => {
     if (creatingTask) {
       setTasks((current) =>
-        current.filter((task) => task.id !== editingTaskId),
+        current.filter(
+          (task) => task.id !== editingTaskId,
+        ),
       );
     }
 
@@ -136,7 +264,9 @@ function TasksPage() {
           ? {
               ...task,
               status:
-                task.status === "Completed" ? "To Do" : "Completed",
+                task.status === "Completed"
+                  ? "To Do"
+                  : "Completed",
             }
           : task,
       ),
@@ -145,9 +275,12 @@ function TasksPage() {
   //Deletes tasks from Firestore using Express API route then updates local UI
   const deleteTask = async (id) => {
     try {
-      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
-        method: "DELETE"
-      });
+      await httpClient(
+        `http://localhost:3000/api/tasks/${id}`,
+        {
+          method: "DELETE",
+        },
+      );
 
       setTasks((current) =>
         current.filter((task) => task.id !== id),
@@ -219,8 +352,11 @@ function TasksPage() {
       <Dialog
         open={editorOpen}
         onOpenChange={(open) => {
-          if (!open) cancelEditor();
-          else setEditorOpen(true);
+          if (!open) {
+            cancelEditor();
+          } else {
+            setEditorOpen(true);
+          }
         }}
       >
         <DialogContent>
@@ -246,8 +382,11 @@ function TasksPage() {
       <Sheet
         open={mobileEditorOpen}
         onOpenChange={(open) => {
-          if (!open) cancelEditor();
-          else setMobileEditorOpen(true);
+          if (!open) {
+            cancelEditor();
+          } else {
+            setMobileEditorOpen(true);
+          }
         }}
       >
         <SheetContent className="overflow-y-auto">
@@ -276,11 +415,15 @@ function TasksPage() {
 
       <AlertDialog
         open={deleteId !== null}
-        onOpenChange={(open) => !open && setDeleteId(null)}
+        onOpenChange={(open) =>
+          !open && setDeleteId(null)
+        }
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Delete task?
+            </AlertDialogTitle>
 
             <AlertDialogDescription>
               This task will be removed from your study plan.
