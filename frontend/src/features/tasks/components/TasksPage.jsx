@@ -32,7 +32,7 @@ import {
 
 const initialTasks = [
   {
-    id: 1,
+    id: "JS3GV0ZXQvoilDUtpyjk",
     title: "Complete research outline",
     description: "Draft the thesis and supporting points.",
     subject: "History",
@@ -63,6 +63,8 @@ function TasksPage() {
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
+  const [saveError, setSaveError] = useState(null);
   const [draft, setDraft] = useState({
     title: "",
     description: "",
@@ -86,18 +88,65 @@ function TasksPage() {
       setMobileEditorOpen(true);
     else setEditorOpen(true);
   };
-  const saveTask = () => {
-    setTasks((current) =>
-      editingTaskId === null
-        ? [...current, { ...draft, id: Date.now() }]
-        : current.map((task) =>
-          task.id === editingTaskId ? { ...draft, id: editingTaskId } : task,
-        ),
-    );
+  const saveTask = async () => {
+    //Blank title check, can't be empty or blank space
+    if (!draft.title || draft.title.trim() === "") {
+      setEmptyTitleCheck("Title Cannot Be Empty");
+      return;
+    }
+
+    setEmptyTitleCheck(null);
+    setSaveError(null);
+
+    //Add task (only local right now)
+    if (editingTaskId === null) {
+      setTasks((current) => [...current, { ...draft, id: Date.now() }]);
+    } else {
+      //edit task sends to backend to check and save to firestore via PATCH route
+
+      //converts dueDate to YYYY-MM-DD to prevent JSON.stringfy converting to UTC timezone
+      const correctTimeZone = {
+        ...draft,
+        dueDate: draft.dueDate ? draft.dueDate.toLocaleDateString('en-CA')
+          : undefined,
+      };
+
+      const original = tasks.find(task => task.id === editingTaskId);
+      const changes = Object.keys(correctTimeZone).reduce((acc, key) => {
+        if (correctTimeZone[key] !== original?.[key]) {
+          acc[key] = correctTimeZone[key];
+        }
+        return acc;
+      }, {});
+
+      if (Object.keys(changes).length === 0) {
+        setEditorOpen(false);
+        setMobileEditorOpen(false);
+        setEditingTaskId(null);
+        return;
+      }
+
+      try {
+        await httpClient(`http://localhost:3000/api/tasks/${editingTaskId}`, {
+          method: "PATCH",
+          body: JSON.stringify(changes),
+        });
+        setTasks((current) =>
+          current.map((task) =>
+            task.id === editingTaskId ? { ...task, ...changes } : task,
+          ),
+        );
+      } catch (err) {
+        console.log(err);
+        setSaveError(err.message || "Failed to save task");
+        return;
+      }
+    }
     setEditorOpen(false);
     setMobileEditorOpen(false);
     setEditingTaskId(null);
   };
+
   const toggleTask = (id) =>
     setTasks((current) =>
       current.map((task) =>
@@ -137,7 +186,7 @@ function TasksPage() {
             Keep your coursework moving forward.
           </p>
         </div>
-        <Button onClick={openEditor}>
+        <Button onClick={() => openEditor()}>
           <Plus /> Add task
         </Button>
       </div>
@@ -187,6 +236,8 @@ function TasksPage() {
             onCancel={() => setEditorOpen(false)}
             onSave={saveTask}
             setDraft={setDraft}
+            titleError={emptyTitleCheck}
+            saveError={saveError}
           />
         </DialogContent>
       </Dialog>
@@ -208,6 +259,8 @@ function TasksPage() {
               onCancel={() => setMobileEditorOpen(false)}
               onSave={saveTask}
               setDraft={setDraft}
+              titleError={emptyTitleCheck}
+              saveError={saveError}
             />
           </div>
         </SheetContent>
