@@ -54,20 +54,20 @@ function TasksPage() {
     setDraft(
       task
         ? {
-            ...task,
-            dueDate:
-              typeof task.dueDate === "string"
-                ? parseISO(task.dueDate)
-                : task.dueDate,
-          }
+          ...task,
+          dueDate:
+            typeof task.dueDate === "string"
+              ? parseISO(task.dueDate)
+              : task.dueDate,
+        }
         : {
-            title: "",
-            description: "",
-            subject: "",
-            priority: "Medium",
-            status: "To Do",
-            dueDate: undefined,
-          },
+          title: "",
+          description: "",
+          subject: "",
+          priority: "Medium",
+          status: "To Do",
+          dueDate: undefined,
+        },
     );
     if (window.matchMedia("(max-width: 767px)").matches)
       setMobileEditorOpen(true);
@@ -139,17 +139,29 @@ function TasksPage() {
     closeEditor();
   };
 
-  const toggleTask = (id) =>
-    setTasks((current) =>
-      current.map((task) =>
-        task.id === id
-          ? {
-              ...task,
-              status: task.status === "Completed" ? "To Do" : "Completed",
-            }
-          : task,
-      ),
-    );
+  //Saves the tasks status via the PATCH backend route when toggleTask box is clicked
+  const toggleTask = async (id) => {
+    const task = tasks.find((existingTask) => existingTask.id === id);
+    const newStatus = task.status === "Completed" ? "To Do" : "Completed";
+
+    try {
+      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: newStatus }),
+      });
+      setTasks((current) =>
+        current.map((existingTask) =>
+          existingTask.id === id
+            ? {
+              ...existingTask,
+              status: newStatus
+            } : existingTask),
+      );
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
 
   //Deletes tasks from Firestore using Express API route then updates local UI
   const deleteTask = async (id) => {
