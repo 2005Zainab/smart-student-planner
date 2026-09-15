@@ -1,19 +1,18 @@
 import { useState } from "react";
+import { format, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TaskForm } from "./TaskForm";
-import { TaskRow } from "./TaskRow";
+import { TaskList } from "./TaskList";
 import { httpClient } from "../../../shared/http-client";
 import { toast } from "@/components/ui/toast";
-
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-
 import {
   Sheet,
   SheetContent,
@@ -21,7 +20,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,64 +30,32 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const initialTasks = [
-  {
-    id: "JS3GV0ZXQvoilDUtpyjk",
-    title: "Complete research outline",
-    description: "Draft the thesis and supporting points.",
-    subject: "History",
-    priority: "High",
-    status: "To Do",
-  },
-  {
-    id: 2,
-    title: "Review calculus exercises",
-    description: "Work through the assigned problem set.",
-    subject: "Mathematics",
-    priority: "Medium",
-    status: "In Progress",
-  },
-  {
-    id: 3,
-    title: "Read chapter 6",
-    description: "Take notes on the key concepts.",
-    subject: "Biology",
-    priority: "Low",
-    status: "Completed",
-  },
-];
+import { useTasks } from "../hooks/useTasks";
 
 function TasksPage() {
-  const [tasks, setTasks] = useState(initialTasks);
+  const { tasks, setTasks, isLoading, error } = useTasks();
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
+  const [formMode, setFormMode] = useState("create");
   const [editingTaskId, setEditingTaskId] = useState(null);
-  const [creatingTask, setCreatingTask] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
   const [saveError, setSaveError] = useState(null);
-
   const [draft, setDraft] = useState({
     title: "",
     description: "",
     subject: "",
     priority: "Medium",
     status: "To Do",
-    dueDate: undefined,
   });
-
-  const openEditor = (task = null) => {
+  const openEditor = (task = null, mode = task ? "edit" : "create") => {
+    setFormMode(mode);
     setEmptyTitleCheck(null);
     setSaveError(null);
 
-    if (task) {
-      setCreatingTask(false);
-      setEditingTaskId(task.id);
-      setDraft(task);
-    } else {
+    if (mode === "create") {
       const newTask = {
-        id: Date.now(),
+        id: `temp-${Date.now()}`,
         title: "",
         description: "",
         subject: "",
@@ -98,17 +64,49 @@ function TasksPage() {
         dueDate: undefined,
       };
 
-      setTasks((current) => [...current, newTask]);
-      setCreatingTask(true);
       setEditingTaskId(newTask.id);
+      setTasks((current) => [...current, newTask]);
       setDraft(newTask);
+    } else {
+      setEditingTaskId(task?.id ?? null);
+      setDraft(
+        task
+          ? {
+              ...task,
+              dueDate:
+                typeof task.dueDate === "string"
+                  ? parseISO(task.dueDate)
+                  : task.dueDate,
+            }
+          : {
+              title: "",
+              description: "",
+              subject: "",
+              priority: "Medium",
+              status: "To Do",
+              dueDate: undefined,
+            },
+      );
     }
 
-    if (window.matchMedia("(max-width: 767px)").matches) {
+    if (window.matchMedia("(max-width: 767px)").matches)
       setMobileEditorOpen(true);
-    } else {
-      setEditorOpen(true);
+    else setEditorOpen(true);
+  };
+
+  const closeEditor = () => {
+    if (formMode === "create" && editingTaskId !== null) {
+      setTasks((current) =>
+        current.filter((task) => task.id !== editingTaskId),
+      );
     }
+
+    setEditorOpen(false);
+    setMobileEditorOpen(false);
+    setFormMode("create");
+    setEditingTaskId(null);
+    setEmptyTitleCheck(null);
+    setSaveError(null);
   };
 
   const saveTask = async () => {
@@ -121,18 +119,20 @@ function TasksPage() {
     setEmptyTitleCheck(null);
     setSaveError(null);
 
-    const taskToSave = {
-      title: draft.title,
-      description: draft.description,
-      subject: draft.subject,
-      priority: draft.priority,
-      status: draft.status,
-      dueDate: draft.dueDate
-        ? draft.dueDate.toLocaleDateString("en-CA")
-        : null,
-    };
+    if (formMode === "create") {
+      const taskToSave = {
+        title: draft.title,
+        description: draft.description,
+        subject: draft.subject,
+        priority: draft.priority,
+        status: draft.status,
+        dueDate: draft.dueDate
+          ? draft.dueDate instanceof Date
+            ? format(draft.dueDate, "yyyy-MM-dd")
+            : draft.dueDate
+          : null,
+      };
 
-    if (creatingTask) {
       try {
         const savedTask = await httpClient(
           "http://localhost:3000/api/tasks",
@@ -142,16 +142,9 @@ function TasksPage() {
           },
         );
 
-        const taskForScreen = {
-          ...savedTask,
-          dueDate: savedTask.dueDate
-            ? new Date(savedTask.dueDate + "T00:00:00")
-            : undefined,
-        };
-
         setTasks((current) =>
           current.map((task) =>
-            task.id === editingTaskId ? taskForScreen : task,
+            task.id === editingTaskId ? savedTask : task,
           ),
         );
 
@@ -171,98 +164,50 @@ function TasksPage() {
         return;
       }
     } else {
-      const original = tasks.find(
-        (task) => task.id === editingTaskId,
-      );
+      //edit task sends to backend to check and save to firestore via PATCH route
 
-      const changes = {};
+      // Convert the editor Date back to the API's local YYYY-MM-DD format.
+      const correctTimeZone = {
+        ...draft,
+        dueDate: draft.dueDate
+          ? draft.dueDate instanceof Date
+            ? format(draft.dueDate, "yyyy-MM-dd")
+            : draft.dueDate
+          : undefined,
+      };
 
-      if (taskToSave.title !== original?.title) {
-        changes.title = taskToSave.title;
-      }
-
-      if (taskToSave.description !== original?.description) {
-        changes.description = taskToSave.description;
-      }
-
-      if (taskToSave.subject !== original?.subject) {
-        changes.subject = taskToSave.subject;
-      }
-
-      if (taskToSave.priority !== original?.priority) {
-        changes.priority = taskToSave.priority;
-      }
-
-      if (taskToSave.status !== original?.status) {
-        changes.status = taskToSave.status;
-      }
-
-      const originalDueDate =
-        original?.dueDate instanceof Date
-          ? original.dueDate.toLocaleDateString("en-CA")
-          : original?.dueDate ?? null;
-
-      if (taskToSave.dueDate !== originalDueDate) {
-        changes.dueDate = taskToSave.dueDate;
-      }
-
-      if (Object.keys(changes).length > 0) {
-        try {
-          await httpClient(
-            `http://localhost:3000/api/tasks/${editingTaskId}`,
-            {
-              method: "PATCH",
-              body: JSON.stringify(changes),
-            },
-          );
-
-          setTasks((current) =>
-            current.map((task) =>
-              task.id === editingTaskId
-                ? {
-                    ...task,
-                    ...changes,
-                    dueDate:
-                      changes.dueDate !== undefined
-                        ? changes.dueDate
-                          ? new Date(
-                              changes.dueDate + "T00:00:00",
-                            )
-                          : undefined
-                        : task.dueDate,
-                  }
-                : task,
-            ),
-          );
-        } catch (err) {
-          console.log(err);
-          setSaveError(err.message || "Failed to save task");
-          return;
+      const original = tasks.find((task) => task.id === editingTaskId);
+      const changes = Object.keys(correctTimeZone).reduce((acc, key) => {
+        if (correctTimeZone[key] !== original?.[key]) {
+          acc[key] = correctTimeZone[key];
         }
+        return acc;
+      }, {});
+
+      if (Object.keys(changes).length === 0) {
+        setEditorOpen(false);
+        setMobileEditorOpen(false);
+        setEditingTaskId(null);
+        return;
+      }
+
+      try {
+        await httpClient(`http://localhost:3000/api/tasks/${editingTaskId}`, {
+          method: "PATCH",
+          body: JSON.stringify(changes),
+        });
+        setTasks((current) =>
+          current.map((task) =>
+            task.id === editingTaskId ? { ...task, ...changes } : task,
+          ),
+        );
+      } catch (err) {
+        console.log(err);
+        setSaveError(err.message || "Failed to save task");
+        return;
       }
     }
-
-    setEditorOpen(false);
-    setMobileEditorOpen(false);
-    setEditingTaskId(null);
-    setCreatingTask(false);
-  };
-
-  const cancelEditor = () => {
-    if (creatingTask) {
-      setTasks((current) =>
-        current.filter(
-          (task) => task.id !== editingTaskId,
-        ),
-      );
-    }
-
-    setEditorOpen(false);
-    setMobileEditorOpen(false);
-    setEditingTaskId(null);
-    setCreatingTask(false);
-    setEmptyTitleCheck(null);
-    setSaveError(null);
+    closeEditor();
   };
 
   const toggleTask = (id) =>
@@ -271,10 +216,7 @@ function TasksPage() {
         task.id === id
           ? {
               ...task,
-              status:
-                task.status === "Completed"
-                  ? "To Do"
-                  : "Completed",
+              status: task.status === "Completed" ? "To Do" : "Completed",
             }
           : task,
       ),
@@ -283,17 +225,10 @@ function TasksPage() {
   //Deletes tasks from Firestore using Express API route then updates local UI
   const deleteTask = async (id) => {
     try {
-      await httpClient(
-        `http://localhost:3000/api/tasks/${id}`,
-        {
-          method: "DELETE",
-        },
-      );
-
-      setTasks((current) =>
-        current.filter((task) => task.id !== id),
-      );
-
+      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
+        method: "DELETE",
+      });
+      setTasks((current) => current.filter((task) => task.id !== id));
       toast.add({
         title: "Task Deleted",
         type: "success",
@@ -309,114 +244,87 @@ function TasksPage() {
     <main className="flex-1 space-y-6 p-4 md:p-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">
-            Tasks
-          </h2>
-
+          <h2 className="text-2xl font-semibold tracking-tight">Tasks</h2>
           <p className="mt-1 text-muted-foreground">
             Keep your coursework moving forward.
           </p>
         </div>
-
         <Button onClick={() => openEditor()}>
           <Plus /> Add task
         </Button>
       </div>
-
       <Card>
         <CardContent className="p-0">
-          <div className="hidden divide-y md:block">
-            {tasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                onEdit={() => openEditor(task)}
-                onDelete={() => setDeleteId(task.id)}
-                onToggle={() => toggleTask(task.id)}
-              />
-            ))}
-          </div>
-
-          <div className="divide-y md:hidden">
-            {tasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                onEdit={() => openEditor(task)}
-                onDelete={() => setDeleteId(task.id)}
-                onToggle={() => toggleTask(task.id)}
-              />
-            ))}
-          </div>
-
-          {tasks.length === 0 && (
-            <p className="p-8 text-center text-sm text-muted-foreground">
-              No tasks yet.
-            </p>
-          )}
+          <TaskList
+            tasks={tasks}
+            isLoading={isLoading}
+            error={error}
+            onEdit={(task) => openEditor(task, "edit")}
+            onDelete={setDeleteId}
+            onToggle={toggleTask}
+            onView={(task) => openEditor(task, "view")}
+          />
         </CardContent>
       </Card>
-
       <Dialog
         open={editorOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            cancelEditor();
-          } else {
-            setEditorOpen(true);
-          }
-        }}
+        onOpenChange={(open) => (open ? setEditorOpen(true) : closeEditor())}
       >
         <DialogContent>
           <DialogTitle>
-            {creatingTask ? "Add task" : "Edit task"}
+            {formMode === "view"
+              ? "View task"
+              : formMode === "create"
+                ? "Add task"
+                : "Edit task"}
           </DialogTitle>
-
           <DialogDescription>
-            {creatingTask
-              ? "Create a task for your study plan."
-              : "Update the details for this task."}
+            {formMode === "view"
+              ? "Review the details for this task."
+              : formMode === "create"
+                ? "Create a task for your study plan."
+                : "Update the details for this task."}
           </DialogDescription>
-
           <TaskForm
             draft={draft}
-            onCancel={cancelEditor}
+            onCancel={closeEditor}
             onSave={saveTask}
+            readOnly={formMode === "view"}
             setDraft={setDraft}
             titleError={emptyTitleCheck}
             saveError={saveError}
           />
         </DialogContent>
       </Dialog>
-
       <Sheet
         open={mobileEditorOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            cancelEditor();
-          } else {
-            setMobileEditorOpen(true);
-          }
-        }}
+        onOpenChange={(open) =>
+          open ? setMobileEditorOpen(true) : closeEditor()
+        }
       >
         <SheetContent className="overflow-y-auto">
           <SheetHeader>
             <SheetTitle>
-              {creatingTask ? "Add task" : "Edit task"}
+              {formMode === "view"
+                ? "View task"
+                : formMode === "create"
+                  ? "Add task"
+                  : "Edit task"}
             </SheetTitle>
-
             <SheetDescription>
-              {creatingTask
-                ? "Create a task for your study plan."
-                : "Update the details for this task."}
+              {formMode === "view"
+                ? "Review the details for this task."
+                : formMode === "create"
+                  ? "Create a task for your study plan."
+                  : "Update the details for this task."}
             </SheetDescription>
           </SheetHeader>
-
           <div className="p-4">
             <TaskForm
               draft={draft}
-              onCancel={cancelEditor}
+              onCancel={closeEditor}
               onSave={saveTask}
+              readOnly={formMode === "view"}
               setDraft={setDraft}
               titleError={emptyTitleCheck}
               saveError={saveError}
@@ -424,29 +332,19 @@ function TasksPage() {
           </div>
         </SheetContent>
       </Sheet>
-
       <AlertDialog
         open={deleteId !== null}
-        onOpenChange={(open) =>
-          !open && setDeleteId(null)
-        }
+        onOpenChange={(open) => !open && setDeleteId(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Delete task?
-            </AlertDialogTitle>
-
+            <AlertDialogTitle>Delete task?</AlertDialogTitle>
             <AlertDialogDescription>
               This task will be removed from your study plan.
             </AlertDialogDescription>
           </AlertDialogHeader>
-
           <AlertDialogFooter>
-            <AlertDialogCancel>
-              Cancel
-            </AlertDialogCancel>
-
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 deleteTask(deleteId);
