@@ -142,7 +142,9 @@ function TasksPage() {
   //Saves the tasks status via the PATCH backend route when toggleTask box is clicked
   const toggleTask = async (id) => {
     const task = tasks.find((existingTask) => existingTask.id === id);
-    const newStatus = task.status === "Completed" ? "To Do" : "Completed";
+    const originalStatus = task.status;
+    const newStatus = originalStatus === "Completed" ? "To Do" : "Completed";
+
 
     try {
       await httpClient(`http://localhost:3000/api/tasks/${id}`, {
@@ -157,10 +159,46 @@ function TasksPage() {
               status: newStatus
             } : existingTask),
       );
+
+      //Toast for undo task whenever a task is clicked to completed
+      if (newStatus === "Completed") {
+        const toastId = toast.add({
+          title: "Task Completed",
+          type: "success",
+          timeout: 10000,
+          actionProps: {
+            children: "Undo",
+            onClick: () => {
+              undoCompleted(id, originalStatus);
+              toast.close(toastId);
+            },
+          },
+        });
+      }
     } catch (err) {
       console.log(err);
     }
   };
+
+  //When undo pressed on toast reverts to its status before completed
+  const undoCompleted = async (id, originalStatus) => {
+    try {
+      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: originalStatus }),
+      });
+      setTasks((current) =>
+        current.map((existingTask) =>
+          existingTask.id === id
+            ? {
+              ...existingTask,
+              status: originalStatus
+            } : existingTask),
+      );
+    } catch (err) {
+      console.log(err);
+    }
+  }
 
 
   //Deletes tasks from Firestore using Express API route then updates local UI
