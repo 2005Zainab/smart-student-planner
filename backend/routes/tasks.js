@@ -114,11 +114,13 @@ router.patch('/:id', requireAuth, async (req, res) => {
     }
 
     if ("dueDate" in updates) {
-        const dateParsed = new Date(updates.dueDate);
+        if(typeof updates.dueDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(updates.dueDate)){
+            return res.status(400).json({ message : "Due date must use YYYY-MM-DD format Please"});
+        }
+        const dateParsed = new Date(updates.dueDate + "T00:00:00Z");
         if (isNaN(dateParsed.getTime())) {
             return res.status(400).json({ message: "Not a valid due date" });
         }
-        updates.dueDate = dateParsed.toISOString();
     }
 
 
