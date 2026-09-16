@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import { TaskList } from "../../tasks/components/TaskList";
+import { ScheduleList } from "./ScheduleList";
 import { TaskForm } from "../../tasks/components/TaskForm";
 import { toast } from "@/components/ui/toast";
 import {
@@ -142,17 +142,17 @@ function SchedulePage() {
     closeEditor();
   };
 
-  const toggleTask = (id) =>
-    setTasks((current) =>
-      current.map((task) =>
-        task.id === id
-          ? {
-              ...task,
-              status: task.status === "Completed" ? "To Do" : "Completed",
-            }
-          : task,
-      ),
-    );
+//   const toggleTask = (id) =>
+//     setTasks((current) =>
+//       current.map((task) =>
+//         task.id === id
+//           ? {
+//               ...task,
+//               status: task.status === "Completed" ? "To Do" : "Completed",
+//             }
+//           : task,
+//       ),
+//     );
 
   const deleteTask = async (id) => {
     try {
@@ -193,14 +193,16 @@ function SchedulePage() {
       ...task,
       parsedDateTime: getTaskDateAndTime(task),
     }))
-    .filter((task) => task.parsedDateTime !== null && task.parsedDateTime >= now)
+    .filter(
+      (task) => task.parsedDateTime !== null && task.parsedDateTime >= now,
+    )
     .sort((a, b) => a.parsedDateTime - b.parsedDateTime);
 
   const groupedTasks = upcomingTasks.reduce((acc, task) => {
     const dayLabel = task.parsedDateTime.toLocaleDateString("en-NZ", {
       weekday: "long",
       month: "short",
-      day: "numeric"
+      day: "numeric",
     });
 
     if (!acc[dayLabel]) {
@@ -208,27 +210,7 @@ function SchedulePage() {
     }
     acc[dayLabel].push(task);
     return acc;
-    }, {});
-
-//   // Add this logic right before your return statement
-//   // 1. Filter out tasks without a date
-//   // 2. Sort by date (earliest first)
-//   const validAndSortedTasks = tasks
-//     .filter((task) => task.dueDate) // Assuming the date property is called 'date'
-//     .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-
-//   // 3. Group tasks by day of the week
-//   const groupedTasks = validAndSortedTasks.reduce((acc, task) => {
-//     const dayOfWeek = new Date(task.dueDate).toLocaleDateString("en-NZ", {
-//       weekday: "long",
-//     });
-
-//     if (!acc[dayOfWeek]) {
-//       acc[dayOfWeek] = [];
-//     }
-//     acc[dayOfWeek].push(task);
-//     return acc;
-//   }, {});
+  }, {});
 
   return (
     <main className="flex-1 space-y-6 p-4 md:p-6">
@@ -251,18 +233,17 @@ function SchedulePage() {
             Object.entries(groupedTasks).map(([day, dayTasks]) => (
               <div
                 key={day}
-                className="border-b last:border-b-0 pb-4 mb-4 last:pb-0 last:mb-0"
+                className="border-b last:border-b-0 pb-4 mb-4 last:pb-0 last:mb-0"  
               >
-                <h3 className="bg-muted-foreground/50 px-4 py-2 text-sm font-medium text-secondary-foreground rounded-md">
+                <h3 className="bg-muted-foreground/36 px-4 py-2 text-sm font-medium text-secondary-foreground rounded-t-md">
                   {day}
                 </h3>
-                <TaskList
+                <ScheduleList
                   tasks={dayTasks}
                   isLoading={isLoading}
                   error={error}
                   onEdit={(task) => openEditor(task, "edit")}
                   onDelete={setDeleteId}
-                  onToggle={toggleTask}
                   onView={(task) => openEditor(task, "view")}
                 />
               </div>
