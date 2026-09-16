@@ -48,7 +48,9 @@ function TasksPage() {
     subject: "",
     priority: "Medium",
     status: "To Do",
+    time: "",
   });
+
   const openEditor = (task = null, mode = task ? "edit" : "create") => {
     setFormMode(mode);
     setEmptyTitleCheck(null);
@@ -63,6 +65,7 @@ function TasksPage() {
         priority: "Medium",
         status: "To Do",
         dueDate: undefined,
+        time: "",
       };
 
       setEditingTaskId(newTask.id);
@@ -86,6 +89,7 @@ function TasksPage() {
               priority: "Medium",
               status: "To Do",
               dueDate: undefined,
+              time: "",
             },
       );
     }
@@ -132,21 +136,17 @@ function TasksPage() {
             ? format(draft.dueDate, "yyyy-MM-dd")
             : draft.dueDate
           : null,
+        time: draft.time || null,
       };
 
       try {
-        const savedTask = await httpClient(
-          "http://localhost:3000/api/tasks",
-          {
-            method: "POST",
-            body: JSON.stringify(taskToSave),
-          },
-        );
+        const savedTask = await httpClient("http://localhost:3000/api/tasks", {
+          method: "POST",
+          body: JSON.stringify(taskToSave),
+        });
 
         setTasks((current) =>
-          current.map((task) =>
-            task.id === editingTaskId ? savedTask : task,
-          ),
+          current.map((task) => (task.id === editingTaskId ? savedTask : task)),
         );
 
         toast.add({
@@ -211,27 +211,34 @@ function TasksPage() {
     closeEditor();
   };
 
-    //Saves the tasks status via the PATCH backend route when toggleTask box is clicked
-    const toggleTask = async (id) => {
-      const task = tasks.find((existingTask) => existingTask.id === id);
-      const originalStatus = task.status;
-      const newStatus = originalStatus === "Completed" ? (previousStatusLookup[id] ?? "To Do") : "Completed";
+  //Saves the tasks status via the PATCH backend route when toggleTask box is clicked
+  const toggleTask = async (id) => {
+    const task = tasks.find((existingTask) => existingTask.id === id);
+    const originalStatus = task.status;
+    const newStatus =
+      originalStatus === "Completed"
+        ? (previousStatusLookup[id] ?? "To Do")
+        : "Completed";
 
-      if(newStatus === "Completed"){
-        setPreviousStatusLookup((current) =>  ({ ...current, [id]: originalStatus   }));
-      }
+    if (newStatus === "Completed") {
+      setPreviousStatusLookup((current) => ({
+        ...current,
+        [id]: originalStatus,
+      }));
+    }
 
-      try {
-        await httpClient(`http://localhost:3000/api/tasks/${id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ status: newStatus}),
-        });
-        setTasks((current) =>
-          current.map((existingTask) =>
-            existingTask.id === id ? {... existingTask, status: newStatus }
-                : existingTask,
-              ),
-        );
+    try {
+      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: newStatus }),
+      });
+      setTasks((current) =>
+        current.map((existingTask) =>
+          existingTask.id === id
+            ? { ...existingTask, status: newStatus }
+            : existingTask,
+        ),
+      );
 
       //Toast for undo task whenever a task is clicked to completed
       if (newStatus === "Completed") {
@@ -265,15 +272,16 @@ function TasksPage() {
         current.map((existingTask) =>
           existingTask.id === id
             ? {
-              ...existingTask,
-              status: originalStatus
-            } : existingTask),
+                ...existingTask,
+                status: originalStatus,
+              }
+            : existingTask,
+        ),
       );
     } catch (err) {
       console.log(err);
     }
-  }
-
+  };
 
   //Deletes tasks from Firestore using Express API route then updates local UI
   const deleteTask = async (id) => {

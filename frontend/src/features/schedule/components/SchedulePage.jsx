@@ -88,6 +88,7 @@ function SchedulePage() {
               priority: "Medium",
               status: "To Do",
               dueDate: undefined,
+              time: "",
             },
       );
     }
