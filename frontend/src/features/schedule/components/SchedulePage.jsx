@@ -284,6 +284,7 @@ function SchedulePage() {
             setDraft={setDraft}
             titleError={emptyTitleCheck}
             saveError={saveError}
+            requireDateAndTime={true}
           />
         </DialogContent>
       </Dialog>
