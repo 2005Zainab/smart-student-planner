@@ -10,6 +10,7 @@ const ALLOWED_FIELDS = [
   "priority",
   "status",
   "dueDate",
+  "time",
 ];
 const ALLOWED_PRIORITIES = ["low", "medium", "high"];
 const ALLOWED_STATUSES = ["to do", "in progress", "completed"];
@@ -145,6 +146,27 @@ router.patch("/:id", requireAuth, async (req, res) => {
     const dateParsed = new Date(updates.dueDate + "T00:00:00Z");
     if (isNaN(dateParsed.getTime())) {
       return res.status(400).json({ message: "Not a valid due date" });
+    }
+  }
+
+  // add time validation here:
+  if ("time" in updates) {
+    if (
+      typeof updates.time !== "string" ||
+      !/^\d{2}:\d{2}$/.test(updates.time)
+    ) {
+      return res.status(400).json({ message: "Time must use HH:MM format" });
+    }
+    const [hours, minutes] = updates.time.split(":").map(Number);
+    if (
+      isNaN(hours) ||
+      isNaN(minutes) ||
+      hours < 0 ||
+      hours > 23 ||
+      minutes < 0 ||
+      minutes > 59
+    ) {
+      return res.status(400).json({ message: "Not a valid time" });
     }
   }
 

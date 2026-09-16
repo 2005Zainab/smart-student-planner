@@ -138,6 +138,18 @@ function TaskForm({
             </PopoverContent>
           </Popover>
         </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="task-time">Time</Label>
+          <Input
+            id="task-time"
+            type="time"
+            onChange={(event) => setDraft({ ...draft, time: event.target.value })}
+            disabled={readOnly}
+            value={draft.time}
+          />
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="task-status">Status</Label>
           <Select

@@ -8,10 +8,10 @@ import { TaskList } from "../../tasks/components/TaskList";
 import { TaskForm } from "../../tasks/components/TaskForm";
 import { toast } from "@/components/ui/toast";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Sheet,
@@ -171,25 +171,64 @@ function SchedulePage() {
     }
   };
 
-  // Add this logic right before your return statement
-  // 1. Filter out tasks without a date
-  // 2. Sort by date (earliest first)
-  const validAndSortedTasks = tasks
-    .filter((task) => task.dueDate) // Assuming the date property is called 'date'
-    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+  const getTaskDateAndTime = (task) => {
+    const dateValue = task.dueDate;
 
-  // 3. Group tasks by day of the week
-  const groupedTasks = validAndSortedTasks.reduce((acc, task) => {
-    const dayOfWeek = new Date(task.dueDate).toLocaleDateString("en-NZ", {
+    if (!dateValue || !task.time) {
+      return null;
+    }
+
+    const taskDate = new Date(dateValue);
+    const [hours, minutes] = task.time
+      ? task.time.split(":").map(Number)
+      : [0, 0];
+    taskDate.setHours(hours, minutes);
+    return taskDate;
+  };
+
+  const now = new Date();
+
+  const upcomingTasks = tasks
+    .map((task) => ({
+      ...task,
+      parsedDateTime: getTaskDateAndTime(task),
+    }))
+    .filter((task) => task.parsedDateTime !== null && task.parsedDateTime >= now)
+    .sort((a, b) => a.parsedDateTime - b.parsedDateTime);
+
+  const groupedTasks = upcomingTasks.reduce((acc, task) => {
+    const dayLabel = task.parsedDateTime.toLocaleDateString("en-NZ", {
       weekday: "long",
+      month: "short",
+      day: "numeric"
     });
 
-    if (!acc[dayOfWeek]) {
-      acc[dayOfWeek] = [];
+    if (!acc[dayLabel]) {
+      acc[dayLabel] = [];
     }
-    acc[dayOfWeek].push(task);
+    acc[dayLabel].push(task);
     return acc;
-  }, {});
+    }, {});
+
+//   // Add this logic right before your return statement
+//   // 1. Filter out tasks without a date
+//   // 2. Sort by date (earliest first)
+//   const validAndSortedTasks = tasks
+//     .filter((task) => task.dueDate) // Assuming the date property is called 'date'
+//     .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+//   // 3. Group tasks by day of the week
+//   const groupedTasks = validAndSortedTasks.reduce((acc, task) => {
+//     const dayOfWeek = new Date(task.dueDate).toLocaleDateString("en-NZ", {
+//       weekday: "long",
+//     });
+
+//     if (!acc[dayOfWeek]) {
+//       acc[dayOfWeek] = [];
+//     }
+//     acc[dayOfWeek].push(task);
+//     return acc;
+//   }, {});
 
   return (
     <main className="flex-1 space-y-6 p-4 md:p-6">
@@ -214,7 +253,7 @@ function SchedulePage() {
                 key={day}
                 className="border-b last:border-b-0 pb-4 mb-4 last:pb-0 last:mb-0"
               >
-                <h3 className="bg-muted/50 px-4 py-2 text-sm font-medium text-muted-foreground">
+                <h3 className="bg-muted-foreground/50 px-4 py-2 text-sm font-medium text-secondary-foreground rounded-md">
                   {day}
                 </h3>
                 <TaskList
