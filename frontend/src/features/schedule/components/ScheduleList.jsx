@@ -9,18 +9,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Helper function to format 24h time ("14:30") to 12h time ("2:30 PM")
-const formatTime = (timeString) => {
-  if (!timeString) return "";
-  const [hours, minutes] = timeString.split(":");
-  const d = new Date();
-  d.setHours(parseInt(hours, 10), parseInt(minutes, 10));
-  return d.toLocaleTimeString("en-NZ", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-};
-
 function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
   if (isLoading) {
     return (
@@ -35,6 +23,23 @@ function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
         <Skeleton className="h-8 w-8 rounded-md" />
       </div>
     );
+  }
+  // Use the parsedDateTime we generated in the SchedulePage, with a fallback just in case
+  let displayTime = "No time";
+  if (task.parsedDateTime) {
+    displayTime = task.parsedDateTime.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } else if (task.dueTime) {
+    // Fallback if parsedDateTime isn't available for some reason
+    const [hours, minutes] = task.dueTime.split(":");
+    const d = new Date();
+    d.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+    displayTime = d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
   }
 
   // Determine the accent color based on priority
@@ -57,7 +62,7 @@ function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
       {/* Time Column */}
       <div className="w-25 shrink-0 pt-0.5 text-sm font-semibold text-foreground flex items-center gap-1.5">
         <Clock className="h-3.5 w-3.5 text-accent-foreground" />
-        <p className="text-lg text-accent-foreground">{formatTime(task.time)}</p>
+        <p className="text-lg text-accent-foreground">{displayTime}</p>
       </div>
 
       {/* Main Content Column */}
@@ -79,7 +84,7 @@ function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
       {/* Badges and Actions */}
       <div className="flex items-center gap-2 shrink-0">
         <Badge
-          variant={task.priority === "High" ? "destructive" : "secondary"}
+          variant={task.priority === "High" ? "high" : task.priority === "Medium" ? "medium" : task.priority === "Low" ? "low" : "secondary"}
           className="hidden sm:inline-flex"
         >
           {task.priority}

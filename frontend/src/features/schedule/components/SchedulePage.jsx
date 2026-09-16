@@ -194,7 +194,7 @@ function SchedulePage() {
       parsedDateTime: getTaskDateAndTime(task),
     }))
     .filter(
-      (task) => task.parsedDateTime !== null && task.parsedDateTime >= now,
+      (task) => task.parsedDateTime !== null && task.parsedDateTime >= now && task.status && task.status !== "Completed",
     )
     .sort((a, b) => a.parsedDateTime - b.parsedDateTime);
 
