@@ -3,6 +3,7 @@ import { db } from "../src/firebase.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
+
 const ALLOWED_FIELDS = [
   "title",
   "description",
@@ -11,290 +12,452 @@ const ALLOWED_FIELDS = [
   "status",
   "dueDate",
 ];
+
 const ALLOWED_PRIORITIES = ["low", "medium", "high"];
 const ALLOWED_STATUSES = ["to do", "in progress", "completed"];
-const PRIORITY_DISPLAY = { low: "Low", medium: "Medium", high: "High" };
+
+const PRIORITY_DISPLAY = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+};
+
 const STATUS_DISPLAY = {
   "to do": "To Do",
   "in progress": "In Progress",
   completed: "Completed",
 };
 
+//Work out priority from due date
+function getPriorityFromDueDate(dueDate) {
+  if (!dueDate) {
+    return "Medium";
+  }
+
+  const today = new Date();
+  const due = new Date(dueDate + "T00:00:00");
+
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+
+  const differenceInTime =
+    due.getTime() - today.getTime();
+
+  const daysUntilDue = Math.ceil(
+    differenceInTime / (1000 * 60 * 60 * 24),
+  );
+
+  //Date has already passed
+  if (daysUntilDue < 0) {
+    return "Low";
+  }
+
+  //Due today or within 3 days
+  if (daysUntilDue <= 3) {
+    return "High";
+  }
+
+  //Due in 4 to 7 days
+  if (daysUntilDue <= 7) {
+    return "Medium";
+  }
+
+  //More than 7 days away
+  return "Low";
+}
+
 //Add task to Firestore
-router.post('/', requireAuth, async (req, res) => {
-    const uid = req.user.uid;
+router.post("/", requireAuth, async (req, res) => {
+  const uid = req.user.uid;
 
-    const {
-        title,
-        description = "",
-        subject = "",
-        priority = "Medium",
-        status = "To Do",
-        dueDate = null
-    } = req.body;
+  const {
+    title,
+    description = "",
+    subject = "",
+    status = "To Do",
+    dueDate = null,
+  } = req.body;
 
-    if (typeof title !== "string" || title.trim() === "") {
-        return res.status(400).json({
-            message: "Title cannot be empty or blank"
-        });
-    }
+  //Check title
+  if (typeof title !== "string") {
+    return res.status(400).json({
+      message: "Title has to be a string",
+    });
+  }
 
-    if (title.trim().length > 200) {
-        return res.status(400).json({
-            message: "Title cannot be more than 200 characters"
-        });
-    }
+  if (title.trim() === "") {
+    return res.status(400).json({
+      message: "Title cannot be empty or blank",
+    });
+  }
 
-    if (typeof description !== "string") {
-        return res.status(400).json({
-            message: "Description must be text"
-        });
-    }
+  if (title.trim().length > 200) {
+    return res.status(400).json({
+      message: "Title cannot be more than 200 characters",
+    });
+  }
 
-    if (description.length > 1000) {
-        return res.status(400).json({
-            message: "Description cannot be more than 1000 characters"
-        });
-    }
+  //Check description
+  if (typeof description !== "string") {
+    return res.status(400).json({
+      message: "Description must be text",
+    });
+  }
 
-    if (typeof subject !== "string") {
-        return res.status(400).json({
-            message: "Subject must be text"
-        });
-    }
+  if (description.length > 1000) {
+    return res.status(400).json({
+      message: "Description cannot be more than 1000 characters",
+    });
+  }
 
-    if (subject.length > 200) {
-        return res.status(400).json({
-            message: "Subject cannot be more than 200 characters"
-        });
-    }
+  //Check subject
+  if (typeof subject !== "string") {
+    return res.status(400).json({
+      message: "Subject must be text",
+    });
+  }
 
-    const priorityLower = priority.toLowerCase();
+  if (subject.length > 200) {
+    return res.status(400).json({
+      message: "Subject cannot be more than 200 characters",
+    });
+  }
 
-    if (!ALLOWED_PRIORITIES.includes(priorityLower)) {
-        return res.status(400).json({
-            message: "Not a valid priority"
-        });
-    }
+  //Check status
+  if (typeof status !== "string") {
+    return res.status(400).json({
+      message: "Not a valid status",
+    });
+  }
 
-    const statusLower = status.toLowerCase();
+  const statusLower = status
+    .trim()
+    .toLowerCase();
 
-    if (!ALLOWED_STATUSES.includes(statusLower)) {
-        return res.status(400).json({
-            message: "Not a valid status"
-        });
-    }
+  if (!ALLOWED_STATUSES.includes(statusLower)) {
+    return res.status(400).json({
+      message: "Not a valid status",
+    });
+  }
 
+  //Check due date
+  if (dueDate) {
     if (
-        dueDate &&
-        (typeof dueDate !== "string" ||
-            !/^\d{4}-\d{2}-\d{2}$/.test(dueDate))
+      typeof dueDate !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)
     ) {
-        return res.status(400).json({
-            message: "Due date must use YYYY-MM-DD format"
-        });
+      return res.status(400).json({
+        message: "Due date must use YYYY-MM-DD format",
+      });
     }
 
-    try {
-        const newTask = {
-            title: title.trim(),
-            description: description.trim(),
-            subject: subject.trim(),
-            priority: PRIORITY_DISPLAY[priorityLower],
-            status: STATUS_DISPLAY[statusLower],
-            dueDate,
-            userId: uid
-        };
+    const dateParsed = new Date(
+      dueDate + "T00:00:00",
+    );
 
-        const taskRef = await db.collection("tasks").add(newTask);
-
-        res.status(201).json({
-            id: taskRef.id,
-            ...newTask
-        });
-
-    } catch (err) {
-        console.log(err);
-
-        res.status(500).json({
-            message: "Failed to create task"
-        });
+    if (isNaN(dateParsed.getTime())) {
+      return res.status(400).json({
+        message: "Not a valid due date",
+      });
     }
+  }
+
+  try {
+    //Set priority from the due date
+    const priority =
+      getPriorityFromDueDate(dueDate);
+
+    const newTask = {
+      title: title.trim(),
+      description: description.trim(),
+      subject: subject.trim(),
+      priority,
+      status: STATUS_DISPLAY[statusLower],
+      dueDate,
+      userId: uid,
+    };
+
+    const taskRef = await db
+      .collection("tasks")
+      .add(newTask);
+
+    res.status(201).json({
+      id: taskRef.id,
+      ...newTask,
+    });
+  } catch (err) {
+    console.log(err);
+
+    res.status(500).json({
+      message: "Failed to create task",
+    });
+  }
 });
-
 
 //Try to delete task
 router.delete("/:id", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
   try {
-    const taskDoc = db.collection("tasks").doc(req.params.id);
+    const taskDoc = db
+      .collection("tasks")
+      .doc(req.params.id);
+
     const taskSnap = await taskDoc.get();
 
     if (!taskSnap.exists) {
-      return res.status(404).json({ message: "Task Wasn't Found" });
+      return res.status(404).json({
+        message: "Task Wasn't Found",
+      });
     }
 
     if (taskSnap.data().userId != uid) {
       return res.status(403).json({
-        message: "Unauthorized to delete this task: You do not own this task",
+        message:
+          "Unauthorized to delete this task: You do not own this task",
       });
     }
 
     await taskDoc.delete();
-    res.status(200).json({ message: "Task Deleted" });
+
+    res.status(200).json({
+      message: "Task Deleted",
+    });
   } catch (err) {
     console.log(err);
-    res.status(500).json({ message: "Failed to Delete Task" });
+
+    res.status(500).json({
+      message: "Failed to Delete Task",
+    });
   }
 });
 
+//Edit task
 router.patch("/:id", requireAuth, async (req, res) => {
   const uid = req.user.uid;
   const updates = {};
 
   for (const key of ALLOWED_FIELDS) {
-    if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        key,
+      )
+    ) {
       updates[key] = req.body[key];
     }
   }
 
   if (Object.keys(updates).length === 0) {
-    return res.status(400).json({ message: "No valid fields updated" });
+    return res.status(400).json({
+      message: "No valid fields updated",
+    });
   }
 
-  //Not allowed blank/empty title, rejects before updating firestore
+  //Check title
   if ("title" in updates) {
     if (typeof updates.title !== "string") {
-      return res.status(400).json({ message: "Title has to be a string" });
+      return res.status(400).json({
+        message: "Title has to be a string",
+      });
     }
+
     if (updates.title.trim() === "") {
-      return res
-        .status(400)
-        .json({ message: "Title cannot be empty or blank" });
+      return res.status(400).json({
+        message: "Title cannot be empty or blank",
+      });
     }
-    //Cap title edits to 200 chars
+
     updates.title = updates.title.trim();
+
     if (updates.title.length > 200) {
-      return res
-        .status(400)
-        .json({ message: "Title cannot be more than 200 characters" });
+      return res.status(400).json({
+        message:
+          "Title cannot be more than 200 characters",
+      });
     }
   }
 
-  //prevent non string entries
+  //Check description
   if ("description" in updates) {
     if (typeof updates.description !== "string") {
-      return res.status(400).json({ message: "Description must be text" });
+      return res.status(400).json({
+        message: "Description must be text",
+      });
     }
-    //Cap description edits to 1000 chars
-    updates.description = updates.description.trim();
+
+    updates.description =
+      updates.description.trim();
+
     if (updates.description.length > 1000) {
-      return res
-        .status(400)
-        .json({ message: "Description cannot be more than 1000 characters" });
+      return res.status(400).json({
+        message:
+          "Description cannot be more than 1000 characters",
+      });
     }
   }
 
-  //prevent non string entries
+  //Check subject
   if ("subject" in updates) {
     if (typeof updates.subject !== "string") {
-      return res.status(400).json({ message: "Subject must be text" });
+      return res.status(400).json({
+        message: "Subject must be text",
+      });
     }
-    //Cap subject edits to 200 chars
+
     updates.subject = updates.subject.trim();
+
     if (updates.subject.length > 200) {
-      return res
-        .status(400)
-        .json({ message: "Subject cannot be more than 200 characters" });
+      return res.status(400).json({
+        message:
+          "Subject cannot be more than 200 characters",
+      });
     }
   }
 
-  //prevent non string entries
+  //Check priority if it is sent
   if ("priority" in updates) {
     if (typeof updates.priority !== "string") {
-      return res.status(400).json({ message: "Not a valid priority" });
+      return res.status(400).json({
+        message: "Not a valid priority",
+      });
     }
-    //Check case sensitivity
-    const trimmedLower = updates.priority.trim().toLowerCase();
+
+    const trimmedLower =
+      updates.priority.trim().toLowerCase();
+
     if (!ALLOWED_PRIORITIES.includes(trimmedLower)) {
-      return res.status(400).json({ message: "Not a valid priority" });
+      return res.status(400).json({
+        message: "Not a valid priority",
+      });
     }
-    updates.priority = PRIORITY_DISPLAY[trimmedLower];
+
+    updates.priority =
+      PRIORITY_DISPLAY[trimmedLower];
   }
 
-  //prevent non string entries
+  //Check status
   if ("status" in updates) {
     if (typeof updates.status !== "string") {
-      return res.status(400).json({ message: "Not a valid status" });
+      return res.status(400).json({
+        message: "Not a valid status",
+      });
     }
-    //Check case sensitivity
-    const trimmedLower = updates.status.trim().toLowerCase();
+
+    const trimmedLower =
+      updates.status.trim().toLowerCase();
+
     if (!ALLOWED_STATUSES.includes(trimmedLower)) {
-      return res.status(400).json({ message: "Not a valid status" });
+      return res.status(400).json({
+        message: "Not a valid status",
+      });
     }
-    updates.status = STATUS_DISPLAY[trimmedLower];
+
+    updates.status =
+      STATUS_DISPLAY[trimmedLower];
   }
 
+  //Check due date
   if ("dueDate" in updates) {
     if (
       typeof updates.dueDate !== "string" ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(updates.dueDate)
+      !/^\d{4}-\d{2}-\d{2}$/.test(
+        updates.dueDate,
+      )
     ) {
-      return res
-        .status(400)
-        .json({ message: "Due date must use YYYY-MM-DD format Please" });
+      return res.status(400).json({
+        message:
+          "Due date must use YYYY-MM-DD format",
+      });
     }
-    const dateParsed = new Date(updates.dueDate + "T00:00:00Z");
+
+    const dateParsed = new Date(
+      updates.dueDate + "T00:00:00",
+    );
+
     if (isNaN(dateParsed.getTime())) {
-      return res.status(400).json({ message: "Not a valid due date" });
+      return res.status(400).json({
+        message: "Not a valid due date",
+      });
     }
+
+    //Change priority when date changes
+    updates.priority =
+      getPriorityFromDueDate(updates.dueDate);
   }
 
   try {
-    //Fetches task first and checks it exists and who owns it
-    const taskDoc = db.collection("tasks").doc(req.params.id);
+    //Get task and check who owns it
+    const taskDoc = db
+      .collection("tasks")
+      .doc(req.params.id);
+
     const taskSnap = await taskDoc.get();
 
     if (!taskSnap.exists) {
-      return res.status(404).json({ message: "Task Wasn't Found" });
+      return res.status(404).json({
+        message: "Task Wasn't Found",
+      });
     }
 
     if (taskSnap.data().userId != uid) {
       return res.status(403).json({
-        message: "Unauthorized to edit this task: You do not own this task",
+        message:
+          "Unauthorized to edit this task: You do not own this task",
       });
     }
 
     await taskDoc.update(updates);
-    res.status(200).json({ message: "Task Updated" });
+
+    res.status(200).json({
+      message: "Task Updated",
+    });
   } catch (err) {
     console.log(err);
-    res.status(500).json({ message: "Failed to Update Task" });
+
+    res.status(500).json({
+      message: "Failed to Update Task",
+    });
   }
 });
 
-// view all tasks
+//View all tasks
 router.get("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
   try {
     const tasksRef = db.collection("tasks");
-    const snapshot = await tasksRef.where("userId", "==", uid).get();
+
+    const snapshot = await tasksRef
+      .where("userId", "==", uid)
+      .get();
 
     if (snapshot.empty) {
-      return res.status(200).json({ message: "No tasks found" });
+      return res.status(200).json([]);
     }
 
     const tasks = [];
+
     snapshot.forEach((doc) => {
-      tasks.push({ id: doc.id, ...doc.data() });
+      const task = {
+        id: doc.id,
+        ...doc.data(),
+      };
+
+      //Check priority again when page loads
+      task.priority =
+        getPriorityFromDueDate(task.dueDate);
+
+      tasks.push(task);
     });
 
     res.status(200).json(tasks);
   } catch (err) {
     console.log(err);
-    res.status(500).json({ message: "Failed to fetch tasks" });
+
+    res.status(500).json({
+      message: "Failed to fetch tasks",
+    });
   }
 });
 
