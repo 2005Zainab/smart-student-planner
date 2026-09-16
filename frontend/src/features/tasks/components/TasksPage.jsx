@@ -41,6 +41,7 @@ function TasksPage() {
   const [deleteId, setDeleteId] = useState(null);
   const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
   const [saveError, setSaveError] = useState(null);
+  const [previousStatusLookup, setPreviousStatusLookup] = useState({});
   const [draft, setDraft] = useState({
     title: "",
     description: "",
@@ -210,17 +211,69 @@ function TasksPage() {
     closeEditor();
   };
 
-  const toggleTask = (id) =>
-    setTasks((current) =>
-      current.map((task) =>
-        task.id === id
-          ? {
-              ...task,
-              status: task.status === "Completed" ? "To Do" : "Completed",
-            }
-          : task,
-      ),
-    );
+    //Saves the tasks status via the PATCH backend route when toggleTask box is clicked
+    const toggleTask = async (id) => {
+      const task = tasks.find((existingTask) => existingTask.id === id);
+      const originalStatus = task.status;
+      const newStatus = originalStatus === "Completed" ? (previousStatusLookup[id] ?? "To Do") : "Completed";
+
+      if(newStatus === "Completed"){
+        setPreviousStatusLookup((current) =>  ({ ...current, [id]: originalStatus   }));
+      }
+
+      try {
+        await httpClient(`http://localhost:3000/api/tasks/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: newStatus}),
+        });
+        setTasks((current) =>
+          current.map((existingTask) =>
+            existingTask.id === id ? {... existingTask, status: newStatus }
+                : existingTask,
+              ),
+        );
+
+      //Toast for undo task whenever a task is clicked to completed
+      if (newStatus === "Completed") {
+        const toastId = toast.add({
+          title: "Task Completed",
+          description: task.title,
+          type: "success",
+          timeout: 10000,
+          actionProps: {
+            children: "Undo",
+            onClick: () => {
+              undoCompleted(id, previousStatusLookup[id] ?? originalStatus);
+              toast.close(toastId);
+            },
+          },
+        });
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  //When undo pressed on toast reverts to its status before completed
+  const undoCompleted = async (id, originalStatus) => {
+    try {
+      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: originalStatus }),
+      });
+      setTasks((current) =>
+        current.map((existingTask) =>
+          existingTask.id === id
+            ? {
+              ...existingTask,
+              status: originalStatus
+            } : existingTask),
+      );
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
 
   //Deletes tasks from Firestore using Express API route then updates local UI
   const deleteTask = async (id) => {
