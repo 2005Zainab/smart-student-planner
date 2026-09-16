@@ -51,35 +51,65 @@ function TasksPage() {
   });
   const openEditor = (task = null, mode = task ? "edit" : "create") => {
     setFormMode(mode);
-    setEditingTaskId(task?.id ?? null);
-    setDraft(
-      task
-        ? {
-          ...task,
-          dueDate:
-            typeof task.dueDate === "string"
-              ? parseISO(task.dueDate)
-              : task.dueDate,
-        }
-        : {
-          title: "",
-          description: "",
-          subject: "",
-          priority: "Medium",
-          status: "To Do",
-          dueDate: undefined,
-        },
-    );
+    setEmptyTitleCheck(null);
+    setSaveError(null);
+
+    if (mode === "create") {
+      const newTask = {
+        id: `temp-${Date.now()}`,
+        title: "",
+        description: "",
+        subject: "",
+        priority: "Medium",
+        status: "To Do",
+        dueDate: undefined,
+      };
+
+      setEditingTaskId(newTask.id);
+      setTasks((current) => [...current, newTask]);
+      setDraft(newTask);
+    } else {
+      setEditingTaskId(task?.id ?? null);
+      setDraft(
+        task
+          ? {
+              ...task,
+              dueDate:
+                typeof task.dueDate === "string"
+                  ? parseISO(task.dueDate)
+                  : task.dueDate,
+            }
+          : {
+              title: "",
+              description: "",
+              subject: "",
+              priority: "Medium",
+              status: "To Do",
+              dueDate: undefined,
+            },
+      );
+    }
+
     if (window.matchMedia("(max-width: 767px)").matches)
       setMobileEditorOpen(true);
     else setEditorOpen(true);
   };
+
   const closeEditor = () => {
+    if (formMode === "create" && editingTaskId !== null) {
+      setTasks((current) =>
+        current.filter((task) => task.id !== editingTaskId),
+      );
+    }
+
     setEditorOpen(false);
     setMobileEditorOpen(false);
     setFormMode("create");
     setEditingTaskId(null);
+    setEmptyTitleCheck(null);
+    setSaveError(null);
   };
+
   const saveTask = async () => {
     //Blank title check, can't be empty or blank space
     if (!draft.title || draft.title.trim() === "") {
@@ -90,9 +120,50 @@ function TasksPage() {
     setEmptyTitleCheck(null);
     setSaveError(null);
 
-    //Add task (only local right now)
-    if (editingTaskId === null) {
-      setTasks((current) => [...current, { ...draft, id: Date.now() }]);
+    if (formMode === "create") {
+      const taskToSave = {
+        title: draft.title,
+        description: draft.description,
+        subject: draft.subject,
+        priority: draft.priority,
+        status: draft.status,
+        dueDate: draft.dueDate
+          ? draft.dueDate instanceof Date
+            ? format(draft.dueDate, "yyyy-MM-dd")
+            : draft.dueDate
+          : null,
+      };
+
+      try {
+        const savedTask = await httpClient(
+          "http://localhost:3000/api/tasks",
+          {
+            method: "POST",
+            body: JSON.stringify(taskToSave),
+          },
+        );
+
+        setTasks((current) =>
+          current.map((task) =>
+            task.id === editingTaskId ? savedTask : task,
+          ),
+        );
+
+        toast.add({
+          title: "Task Added",
+          type: "success",
+        });
+      } catch (err) {
+        console.log(err);
+        setSaveError(err.message || "Failed to add task");
+
+        toast.add({
+          title: "Failed to add task",
+          type: "error",
+        });
+
+        return;
+      }
     } else {
       //edit task sends to backend to check and save to firestore via PATCH route
 
@@ -256,14 +327,14 @@ function TasksPage() {
           <DialogTitle>
             {formMode === "view"
               ? "View task"
-              : editingTaskId === null
+              : formMode === "create"
                 ? "Add task"
                 : "Edit task"}
           </DialogTitle>
           <DialogDescription>
             {formMode === "view"
               ? "Review the details for this task."
-              : editingTaskId === null
+              : formMode === "create"
                 ? "Create a task for your study plan."
                 : "Update the details for this task."}
           </DialogDescription>
@@ -289,14 +360,14 @@ function TasksPage() {
             <SheetTitle>
               {formMode === "view"
                 ? "View task"
-                : editingTaskId === null
+                : formMode === "create"
                   ? "Add task"
                   : "Edit task"}
             </SheetTitle>
             <SheetDescription>
               {formMode === "view"
                 ? "Review the details for this task."
-                : editingTaskId === null
+                : formMode === "create"
                   ? "Create a task for your study plan."
                   : "Update the details for this task."}
             </SheetDescription>
