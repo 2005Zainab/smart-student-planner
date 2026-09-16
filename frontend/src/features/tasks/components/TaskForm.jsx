@@ -55,7 +55,7 @@ function TaskForm({
         <Input
           id="task-title"
           onChange={(event) =>
-            setDraft({ ...draft, title: event.target.value })
+            setDraft((prev) => ({ ...prev, title: event.target.value }))
           }
           disabled={readOnly}
           maxLength={200}
@@ -73,7 +73,7 @@ function TaskForm({
         <Textarea
           id="task-description"
           onChange={(event) =>
-            setDraft({ ...draft, description: event.target.value })
+            setDraft((prev) => ({ ...prev, description: event.target.value }))
           }
           maxLength={1000}
           disabled={readOnly}
@@ -91,7 +91,7 @@ function TaskForm({
           <Input
             id="task-subject"
             onChange={(event) =>
-              setDraft({ ...draft, subject: event.target.value })
+              setDraft((prev) => ({ ...prev, subject: event.target.value }))
             }
             maxLength={200}
             disabled={readOnly}
@@ -108,7 +108,7 @@ function TaskForm({
           <Label htmlFor="task-priority">Priority</Label>
           <Select
             disabled={readOnly}
-            onValueChange={(priority) => setDraft({ ...draft, priority })}
+            onValueChange={(priority) => setDraft((prev) => ({ ...prev, priority }))}
             value={draft.priority}
           >
             <SelectTrigger
@@ -151,7 +151,7 @@ function TaskForm({
               <Calendar
                 mode="single"
                 onSelect={(dueDate) => {
-                  setDraft({ ...draft, dueDate });
+                  setDraft((prev) => ({ ...prev, dueDate }));
                   if (dueDate) setDateError(""); // clears the error state when a date is selected
                 }}
                 selected={draft.dueDate}
@@ -171,10 +171,10 @@ function TaskForm({
             type="time"
             required={requireDateAndTime}
             onChange={(event) =>
-              setDraft({ ...draft, time: event.target.value })
+              setDraft((prev) => ({ ...prev, time: event.target.value }))
             }
             disabled={readOnly}
-            value={draft.time}
+            value={draft.time || ""}
           />
         </div>
 
@@ -182,7 +182,7 @@ function TaskForm({
           <Label htmlFor="task-status">Status</Label>
           <Select
             disabled={readOnly}
-            onValueChange={(status) => setDraft({ ...draft, status })}
+            onValueChange={(status) => setDraft((prev) => ({ ...prev, status }))}
             value={draft.status}
           >
             <SelectTrigger

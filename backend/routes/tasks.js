@@ -40,7 +40,21 @@ router.post("/", requireAuth, async (req, res) => {
     priority = "Medium",
     status = "To Do",
     dueDate = null,
+    time: rawTime = "",
   } = req.body;
+
+  // safely trim the time input
+  const time =
+    typeof rawTime === "string" && rawTime.trim() !== ""
+      ? rawTime.trim()
+      : null;
+
+  // validate time
+  if (time && (!/^\d{2}:\d{2}$/.test(time))) {
+    return res.status(400).json({
+      message: "Time must use HH:MM format",
+    });
+  }
 
   // Title must be text
   if (typeof title !== "string") {
@@ -122,8 +136,7 @@ router.post("/", requireAuth, async (req, res) => {
   // Validate due date
   if (
     dueDate &&
-    (typeof dueDate !== "string" ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(dueDate))
+    (typeof dueDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate))
   ) {
     return res.status(400).json({
       message: "Due date must use YYYY-MM-DD format",
@@ -138,6 +151,7 @@ router.post("/", requireAuth, async (req, res) => {
       priority: PRIORITY_DISPLAY[priorityLower],
       status: STATUS_DISPLAY[statusLower],
       dueDate,
+      time,
       userId: uid,
     };
 
@@ -172,8 +186,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
 
     if (taskSnap.data().userId != uid) {
       return res.status(403).json({
-        message:
-          "Unauthorized to delete this task: You do not own this task",
+        message: "Unauthorized to delete this task: You do not own this task",
       });
     }
 
@@ -313,9 +326,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    const dateParsed = new Date(
-      updates.dueDate + "T00:00:00Z",
-    );
+    const dateParsed = new Date(updates.dueDate + "T00:00:00Z");
 
     if (isNaN(dateParsed.getTime())) {
       return res.status(400).json({
@@ -358,8 +369,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     if (taskSnap.data().userId != uid) {
       return res.status(403).json({
-        message:
-          "Unauthorized to edit this task: You do not own this task",
+        message: "Unauthorized to edit this task: You do not own this task",
       });
     }
 
@@ -383,9 +393,7 @@ router.get("/", requireAuth, async (req, res) => {
 
   try {
     const tasksRef = db.collection("tasks");
-    const snapshot = await tasksRef
-      .where("userId", "==", uid)
-      .get();
+    const snapshot = await tasksRef.where("userId", "==", uid).get();
 
     if (snapshot.empty) {
       return res.status(200).json({
