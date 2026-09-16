@@ -226,16 +226,16 @@ function SchedulePage() {
         </Button>
       </div>
 
-      <Card>
+      <Card className="pt-0">
         <CardContent className="p-0">
           {/* Map through the grouped tasks and display them by day */}
           {Object.entries(groupedTasks).length > 0 ? (
             Object.entries(groupedTasks).map(([day, dayTasks]) => (
               <div
                 key={day}
-                className="border-b last:border-b-0 pb-4 mb-4 last:pb-0 last:mb-0"  
+                className="border-b last:border-b-0 pb-4 mb-4 last:pb-0 last:mb-0"
               >
-                <h3 className="bg-muted-foreground/36 px-4 py-2 text-sm font-medium text-secondary-foreground rounded-t-md">
+                <h3 className="bg-muted-foreground/31 px-4 py-2 text-sm font-medium text-secondary-foreground rounded-t-md">
                   {day}
                 </h3>
                 <ScheduleList

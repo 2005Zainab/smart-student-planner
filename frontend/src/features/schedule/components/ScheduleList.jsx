@@ -55,9 +55,9 @@ function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
       tabIndex={0}
     >
       {/* Time Column */}
-      <div className="w-20 shrink-0 pt-0.5 text-sm font-semibold text-foreground flex items-center gap-1.5">
-        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-        {formatTime(task.time)}
+      <div className="w-25 shrink-0 pt-0.5 text-sm font-semibold text-foreground flex items-center gap-1.5">
+        <Clock className="h-3.5 w-3.5 text-accent-foreground" />
+        <p className="text-lg text-accent-foreground">{formatTime(task.time)}</p>
       </div>
 
       {/* Main Content Column */}
