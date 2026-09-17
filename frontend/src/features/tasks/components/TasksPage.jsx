@@ -89,22 +89,22 @@ function TasksPage() {
       setDraft(
         task
           ? {
-              ...task,
-              dueDate:
-                typeof task.dueDate === "string"
-                  ? parseISO(task.dueDate)
-                  : task.dueDate,
-              time: task.time || "",
-            }
+            ...task,
+            dueDate:
+              typeof task.dueDate === "string"
+                ? parseISO(task.dueDate)
+                : task.dueDate,
+            time: task.time || "",
+          }
           : {
-              title: "",
-              description: "",
-              subject: "",
-              priority: "Low",
-              status: "To Do",
-              dueDate: undefined,
-              time: "",
-            },
+            title: "",
+            description: "",
+            subject: "",
+            priority: "Low",
+            status: "To Do",
+            dueDate: undefined,
+            time: "",
+          },
       );
     }
 
@@ -294,9 +294,9 @@ function TasksPage() {
         current.map((existingTask) =>
           existingTask.id === id
             ? {
-                ...existingTask,
-                status: newStatus,
-              }
+              ...existingTask,
+              status: newStatus,
+            }
             : existingTask,
         ),
       );
@@ -316,7 +316,7 @@ function TasksPage() {
               undoCompleted(
                 id,
                 previousStatusLookup[id] ??
-                  originalStatus,
+                originalStatus,
               );
 
               toast.close(toastId);
@@ -349,10 +349,45 @@ function TasksPage() {
         current.map((existingTask) =>
           existingTask.id === id
             ? {
-                ...existingTask,
-                status: originalStatus,
-              }
+              ...existingTask,
+              status: originalStatus,
+            }
             : existingTask,
+        ),
+      );
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  //Toggles a checklists item completeion state and also saves the checklist
+  const toggleChecklistItem = async (taskId, itemId) => {
+    const task = tasks.find(
+      (existingTask) => existingTask.id === taskId,
+    );
+
+    if (!task || !task.checklist) {
+      return;
+    }
+
+    const updateChecklist = task.checklist.map((item) =>
+      item.id === itemId ? { ...item, completed: !item.completed } : item,
+    );
+
+    try {
+      const updatedTask = await httpClient(
+        `http://localhost:3000/api/tasks/${taskId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            checklist: updateChecklist,
+          }),
+        },
+      );
+
+      setTasks((current) =>
+        current.map((existingTask) =>
+          existingTask.id === taskId ? updatedTask : existingTask,
         ),
       );
     } catch (err) {
@@ -455,6 +490,9 @@ function TasksPage() {
             setDraft={setDraft}
             titleError={emptyTitleCheck}
             saveError={saveError}
+            onToggleChecklistItem={(itemId) =>
+              toggleChecklistItem(editingTaskId, itemId)
+            }
           />
         </DialogContent>
       </Dialog>
@@ -495,6 +533,9 @@ function TasksPage() {
               setDraft={setDraft}
               titleError={emptyTitleCheck}
               saveError={saveError}
+              onToggleChecklistItem={(itemId) =>
+                toggleChecklistItem(editingTaskId, itemId)
+              }
             />
           </div>
         </SheetContent>
