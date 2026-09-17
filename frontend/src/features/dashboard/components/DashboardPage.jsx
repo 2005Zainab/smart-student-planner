@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format, isToday } from "date-fns";
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -65,7 +65,9 @@ function DashboardPage() {
                   key={task.id}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{task.title}</p>
+                    <p className="break-words whitespace-normal text-sm font-medium">
+                      {task.title}
+                    </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {task.subject || "No subject"} ·{" "}
                       {format(task.parsedDateTime, "MMM d")}
@@ -103,7 +105,9 @@ function DashboardPage() {
                     key={task.id}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{task.title}</p>
+                      <p className="break-words whitespace-normal text-sm font-medium">
+                        {task.title}
+                      </p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {task.subject || "No subject"}
                       </p>
@@ -139,14 +143,23 @@ function DashboardPage() {
             </Link>
           </CardHeader>
           <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-7">
-            {weeklySchedule.map(({ label, tasks: dayTasks }) => (
-              <div className="rounded-lg bg-muted/50 p-3" key={label}>
-                <p className="text-sm font-medium">{label}</p>
+            {weeklySchedule.map(({ date, label, tasks: dayTasks }) => (
+              <div
+                className={`rounded-lg p-3 ${
+                  isToday(date)
+                    ? "bg-primary/10 ring-2 ring-primary"
+                    : "bg-muted/50"
+                }`}
+                key={label}
+              >
+                <p className="break-words whitespace-normal text-sm font-medium">
+                  {label}
+                </p>
                 <div className="mt-3 space-y-2">
                   {dayTasks.length > 0 ? (
                     dayTasks.map((task) => (
                       <div key={task.id}>
-                        <p className="text-xs font-medium leading-relaxed">
+                        <p className="break-words whitespace-normal text-xs font-medium leading-relaxed">
                           {task.title}
                         </p>
                         <p className="text-xs leading-relaxed text-muted-foreground">
