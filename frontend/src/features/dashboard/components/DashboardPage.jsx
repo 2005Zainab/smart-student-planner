@@ -76,7 +76,7 @@ function DashboardPage() {
                       {task.daysUntilDue === 0
                         ? "Due today"
                         : task.daysUntilDue === 1
-                          ? "Due in 1 day"
+                          ? "Due tomorrow"
                           : `Due in ${task.daysUntilDue} days`}
                     </p>
                   </div>
