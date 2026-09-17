@@ -44,8 +44,14 @@ function validateChecklist(checklist) {
       return { message: "Each checklist item has to be an Object" };
     }
 
+    //check entered item is correct type and not blank
     if(typeof item.text !== "string" || item.text.trim() === ""){
       return { message: "Checklist item must be text and not empty/blank"};
+    }
+
+    //check length of checklist item
+    if(item.text.trim().length > 100){
+      return { message : "Checklist item cannot be more than 100 characters"};
     }
 
     cleanChecklist.push({

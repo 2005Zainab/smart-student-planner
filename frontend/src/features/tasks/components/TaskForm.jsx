@@ -176,8 +176,8 @@ function TaskForm({
               render={
                 <Button
                   className={`w-full justify-start font-normal ${dateError
-                      ? "border-destructive"
-                      : ""
+                    ? "border-destructive"
+                    : ""
                     }`}
                   disabled={readOnly}
                   id="task-due-date"
@@ -290,8 +290,8 @@ function TaskForm({
         <Label>Checklist</Label>
 
         {(draft.checklist || []).map((item) => (
-          <div key={item.id} className="flex items-center gap-2">
-            <span className="flex-1 text-sm">{item.text}</span>
+          <div key={item.id} className="flex items-center gap-2 min-w-0">
+            <span className="flex-1 min-w-0 wrap-anywhere text-sm">{item.text}</span>
             {!readOnly && (
               <Button
                 type="button"
@@ -311,25 +311,33 @@ function TaskForm({
         ))}
 
         {!readOnly && (
-          <div className="flex gap-2">
-            <Label htmlFor="new-checklist-item" className="sr-only">
-              Add a checklist item
-            </Label>
-            <Input
-              id="new-checklist-item"
-              placeholder="Add a checklist item"
-              value={checklistItemInput}
-              onChange={(event) => setChecklistItemInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  checklistHandleAddItem();
-                }
-              }}
-            />
-            <Button type="button" variant="outline" onClick={checklistHandleAddItem}>
-              Add
-            </Button>
+          <div className="space-y-1">
+            <div className="flex gap-2">
+              <Label htmlFor="new-checklist-item" className="sr-only">
+                Add a checklist item
+              </Label>
+              <Input
+                id="new-checklist-item"
+                placeholder="Add a checklist item"
+                maxLength={100}
+                value={checklistItemInput}
+                onChange={(event) => setChecklistItemInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    checklistHandleAddItem();
+                  }
+                }}
+              />
+              <Button type="button" variant="outline" onClick={checklistHandleAddItem}>
+                Add
+              </Button>
+            </div>
+            {checklistItemInput.length >= 100 && (
+              <p className="text-sm text-medium-priority">
+                Checklist item cannot be more than 100 characters
+              </p>
+            )}
           </div>
         )}
       </div>
