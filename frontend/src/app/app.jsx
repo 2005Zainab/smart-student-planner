@@ -4,7 +4,7 @@ import { GlobalReminders } from "./GlobalReminders";
 
 function App() {
   return (
-      <Provider>
+    <Provider>
       <Router />
       <GlobalReminders />
     </Provider>
