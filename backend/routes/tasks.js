@@ -12,6 +12,7 @@ const ALLOWED_FIELDS = [
   "status",
   "dueDate",
   "time",
+  "checklist",
 ];
 
 const ALLOWED_PRIORITIES = ["low", "medium", "high"];
@@ -29,6 +30,36 @@ const STATUS_DISPLAY = {
   completed: "Completed",
 };
 
+//Validates the checklist and ensures checklist items added are the proper type
+function validateChecklist(checklist) {
+  if (!Array.isArray(checklist)) {
+    return { message: "Checklist must be an Array" };
+  }
+
+  if (checklist.length > 10) {
+    return { message: "Too many subtasks added. Max is 10" }
+  }
+
+  const cleanChecklist = [];
+
+  for (const item of checklist) {
+    if (!item || typeof item !== "object") {
+      return { message: "Each checklist item has to be an Object" };
+    }
+
+    if(typeof item.text !== "string" || item.text.trim() === ""){
+      return { message: "Checklist item must be text and not empty/blank"};
+    }
+
+    cleanChecklist.push({
+      id: item.id || `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      text: item.text.trim(),
+      completed: Boolean(item.completed),
+    });
+  }
+  return { cleanChecklist };
+}
+
 // Add task to Firestore
 router.post("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
@@ -41,6 +72,7 @@ router.post("/", requireAuth, async (req, res) => {
     status = "To Do",
     dueDate = null,
     time: rawTime = "",
+    checklist = [],
   } = req.body;
 
   // safely trim the time input
@@ -143,6 +175,12 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
+  //if checklist returns a message an error has occurred
+  const checklistResult = validateChecklist(checklist);
+  if(checklistResult.message){
+    return res.status(400).json({ message: checklistResult.message});
+  }
+
   try {
     const newTask = {
       title: title.trim(),
@@ -152,6 +190,7 @@ router.post("/", requireAuth, async (req, res) => {
       status: STATUS_DISPLAY[statusLower],
       dueDate,
       time,
+      checklist: checklistResult.cleanChecklist,
       userId: uid,
     };
 
@@ -354,6 +393,16 @@ router.patch("/:id", requireAuth, async (req, res) => {
     ) {
       return res.status(400).json({ message: "Not a valid time" });
     }
+  }
+
+  //If message is returned then an error has occured in the checklist
+  //Otherwise no message returned, checklist is updated
+  if("checklist" in updates){
+    const checklistResult = validateChecklist(updates.checklist);
+    if(checklistResult.message){
+      return res.status(400).json({ message: checklistResult.message });
+    }
+    updates.checklist = checklistResult.cleanChecklist;
   }
 
   try {
