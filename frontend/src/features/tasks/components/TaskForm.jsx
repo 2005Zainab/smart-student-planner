@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useState } from "react";
 import {
   Popover,
   PopoverContent,
@@ -26,18 +27,34 @@ function TaskForm({
   titleError,
   saveError,
   readOnly = false,
+  requireDateAndTime = false,
 }) {
+  const [dateError, setDateError] = useState("");
+
+  const handleSave = (event) => {
+    event.preventDefault();
+    setDateError("");
+
+    if (requireDateAndTime && !draft.dueDate) {
+      setDateError(
+        "Due date is required for adding task to schedule.",
+      );
+      return;
+    }
+
+    onSave();
+  };
+
   return (
     <form
       className="space-y-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSave();
-      }}
+      onSubmit={handleSave}
     >
       {/* Task name */}
       <div className="space-y-2">
-        <Label htmlFor="task-title">Task name</Label>
+        <Label htmlFor="task-title">
+          Task name
+        </Label>
 
         <Input
           id="task-title"
@@ -93,7 +110,9 @@ function TaskForm({
 
       {/* Subject */}
       <div className="space-y-2">
-        <Label htmlFor="task-subject">Subject</Label>
+        <Label htmlFor="task-subject">
+          Subject
+        </Label>
 
         <Input
           id="task-subject"
@@ -116,7 +135,7 @@ function TaskForm({
         )}
       </div>
 
-      {/* Priority information */}
+      {/* Priority */}
       <div className="space-y-1">
         <Label>Priority</Label>
 
@@ -129,14 +148,23 @@ function TaskForm({
         {/* Due date */}
         <div className="space-y-2">
           <Label htmlFor="task-due-date">
-            Due date
+            Due date{" "}
+            {requireDateAndTime && (
+              <span className="text-destructive">
+                *
+              </span>
+            )}
           </Label>
 
           <Popover>
             <PopoverTrigger
               render={
                 <Button
-                  className="w-full justify-start font-normal"
+                  className={`w-full justify-start font-normal ${
+                    dateError
+                      ? "border-destructive"
+                      : ""
+                  }`}
                   disabled={readOnly}
                   id="task-due-date"
                   type="button"
@@ -154,16 +182,52 @@ function TaskForm({
             <PopoverContent className="w-auto p-0">
               <Calendar
                 mode="single"
-                onSelect={(dueDate) =>
+                onSelect={(dueDate) => {
                   setDraft((prev) => ({
                     ...prev,
                     dueDate,
-                  }))
-                }
+                  }));
+
+                  if (dueDate) {
+                    setDateError("");
+                  }
+                }}
                 selected={draft.dueDate}
               />
             </PopoverContent>
           </Popover>
+
+          {dateError && (
+            <p className="text-sm text-destructive">
+              {dateError}
+            </p>
+          )}
+        </div>
+
+        {/* Time */}
+        <div className="space-y-2">
+          <Label htmlFor="task-time">
+            Time{" "}
+            {requireDateAndTime && (
+              <span className="text-destructive">
+                *
+              </span>
+            )}
+          </Label>
+
+          <Input
+            id="task-time"
+            type="time"
+            required={requireDateAndTime}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                time: event.target.value,
+              }))
+            }
+            disabled={readOnly}
+            value={draft.time || ""}
+          />
         </div>
 
         {/* Status */}
@@ -207,14 +271,12 @@ function TaskForm({
         </div>
       </div>
 
-      {/* Save error */}
       {saveError && (
         <p className="text-sm text-destructive">
           {saveError}
         </p>
       )}
 
-      {/* Buttons */}
       {!readOnly && (
         <div className="flex justify-end gap-2">
           <Button

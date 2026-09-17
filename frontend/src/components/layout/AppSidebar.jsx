@@ -1,4 +1,4 @@
-import { CalendarDays, CheckSquare, LayoutDashboard, User } from "lucide-react";
+import { CalendarDays, CheckSquare, LayoutDashboard, User, List } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -26,6 +26,7 @@ const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Tasks", href: "/tasks", icon: CheckSquare },
   { label: "Calendar", href: "/calendar", icon: CalendarDays },
+  { label: "Schedule", href: "/schedule", icon: List },
 ];
 
 function AppSidebar() {
@@ -38,6 +39,7 @@ function AppSidebar() {
     try {
       await logout();
       navigate("/login");
+    // eslint-disable-next-line no-empty
     } catch {}
   };
 

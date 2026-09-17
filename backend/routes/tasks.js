@@ -10,6 +10,7 @@ const ALLOWED_FIELDS = [
   "subject",
   "status",
   "dueDate",
+  "time",
 ];
 
 const ALLOWED_STATUSES = [
@@ -63,7 +64,7 @@ function getPriorityFromDueDate(dueDate) {
   return "Low";
 }
 
-//Add a new task
+//Add task to Firestore
 router.post("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
@@ -73,7 +74,37 @@ router.post("/", requireAuth, async (req, res) => {
     subject = "",
     status = "To Do",
     dueDate = null,
+    time: rawTime = "",
   } = req.body;
+
+  const time =
+    typeof rawTime === "string" && rawTime.trim() !== ""
+      ? rawTime.trim()
+      : null;
+
+  //Check time
+  if (time && !/^\d{2}:\d{2}$/.test(time)) {
+    return res.status(400).json({
+      message: "Time must use HH:MM format",
+    });
+  }
+
+  if (time) {
+    const [hours, minutes] = time.split(":").map(Number);
+
+    if (
+      isNaN(hours) ||
+      isNaN(minutes) ||
+      hours < 0 ||
+      hours > 23 ||
+      minutes < 0 ||
+      minutes > 59
+    ) {
+      return res.status(400).json({
+        message: "Not a valid time",
+      });
+    }
+  }
 
   //Check title
   if (typeof title !== "string") {
@@ -92,8 +123,7 @@ router.post("/", requireAuth, async (req, res) => {
 
   if (cleanTitle.length > 200) {
     return res.status(400).json({
-      message:
-        "Title cannot be more than 200 characters",
+      message: "Title cannot be more than 200 characters",
     });
   }
 
@@ -108,8 +138,7 @@ router.post("/", requireAuth, async (req, res) => {
 
   if (cleanDescription.length > 1000) {
     return res.status(400).json({
-      message:
-        "Description cannot be more than 1000 characters",
+      message: "Description cannot be more than 1000 characters",
     });
   }
 
@@ -124,15 +153,14 @@ router.post("/", requireAuth, async (req, res) => {
 
   if (cleanSubject.length > 200) {
     return res.status(400).json({
-      message:
-        "Subject cannot be more than 200 characters",
+      message: "Subject cannot be more than 200 characters",
     });
   }
 
   //Check status
   if (typeof status !== "string") {
     return res.status(400).json({
-      message: "Not a valid status",
+      message: "Status must be text",
     });
   }
 
@@ -152,8 +180,7 @@ router.post("/", requireAuth, async (req, res) => {
       !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)
     ) {
       return res.status(400).json({
-        message:
-          "Due date must use YYYY-MM-DD format",
+        message: "Due date must use YYYY-MM-DD format",
       });
     }
 
@@ -169,7 +196,6 @@ router.post("/", requireAuth, async (req, res) => {
   }
 
   try {
-    //Priority is automatic from due date
     const priority =
       getPriorityFromDueDate(dueDate);
 
@@ -180,6 +206,7 @@ router.post("/", requireAuth, async (req, res) => {
       priority,
       status: STATUS_DISPLAY[statusLower],
       dueDate,
+      time,
       userId: uid,
     };
 
@@ -200,7 +227,7 @@ router.post("/", requireAuth, async (req, res) => {
   }
 });
 
-//Try to delete task
+//Deletes tasks from Firestore using Express API route then updates local UI
 router.delete("/:id", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
@@ -278,8 +305,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     if (updates.title.length > 200) {
       return res.status(400).json({
-        message:
-          "Title cannot be more than 200 characters",
+        message: "Title cannot be more than 200 characters",
       });
     }
   }
@@ -311,7 +337,8 @@ router.patch("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    updates.subject = updates.subject.trim();
+    updates.subject =
+      updates.subject.trim();
 
     if (updates.subject.length > 200) {
       return res.status(400).json({
@@ -325,7 +352,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
   if ("status" in updates) {
     if (typeof updates.status !== "string") {
       return res.status(400).json({
-        message: "Not a valid status",
+        message: "Status must be text",
       });
     }
 
@@ -344,7 +371,6 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
   //Check due date
   if ("dueDate" in updates) {
-    //Allow the user to remove the due date
     if (
       updates.dueDate !== null &&
       (
@@ -372,13 +398,46 @@ router.patch("/:id", requireAuth, async (req, res) => {
       }
     }
 
-    //Change priority when due date changes
     updates.priority =
       getPriorityFromDueDate(updates.dueDate);
   }
 
+  //Check time
+  if ("time" in updates) {
+    if (
+      updates.time !== null &&
+      (
+        typeof updates.time !== "string" ||
+        !/^\d{2}:\d{2}$/.test(
+          updates.time,
+        )
+      )
+    ) {
+      return res.status(400).json({
+        message: "Time must use HH:MM format",
+      });
+    }
+
+    if (updates.time !== null) {
+      const [hours, minutes] =
+        updates.time.split(":").map(Number);
+
+      if (
+        isNaN(hours) ||
+        isNaN(minutes) ||
+        hours < 0 ||
+        hours > 23 ||
+        minutes < 0 ||
+        minutes > 59
+      ) {
+        return res.status(400).json({
+          message: "Not a valid time",
+        });
+      }
+    }
+  }
+
   try {
-    //Get task and check who owns it
     const taskDoc = db
       .collection("tasks")
       .doc(req.params.id);
