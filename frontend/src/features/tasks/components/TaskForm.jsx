@@ -35,85 +35,103 @@ function TaskForm({
         onSave();
       }}
     >
+      {/* Task name */}
       <div className="space-y-2">
         <Label htmlFor="task-title">Task name</Label>
+
         <Input
           id="task-title"
           onChange={(event) =>
-            setDraft({ ...draft, title: event.target.value })
+            setDraft((prev) => ({
+              ...prev,
+              title: event.target.value,
+            }))
           }
           disabled={readOnly}
           maxLength={200}
-          value={draft.title}
+          value={draft.title || ""}
         />
-        {draft.title.length >= 200 && (
+
+        {(draft.title?.length || 0) >= 200 && (
           <p className="text-sm text-medium-priority">
             Title cannot be more than 200 characters
           </p>
         )}
-        {titleError && <p className="text-sm text-destructive">{titleError}</p>}
+
+        {titleError && (
+          <p className="text-sm text-destructive">
+            {titleError}
+          </p>
+        )}
       </div>
+
+      {/* Description */}
       <div className="space-y-2">
-        <Label htmlFor="task-description">Description</Label>
+        <Label htmlFor="task-description">
+          Description
+        </Label>
+
         <Textarea
           id="task-description"
           onChange={(event) =>
-            setDraft({ ...draft, description: event.target.value })
+            setDraft((prev) => ({
+              ...prev,
+              description: event.target.value,
+            }))
           }
           maxLength={1000}
           disabled={readOnly}
-          value={draft.description}
+          value={draft.description || ""}
         />
-        {draft.description.length >= 1000 && (
+
+        {(draft.description?.length || 0) >= 1000 && (
           <p className="text-sm text-medium-priority">
             Description cannot be more than 1000 characters
           </p>
         )}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="task-subject">Subject</Label>
-          <Input
-            id="task-subject"
-            onChange={(event) =>
-              setDraft({ ...draft, subject: event.target.value })
-            }
-            maxLength={200}
-            disabled={readOnly}
-            required
-            value={draft.subject}
-          />
-          {draft.subject.length >= 200 && (
-            <p className="text-sm text-medium-priority">
-              Subject cannot be more than 200 characters
-            </p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="task-priority">Priority</Label>
-          <Select
-            disabled={readOnly}
-            onValueChange={(priority) => setDraft({ ...draft, priority })}
-            value={draft.priority}
-          >
-            <SelectTrigger
-              aria-label="Priority"
-              className="w-full"
-              id="task-priority"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="High">High</SelectItem>
-              <SelectItem value="Medium">Medium</SelectItem>
-              <SelectItem value="Low">Low</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+
+      {/* Subject */}
+      <div className="space-y-2">
+        <Label htmlFor="task-subject">Subject</Label>
+
+        <Input
+          id="task-subject"
+          onChange={(event) =>
+            setDraft((prev) => ({
+              ...prev,
+              subject: event.target.value,
+            }))
+          }
+          maxLength={200}
+          disabled={readOnly}
+          required
+          value={draft.subject || ""}
+        />
+
+        {(draft.subject?.length || 0) >= 200 && (
+          <p className="text-sm text-medium-priority">
+            Subject cannot be more than 200 characters
+          </p>
+        )}
       </div>
+
+      {/* Priority information */}
+      <div className="space-y-1">
+        <Label>Priority</Label>
+
+        <p className="text-sm text-muted-foreground">
+          Priority is automatically calculated from the due date.
+        </p>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
+        {/* Due date */}
         <div className="space-y-2">
-          <Label htmlFor="task-due-date">Due date</Label>
+          <Label htmlFor="task-due-date">
+            Due date
+          </Label>
+
           <Popover>
             <PopoverTrigger
               render={
@@ -127,23 +145,42 @@ function TaskForm({
               }
             >
               <CalendarDays />
-              {draft.dueDate ? format(draft.dueDate, "PPP") : "Choose a date"}
+
+              {draft.dueDate
+                ? format(draft.dueDate, "PPP")
+                : "Choose a date"}
             </PopoverTrigger>
+
             <PopoverContent className="w-auto p-0">
               <Calendar
                 mode="single"
-                onSelect={(dueDate) => setDraft({ ...draft, dueDate })}
+                onSelect={(dueDate) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    dueDate,
+                  }))
+                }
                 selected={draft.dueDate}
               />
             </PopoverContent>
           </Popover>
         </div>
+
+        {/* Status */}
         <div className="space-y-2">
-          <Label htmlFor="task-status">Status</Label>
+          <Label htmlFor="task-status">
+            Status
+          </Label>
+
           <Select
             disabled={readOnly}
-            onValueChange={(status) => setDraft({ ...draft, status })}
-            value={draft.status}
+            onValueChange={(status) =>
+              setDraft((prev) => ({
+                ...prev,
+                status,
+              }))
+            }
+            value={draft.status || "To Do"}
           >
             <SelectTrigger
               aria-label="Status"
@@ -152,21 +189,45 @@ function TaskForm({
             >
               <SelectValue />
             </SelectTrigger>
+
             <SelectContent>
-              <SelectItem value="To Do">To Do</SelectItem>
-              <SelectItem value="In Progress">In Progress</SelectItem>
-              <SelectItem value="Completed">Completed</SelectItem>
+              <SelectItem value="To Do">
+                To Do
+              </SelectItem>
+
+              <SelectItem value="In Progress">
+                In Progress
+              </SelectItem>
+
+              <SelectItem value="Completed">
+                Completed
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
-      {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+
+      {/* Save error */}
+      {saveError && (
+        <p className="text-sm text-destructive">
+          {saveError}
+        </p>
+      )}
+
+      {/* Buttons */}
       {!readOnly && (
         <div className="flex justify-end gap-2">
-          <Button onClick={onCancel} type="button" variant="outline">
+          <Button
+            onClick={onCancel}
+            type="button"
+            variant="outline"
+          >
             Cancel
           </Button>
-          <Button type="submit">Save task</Button>
+
+          <Button type="submit">
+            Save task
+          </Button>
         </div>
       )}
     </form>

@@ -8,19 +8,15 @@ const ALLOWED_FIELDS = [
   "title",
   "description",
   "subject",
-  "priority",
   "status",
   "dueDate",
 ];
 
-const ALLOWED_PRIORITIES = ["low", "medium", "high"];
-const ALLOWED_STATUSES = ["to do", "in progress", "completed"];
-
-const PRIORITY_DISPLAY = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-};
+const ALLOWED_STATUSES = [
+  "to do",
+  "in progress",
+  "completed",
+];
 
 const STATUS_DISPLAY = {
   "to do": "To Do",
@@ -30,8 +26,9 @@ const STATUS_DISPLAY = {
 
 //Work out priority from due date
 function getPriorityFromDueDate(dueDate) {
+  //No due date
   if (!dueDate) {
-    return "Medium";
+    return "Low";
   }
 
   const today = new Date();
@@ -66,7 +63,7 @@ function getPriorityFromDueDate(dueDate) {
   return "Low";
 }
 
-//Add task to Firestore
+//Add a new task
 router.post("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
@@ -91,9 +88,12 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
-  if (title.trim().length > 200) {
+  const cleanTitle = title.trim();
+
+  if (cleanTitle.length > 200) {
     return res.status(400).json({
-      message: "Title cannot be more than 200 characters",
+      message:
+        "Title cannot be more than 200 characters",
     });
   }
 
@@ -104,9 +104,12 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
-  if (description.length > 1000) {
+  const cleanDescription = description.trim();
+
+  if (cleanDescription.length > 1000) {
     return res.status(400).json({
-      message: "Description cannot be more than 1000 characters",
+      message:
+        "Description cannot be more than 1000 characters",
     });
   }
 
@@ -117,9 +120,12 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
-  if (subject.length > 200) {
+  const cleanSubject = subject.trim();
+
+  if (cleanSubject.length > 200) {
     return res.status(400).json({
-      message: "Subject cannot be more than 200 characters",
+      message:
+        "Subject cannot be more than 200 characters",
     });
   }
 
@@ -130,9 +136,8 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
-  const statusLower = status
-    .trim()
-    .toLowerCase();
+  const statusLower =
+    status.trim().toLowerCase();
 
   if (!ALLOWED_STATUSES.includes(statusLower)) {
     return res.status(400).json({
@@ -141,13 +146,14 @@ router.post("/", requireAuth, async (req, res) => {
   }
 
   //Check due date
-  if (dueDate) {
+  if (dueDate !== null) {
     if (
       typeof dueDate !== "string" ||
       !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)
     ) {
       return res.status(400).json({
-        message: "Due date must use YYYY-MM-DD format",
+        message:
+          "Due date must use YYYY-MM-DD format",
       });
     }
 
@@ -163,14 +169,14 @@ router.post("/", requireAuth, async (req, res) => {
   }
 
   try {
-    //Set priority from the due date
+    //Priority is automatic from due date
     const priority =
       getPriorityFromDueDate(dueDate);
 
     const newTask = {
-      title: title.trim(),
-      description: description.trim(),
-      subject: subject.trim(),
+      title: cleanTitle,
+      description: cleanDescription,
+      subject: cleanSubject,
       priority,
       status: STATUS_DISPLAY[statusLower],
       dueDate,
@@ -181,14 +187,14 @@ router.post("/", requireAuth, async (req, res) => {
       .collection("tasks")
       .add(newTask);
 
-    res.status(201).json({
+    return res.status(201).json({
       id: taskRef.id,
       ...newTask,
     });
   } catch (err) {
     console.log(err);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Failed to create task",
     });
   }
@@ -220,13 +226,13 @@ router.delete("/:id", requireAuth, async (req, res) => {
 
     await taskDoc.delete();
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Task Deleted",
     });
   } catch (err) {
     console.log(err);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Failed to Delete Task",
     });
   }
@@ -315,27 +321,6 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
   }
 
-  //Check priority if it is sent
-  if ("priority" in updates) {
-    if (typeof updates.priority !== "string") {
-      return res.status(400).json({
-        message: "Not a valid priority",
-      });
-    }
-
-    const trimmedLower =
-      updates.priority.trim().toLowerCase();
-
-    if (!ALLOWED_PRIORITIES.includes(trimmedLower)) {
-      return res.status(400).json({
-        message: "Not a valid priority",
-      });
-    }
-
-    updates.priority =
-      PRIORITY_DISPLAY[trimmedLower];
-  }
-
   //Check status
   if ("status" in updates) {
     if (typeof updates.status !== "string") {
@@ -344,25 +329,29 @@ router.patch("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    const trimmedLower =
+    const statusLower =
       updates.status.trim().toLowerCase();
 
-    if (!ALLOWED_STATUSES.includes(trimmedLower)) {
+    if (!ALLOWED_STATUSES.includes(statusLower)) {
       return res.status(400).json({
         message: "Not a valid status",
       });
     }
 
     updates.status =
-      STATUS_DISPLAY[trimmedLower];
+      STATUS_DISPLAY[statusLower];
   }
 
   //Check due date
   if ("dueDate" in updates) {
+    //Allow the user to remove the due date
     if (
-      typeof updates.dueDate !== "string" ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(
-        updates.dueDate,
+      updates.dueDate !== null &&
+      (
+        typeof updates.dueDate !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(
+          updates.dueDate,
+        )
       )
     ) {
       return res.status(400).json({
@@ -371,17 +360,19 @@ router.patch("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    const dateParsed = new Date(
-      updates.dueDate + "T00:00:00",
-    );
+    if (updates.dueDate !== null) {
+      const dateParsed = new Date(
+        updates.dueDate + "T00:00:00",
+      );
 
-    if (isNaN(dateParsed.getTime())) {
-      return res.status(400).json({
-        message: "Not a valid due date",
-      });
+      if (isNaN(dateParsed.getTime())) {
+        return res.status(400).json({
+          message: "Not a valid due date",
+        });
+      }
     }
 
-    //Change priority when date changes
+    //Change priority when due date changes
     updates.priority =
       getPriorityFromDueDate(updates.dueDate);
   }
@@ -409,13 +400,13 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     await taskDoc.update(updates);
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Task Updated",
     });
   } catch (err) {
     console.log(err);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Failed to Update Task",
     });
   }
@@ -444,18 +435,18 @@ router.get("/", requireAuth, async (req, res) => {
         ...doc.data(),
       };
 
-      //Check priority again when page loads
+      //Recalculate priority when tasks load
       task.priority =
         getPriorityFromDueDate(task.dueDate);
 
       tasks.push(task);
     });
 
-    res.status(200).json(tasks);
+    return res.status(200).json(tasks);
   } catch (err) {
     console.log(err);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Failed to fetch tasks",
     });
   }
