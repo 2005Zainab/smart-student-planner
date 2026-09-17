@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,21 @@ function TaskForm({
   requireDateAndTime = false,
 }) {
   const [dateError, setDateError] = useState("");
+  const [checklistItemInput, setChecklistItemInput] = useState("");
+
+  const checklistHandleAddItem = () => {
+    if (!checklistItemInput.trim()) {
+      return;
+    }
+    setDraft((prev) => ({
+      ...prev,
+      checklist: [
+        ...(prev.checklist || []),
+        { id: `temp-${Date.now()}`, text: checklistItemInput.trim(), completed: false },
+      ],
+    }));
+    setChecklistItemInput("");
+  };
 
   const handleSave = (event) => {
     event.preventDefault();
@@ -160,11 +175,10 @@ function TaskForm({
             <PopoverTrigger
               render={
                 <Button
-                  className={`w-full justify-start font-normal ${
-                    dateError
+                  className={`w-full justify-start font-normal ${dateError
                       ? "border-destructive"
                       : ""
-                  }`}
+                    }`}
                   disabled={readOnly}
                   id="task-due-date"
                   type="button"
@@ -269,6 +283,55 @@ function TaskForm({
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Checklist */}
+      <div className="space-y-2">
+        <Label>Checklist</Label>
+
+        {(draft.checklist || []).map((item) => (
+          <div key={item.id} className="flex items-center gap-2">
+            <span className="flex-1 text-sm">{item.text}</span>
+            {!readOnly && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                onClick={() =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    checklist: prev.checklist.filter((i) => i.id !== item.id),
+                  }))
+                }
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        ))}
+
+        {!readOnly && (
+          <div className="flex gap-2">
+            <Label htmlFor="new-checklist-item" className="sr-only">
+              Add a checklist item
+            </Label>
+            <Input
+              id="new-checklist-item"
+              placeholder="Add a checklist item"
+              value={checklistItemInput}
+              onChange={(event) => setChecklistItemInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  checklistHandleAddItem();
+                }
+              }}
+            />
+            <Button type="button" variant="outline" onClick={checklistHandleAddItem}>
+              Add
+            </Button>
+          </div>
+        )}
       </div>
 
       {saveError && (
