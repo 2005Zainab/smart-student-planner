@@ -12,6 +12,8 @@ const ALLOWED_FIELDS = [
   "status",
   "dueDate",
   "time",
+  "reminderDate",
+  "reminderTime",
 ];
 
 const ALLOWED_PRIORITIES = ["low", "medium", "high"];
@@ -41,6 +43,8 @@ router.post("/", requireAuth, async (req, res) => {
     status = "To Do",
     dueDate = null,
     time: rawTime = "",
+    reminderDate = null,
+    reminderTime: rawReminderTime = "",
   } = req.body;
 
   // safely trim the time input
@@ -49,10 +53,23 @@ router.post("/", requireAuth, async (req, res) => {
       ? rawTime.trim()
       : null;
 
+  // safely trim the time input
+  const reminderTime =
+    typeof rawReminderTime === "string" && rawReminderTime.trim() !== ""
+      ? rawReminderTime.trim()
+      : null;
+
   // validate time
   if (time && (!/^\d{2}:\d{2}$/.test(time))) {
     return res.status(400).json({
       message: "Time must use HH:MM format",
+    });
+  }
+
+  // validate reminder time
+  if (reminderTime && (!/^\d{2}:\d{2}$/.test(reminderTime))) {
+    return res.status(400).json({
+      message: "Reminder time must use HH:MM format",
     });
   }
 
@@ -152,6 +169,8 @@ router.post("/", requireAuth, async (req, res) => {
       status: STATUS_DISPLAY[statusLower],
       dueDate,
       time,
+      reminderDate,
+      reminderTime,
       userId: uid,
     };
 
@@ -355,6 +374,47 @@ router.patch("/:id", requireAuth, async (req, res) => {
       return res.status(400).json({ message: "Not a valid time" });
     }
   }
+
+    // Reminder date validation
+    if ("reminderDate" in updates) {
+        if (
+            typeof updates.reminderDate !== "string" ||
+            !/^\d{4}-\d{2}-\d{2}$/.test(updates.reminderDate)
+        ) {
+            return res.status(400).json({
+                message: "Reminder date must use YYYY-MM-DD format Please",
+            });
+        }
+
+        const dateParsed = new Date(updates.reminderDate + "T00:00:00Z");
+
+        if (isNaN(dateParsed.getTime())) {
+            return res.status(400).json({
+                message: "Not a valid reminder date",
+            });
+        }
+    }
+
+    // Reminder time validation 
+    if ("reminderTime" in updates) {
+        if (
+            typeof updates.reminderTime !== "string" ||
+            !/^\d{2}:\d{2}$/.test(updates.reminderTime)
+        ) {
+            return res.status(400).json({ message: "Time must use HH:MM format" });
+        }
+        const [hours, minutes] = updates.reminderTime.split(":").map(Number);
+        if (
+            isNaN(hours) ||
+            isNaN(minutes) ||
+            hours < 0 ||
+            hours > 23 ||
+            minutes < 0 ||
+            minutes > 59
+        ) {
+            return res.status(400).json({ message: "Not a valid time" });
+        }
+    }
 
   try {
     // Fetch task first and check it exists and who owns it
