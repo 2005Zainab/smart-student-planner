@@ -49,6 +49,8 @@ function TasksPage() {
     priority: "Medium",
     status: "To Do",
     time: "",
+    reminderDate: undefined,
+    reminderTime: "",
   });
 
   const openEditor = (task = null, mode = task ? "edit" : "create") => {
@@ -66,6 +68,8 @@ function TasksPage() {
         status: "To Do",
         dueDate: undefined,
         time: "",
+        reminderDate: undefined,
+        reminderTime: "",
       };
 
       setEditingTaskId(newTask.id);
@@ -81,6 +85,10 @@ function TasksPage() {
                 typeof task.dueDate === "string"
                   ? parseISO(task.dueDate)
                   : task.dueDate,
+              reminderDate:
+                  typeof task.reminderDate === "string"
+                      ? parseISO(task.reminderDate)
+                      : task.reminderDate,
             }
           : {
               title: "",
@@ -90,6 +98,8 @@ function TasksPage() {
               status: "To Do",
               dueDate: undefined,
               time: "",
+              reminderDate: undefined,
+              reminderTime: "",
             },
       );
     }
@@ -136,7 +146,14 @@ function TasksPage() {
             ? format(draft.dueDate, "yyyy-MM-dd")
             : draft.dueDate
           : null,
-        time: draft.time || null,
+          time: draft.time || null,
+
+          reminderDate: draft.reminderDate
+              ? draft.reminderDate instanceof Date
+                  ? format(draft.reminderDate, "yyyy-MM-dd")
+                  : draft.reminderDate
+              : null,
+          reminderTime: draft.reminderTime || null,
       };
 
       try {
@@ -174,7 +191,13 @@ function TasksPage() {
           ? draft.dueDate instanceof Date
             ? format(draft.dueDate, "yyyy-MM-dd")
             : draft.dueDate
-          : undefined,
+              : undefined,
+
+          reminderDate: draft.reminderDate
+              ? draft.reminderDate instanceof Date
+                  ? format(draft.reminderDate, "yyyy-MM-dd")
+                  : draft.reminderDate
+              : undefined,
       };
 
       const original = tasks.find((task) => task.id === editingTaskId);
