@@ -53,12 +53,12 @@ function TaskForm({
   return (
     <form
       className="space-y-4"
-      onSubmit={(event) => {
-        handleSave(event);
-      }}
+      onSubmit={handleSave}
     >
       <div className="space-y-2">
-        <Label htmlFor="task-title">Task name</Label>
+        <Label htmlFor="task-title">
+          Task name
+        </Label>
 
         <Input
           id="task-title"
@@ -70,10 +70,10 @@ function TaskForm({
           }
           disabled={readOnly}
           maxLength={200}
-          value={draft.title}
+          value={draft.title || ""}
         />
 
-        {draft.title.length >= 200 && (
+        {(draft.title?.length || 0) >= 200 && (
           <p className="text-sm text-medium-priority">
             Title cannot be more than 200 characters
           </p>
@@ -101,10 +101,10 @@ function TaskForm({
           }
           maxLength={1000}
           disabled={readOnly}
-          value={draft.description}
+          value={draft.description || ""}
         />
 
-        {draft.description.length >= 1000 && (
+        {(draft.description?.length || 0) >= 1000 && (
           <p className="text-sm text-medium-priority">
             Description cannot be more than 1000 characters
           </p>
@@ -113,7 +113,9 @@ function TaskForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="task-subject">Subject</Label>
+          <Label htmlFor="task-subject">
+            Subject
+          </Label>
 
           <Input
             id="task-subject"
@@ -126,10 +128,10 @@ function TaskForm({
             maxLength={200}
             disabled={readOnly}
             required
-            value={draft.subject}
+            value={draft.subject || ""}
           />
 
-          {draft.subject.length >= 200 && (
+          {(draft.subject?.length || 0) >= 200 && (
             <p className="text-sm text-medium-priority">
               Subject cannot be more than 200 characters
             </p>
@@ -137,7 +139,9 @@ function TaskForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="task-label">Label</Label>
+          <Label htmlFor="task-label">
+            Label
+          </Label>
 
           <Input
             id="task-label"
@@ -148,78 +152,19 @@ function TaskForm({
               }))
             }
             disabled={readOnly}
+            maxLength={100}
             value={draft.label || ""}
             placeholder="e.g. Assignment, Exam, Study"
           />
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="task-priority">
-            Priority
-          </Label>
+      <div className="space-y-1">
+        <Label>Priority</Label>
 
-          <Select
-            disabled={readOnly}
-            onValueChange={(priority) =>
-              setDraft((prev) => ({
-                ...prev,
-                priority,
-              }))
-            }
-            value={draft.priority}
-          >
-            <SelectTrigger
-              aria-label="Priority"
-              className="w-full"
-              id="task-priority"
-            >
-              <SelectValue />
-            </SelectTrigger>
-
-            <SelectContent>
-              <SelectItem value="High">High</SelectItem>
-              <SelectItem value="Medium">
-                Medium
-              </SelectItem>
-              <SelectItem value="Low">Low</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="task-status">Status</Label>
-
-          <Select
-            disabled={readOnly}
-            onValueChange={(status) =>
-              setDraft((prev) => ({
-                ...prev,
-                status,
-              }))
-            }
-            value={draft.status}
-          >
-            <SelectTrigger
-              aria-label="Status"
-              className="w-full"
-              id="task-status"
-            >
-              <SelectValue />
-            </SelectTrigger>
-
-            <SelectContent>
-              <SelectItem value="To Do">To Do</SelectItem>
-              <SelectItem value="In Progress">
-                In Progress
-              </SelectItem>
-              <SelectItem value="Completed">
-                Completed
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Priority is automatically calculated from the due date.
+        </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -227,7 +172,9 @@ function TaskForm({
           <Label htmlFor="task-due-date">
             Due date{" "}
             {requireDateAndTime && (
-              <span className="text-destructive">*</span>
+              <span className="text-destructive">
+                *
+              </span>
             )}
           </Label>
 
@@ -283,7 +230,9 @@ function TaskForm({
           <Label htmlFor="task-time">
             Time{" "}
             {requireDateAndTime && (
-              <span className="text-destructive">*</span>
+              <span className="text-destructive">
+                *
+              </span>
             )}
           </Label>
 
@@ -300,6 +249,45 @@ function TaskForm({
             disabled={readOnly}
             value={draft.time || ""}
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="task-status">
+            Status
+          </Label>
+
+          <Select
+            disabled={readOnly}
+            onValueChange={(status) =>
+              setDraft((prev) => ({
+                ...prev,
+                status,
+              }))
+            }
+            value={draft.status || "To Do"}
+          >
+            <SelectTrigger
+              aria-label="Status"
+              className="w-full"
+              id="task-status"
+            >
+              <SelectValue />
+            </SelectTrigger>
+
+            <SelectContent>
+              <SelectItem value="To Do">
+                To Do
+              </SelectItem>
+
+              <SelectItem value="In Progress">
+                In Progress
+              </SelectItem>
+
+              <SelectItem value="Completed">
+                Completed
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

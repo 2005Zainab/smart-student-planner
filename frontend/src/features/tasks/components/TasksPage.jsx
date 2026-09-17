@@ -1,18 +1,18 @@
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { TaskForm } from "./TaskForm";
-import { TaskList } from "./TaskList";
-import { httpClient } from "../../../shared/http-client";
 import { toast } from "@/components/ui/toast";
+
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 import {
   Sheet,
   SheetContent,
@@ -20,6 +20,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,31 +31,47 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+import { TaskForm } from "./TaskForm";
+import { TaskList } from "./TaskList";
 import { useTasks } from "../hooks/useTasks";
+import { httpClient } from "../../../shared/http-client";
 
 function TasksPage() {
   const { tasks, setTasks, isLoading, error } = useTasks();
 
   const [editorOpen, setEditorOpen] = useState(false);
-  const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
+  const [mobileEditorOpen, setMobileEditorOpen] =
+    useState(false);
   const [formMode, setFormMode] = useState("create");
-  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editingTaskId, setEditingTaskId] =
+    useState(null);
   const [deleteId, setDeleteId] = useState(null);
-  const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
+  const [emptyTitleCheck, setEmptyTitleCheck] =
+    useState(null);
   const [saveError, setSaveError] = useState(null);
-  const [previousStatusLookup, setPreviousStatusLookup] = useState({});
+
+  const [
+    previousStatusLookup,
+    setPreviousStatusLookup,
+  ] = useState({});
 
   const [draft, setDraft] = useState({
     title: "",
     description: "",
     subject: "",
     label: "",
-    priority: "Medium",
+    priority: "Low",
     status: "To Do",
+    dueDate: undefined,
     time: "",
   });
 
-  const openEditor = (task = null, mode = task ? "edit" : "create") => {
+  //Open the task form
+  const openEditor = (
+    task = null,
+    mode = task ? "edit" : "create",
+  ) => {
     setFormMode(mode);
     setEmptyTitleCheck(null);
     setSaveError(null);
@@ -66,14 +83,19 @@ function TasksPage() {
         description: "",
         subject: "",
         label: "",
-        priority: "Medium",
+        priority: "Low",
         status: "To Do",
         dueDate: undefined,
         time: "",
       };
 
       setEditingTaskId(newTask.id);
-      setTasks((current) => [...current, newTask]);
+
+      setTasks((current) => [
+        ...current,
+        newTask,
+      ]);
+
       setDraft(newTask);
     } else {
       setEditingTaskId(task?.id ?? null);
@@ -87,13 +109,14 @@ function TasksPage() {
                 typeof task.dueDate === "string"
                   ? parseISO(task.dueDate)
                   : task.dueDate,
+              time: task.time || "",
             }
           : {
               title: "",
               description: "",
               subject: "",
               label: "",
-              priority: "Medium",
+              priority: "Low",
               status: "To Do",
               dueDate: undefined,
               time: "",
@@ -101,17 +124,27 @@ function TasksPage() {
       );
     }
 
-    if (window.matchMedia("(max-width: 767px)").matches) {
+    if (
+      window.matchMedia(
+        "(max-width: 767px)",
+      ).matches
+    ) {
       setMobileEditorOpen(true);
     } else {
       setEditorOpen(true);
     }
   };
 
+  //Close the task form
   const closeEditor = () => {
-    if (formMode === "create" && editingTaskId !== null) {
+    if (
+      formMode === "create" &&
+      editingTaskId !== null
+    ) {
       setTasks((current) =>
-        current.filter((task) => task.id !== editingTaskId),
+        current.filter(
+          (task) => task.id !== editingTaskId,
+        ),
       );
     }
 
@@ -123,10 +156,16 @@ function TasksPage() {
     setSaveError(null);
   };
 
+  //Save a new task or edit an existing task
   const saveTask = async () => {
-    //Blank title check, can't be empty or blank space
-    if (!draft.title || draft.title.trim() === "") {
-      setEmptyTitleCheck("Title Cannot Be Empty");
+    //Check title is not empty
+    if (
+      !draft.title ||
+      draft.title.trim() === ""
+    ) {
+      setEmptyTitleCheck(
+        "Title Cannot Be Empty",
+      );
       return;
     }
 
@@ -139,11 +178,13 @@ function TasksPage() {
         description: draft.description,
         subject: draft.subject,
         label: draft.label || "",
-        priority: draft.priority,
         status: draft.status,
         dueDate: draft.dueDate
           ? draft.dueDate instanceof Date
-            ? format(draft.dueDate, "yyyy-MM-dd")
+            ? format(
+                draft.dueDate,
+                "yyyy-MM-dd",
+              )
             : draft.dueDate
           : null,
         time: draft.time || null,
@@ -154,13 +195,17 @@ function TasksPage() {
           "http://localhost:3000/api/tasks",
           {
             method: "POST",
-            body: JSON.stringify(taskToSave),
+            body: JSON.stringify(
+              taskToSave,
+            ),
           },
         );
 
         setTasks((current) =>
           current.map((task) =>
-            task.id === editingTaskId ? savedTask : task,
+            task.id === editingTaskId
+              ? savedTask
+              : task,
           ),
         );
 
@@ -170,7 +215,11 @@ function TasksPage() {
         });
       } catch (err) {
         console.log(err);
-        setSaveError(err.message || "Failed to add task");
+
+        setSaveError(
+          err.message ||
+            "Failed to add task",
+        );
 
         toast.add({
           title: "Failed to add task",
@@ -180,33 +229,47 @@ function TasksPage() {
         return;
       }
     } else {
-      //edit task sends to backend to check and save to firestore via PATCH route
-      const correctTimeZone = {
+      //Change the date back to YYYY-MM-DD before saving
+      const taskToEdit = {
         ...draft,
         label: draft.label || "",
         dueDate: draft.dueDate
           ? draft.dueDate instanceof Date
-            ? format(draft.dueDate, "yyyy-MM-dd")
+            ? format(
+                draft.dueDate,
+                "yyyy-MM-dd",
+              )
             : draft.dueDate
-          : undefined,
+          : null,
+        time: draft.time || null,
       };
 
       const original = tasks.find(
-        (task) => task.id === editingTaskId,
+        (task) =>
+          task.id === editingTaskId,
       );
 
-      const changes = Object.keys(correctTimeZone).reduce(
-        (acc, key) => {
-          if (correctTimeZone[key] !== original?.[key]) {
-            acc[key] = correctTimeZone[key];
+      //Only send fields that were changed
+      const changes = Object.keys(
+        taskToEdit,
+      ).reduce(
+        (updatedFields, key) => {
+          if (
+            taskToEdit[key] !==
+            original?.[key]
+          ) {
+            updatedFields[key] =
+              taskToEdit[key];
           }
 
-          return acc;
+          return updatedFields;
         },
         {},
       );
 
-      if (Object.keys(changes).length === 0) {
+      if (
+        Object.keys(changes).length === 0
+      ) {
         setEditorOpen(false);
         setMobileEditorOpen(false);
         setEditingTaskId(null);
@@ -214,24 +277,33 @@ function TasksPage() {
       }
 
       try {
-        await httpClient(
-          `http://localhost:3000/api/tasks/${editingTaskId}`,
-          {
-            method: "PATCH",
-            body: JSON.stringify(changes),
-          },
-        );
+        //Backend returns the updated task with new priority
+        const updatedTask =
+          await httpClient(
+            `http://localhost:3000/api/tasks/${editingTaskId}`,
+            {
+              method: "PATCH",
+              body: JSON.stringify(
+                changes,
+              ),
+            },
+          );
 
         setTasks((current) =>
           current.map((task) =>
             task.id === editingTaskId
-              ? { ...task, ...changes }
+              ? updatedTask
               : task,
           ),
         );
       } catch (err) {
         console.log(err);
-        setSaveError(err.message || "Failed to save task");
+
+        setSaveError(
+          err.message ||
+            "Failed to save task",
+        );
+
         return;
       }
     }
@@ -239,24 +311,28 @@ function TasksPage() {
     closeEditor();
   };
 
-  //Saves the tasks status via the PATCH backend route when toggleTask box is clicked
+  //Save task status when checkbox is clicked
   const toggleTask = async (id) => {
     const task = tasks.find(
-      (existingTask) => existingTask.id === id,
+      (existingTask) =>
+        existingTask.id === id,
     );
 
     const originalStatus = task.status;
 
     const newStatus =
       originalStatus === "Completed"
-        ? (previousStatusLookup[id] ?? "To Do")
+        ? (previousStatusLookup[id] ??
+          "To Do")
         : "Completed";
 
     if (newStatus === "Completed") {
-      setPreviousStatusLookup((current) => ({
-        ...current,
-        [id]: originalStatus,
-      }));
+      setPreviousStatusLookup(
+        (current) => ({
+          ...current,
+          [id]: originalStatus,
+        }),
+      );
     }
 
     try {
@@ -264,34 +340,41 @@ function TasksPage() {
         `http://localhost:3000/api/tasks/${id}`,
         {
           method: "PATCH",
-          body: JSON.stringify({ status: newStatus }),
+          body: JSON.stringify({
+            status: newStatus,
+          }),
         },
       );
 
       setTasks((current) =>
-        current.map((existingTask) =>
-          existingTask.id === id
-            ? {
-                ...existingTask,
-                status: newStatus,
-              }
-            : existingTask,
+        current.map(
+          (existingTask) =>
+            existingTask.id === id
+              ? {
+                  ...existingTask,
+                  status: newStatus,
+                }
+              : existingTask,
         ),
       );
 
-      //Toast for undo task whenever a task is clicked to completed
+      //Show undo option when task is completed
       if (newStatus === "Completed") {
         const toastId = toast.add({
           title: "Task Completed",
           description: task.title,
           type: "success",
           timeout: 10000,
+
           actionProps: {
             children: "Undo",
+
             onClick: () => {
               undoCompleted(
                 id,
-                previousStatusLookup[id] ?? originalStatus,
+                previousStatusLookup[
+                  id
+                ] ?? originalStatus,
               );
 
               toast.close(toastId);
@@ -304,8 +387,11 @@ function TasksPage() {
     }
   };
 
-  //When undo pressed on toast reverts to its status before completed
-  const undoCompleted = async (id, originalStatus) => {
+  //Change completed task back to previous status
+  const undoCompleted = async (
+    id,
+    originalStatus,
+  ) => {
     try {
       await httpClient(
         `http://localhost:3000/api/tasks/${id}`,
@@ -318,13 +404,15 @@ function TasksPage() {
       );
 
       setTasks((current) =>
-        current.map((existingTask) =>
-          existingTask.id === id
-            ? {
-                ...existingTask,
-                status: originalStatus,
-              }
-            : existingTask,
+        current.map(
+          (existingTask) =>
+            existingTask.id === id
+              ? {
+                  ...existingTask,
+                  status:
+                    originalStatus,
+                }
+              : existingTask,
         ),
       );
     } catch (err) {
@@ -343,7 +431,9 @@ function TasksPage() {
       );
 
       setTasks((current) =>
-        current.filter((task) => task.id !== id),
+        current.filter(
+          (task) => task.id !== id,
+        ),
       );
 
       toast.add({
@@ -366,12 +456,16 @@ function TasksPage() {
           </h2>
 
           <p className="mt-1 text-muted-foreground">
-            Keep your coursework moving forward.
+            Keep your coursework moving
+            forward.
           </p>
         </div>
 
-        <Button onClick={() => openEditor()}>
-          <Plus /> Add task
+        <Button
+          onClick={() => openEditor()}
+        >
+          <Plus />
+          Add task
         </Button>
       </div>
 
@@ -381,10 +475,14 @@ function TasksPage() {
             tasks={tasks}
             isLoading={isLoading}
             error={error}
-            onEdit={(task) => openEditor(task, "edit")}
+            onEdit={(task) =>
+              openEditor(task, "edit")
+            }
             onDelete={setDeleteId}
             onToggle={toggleTask}
-            onView={(task) => openEditor(task, "view")}
+            onView={(task) =>
+              openEditor(task, "view")
+            }
           />
         </CardContent>
       </Card>
@@ -392,7 +490,9 @@ function TasksPage() {
       <Dialog
         open={editorOpen}
         onOpenChange={(open) =>
-          open ? setEditorOpen(true) : closeEditor()
+          open
+            ? setEditorOpen(true)
+            : closeEditor()
         }
       >
         <DialogContent>
@@ -416,9 +516,13 @@ function TasksPage() {
             draft={draft}
             onCancel={closeEditor}
             onSave={saveTask}
-            readOnly={formMode === "view"}
+            readOnly={
+              formMode === "view"
+            }
             setDraft={setDraft}
-            titleError={emptyTitleCheck}
+            titleError={
+              emptyTitleCheck
+            }
             saveError={saveError}
           />
         </DialogContent>
@@ -456,9 +560,13 @@ function TasksPage() {
               draft={draft}
               onCancel={closeEditor}
               onSave={saveTask}
-              readOnly={formMode === "view"}
+              readOnly={
+                formMode === "view"
+              }
               setDraft={setDraft}
-              titleError={emptyTitleCheck}
+              titleError={
+                emptyTitleCheck
+              }
               saveError={saveError}
             />
           </div>
@@ -468,7 +576,8 @@ function TasksPage() {
       <AlertDialog
         open={deleteId !== null}
         onOpenChange={(open) =>
-          !open && setDeleteId(null)
+          !open &&
+          setDeleteId(null)
         }
       >
         <AlertDialogContent>
@@ -478,7 +587,8 @@ function TasksPage() {
             </AlertDialogTitle>
 
             <AlertDialogDescription>
-              This task will be removed from your study plan.
+              This task will be removed
+              from your study plan.
             </AlertDialogDescription>
           </AlertDialogHeader>
 

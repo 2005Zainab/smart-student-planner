@@ -1,30 +1,45 @@
 import { MoreHorizontal } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
 import { Skeleton } from "@/components/ui/skeleton";
 
-function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
-  return isLoading ? (
-    <div className="flex items-start gap-3 p-4">
-      <Skeleton className="h-5 w-5" />
+function TaskRow({
+  task,
+  onEdit,
+  onDelete,
+  onToggle,
+  onView,
+  isLoading,
+}) {
+  //Show loading layout while tasks are loading
+  if (isLoading) {
+    return (
+      <div className="flex items-start gap-3 p-4">
+        <Skeleton className="h-5 w-5" />
 
-      <div className="min-w-0 flex-1">
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="mt-1 h-3 w-1/2" />
+        <div className="min-w-0 flex-1">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="mt-1 h-3 w-1/2" />
+        </div>
+
+        <Skeleton className="h-5 w-12" />
+        <Skeleton className="h-5 w-12" />
+        <Skeleton className="h-5 w-5" />
       </div>
+    );
+  }
 
-      <Skeleton className="h-5 w-12" />
-      <Skeleton className="h-5 w-12" />
-      <Skeleton className="h-5 w-5" />
-    </div>
-  ) : (
+  return (
     <div
       className="flex cursor-pointer items-start gap-3 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={onView}
@@ -37,6 +52,7 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
       role="button"
       tabIndex={0}
     >
+      {/* Complete task checkbox */}
       <Checkbox
         aria-label={`Mark ${task.title} complete`}
         checked={task.status === "Completed"}
@@ -44,6 +60,7 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
         onCheckedChange={onToggle}
       />
 
+      {/* Task information */}
       <div className="min-w-0 flex-1">
         <p
           className={
@@ -60,17 +77,25 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
         </p>
 
         {task.label && (
-          <Badge className="mt-2" variant="outline">
+          <Badge
+            className="mt-2"
+            variant="outline"
+          >
             {task.label}
           </Badge>
         )}
       </div>
 
+      {/* Priority colour changes depending on priority */}
       <Badge
         variant={
           task.priority === "High"
-            ? "destructive"
-            : "secondary"
+            ? "high"
+            : task.priority === "Medium"
+              ? "medium"
+              : task.priority === "Low"
+                ? "low"
+                : "secondary"
         }
       >
         {task.priority}
@@ -81,9 +106,10 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
       </Badge>
 
       <Badge variant="outline">
-        {task.dueDate}
+        {task.dueDate || "No due date"}
       </Badge>
 
+      {/* Edit and delete menu */}
       <DropdownMenu>
         <DropdownMenuTrigger
           onClick={(event) => event.stopPropagation()}
@@ -101,7 +127,9 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
         <DropdownMenuContent
           align="end"
           onClick={(event) => event.stopPropagation()}
-          onKeyDown={(event) => event.stopPropagation()}
+          onKeyDown={(event) =>
+            event.stopPropagation()
+          }
         >
           <DropdownMenuItem onClick={onEdit}>
             Edit
