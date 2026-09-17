@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
+import { httpClient } from "../../../shared/http-client";
 
 export function useReminders(tasks) {
-    const firedRef = useRef(new Set());
+    const firedRef = useRef(new Map());
+    const originalTitleRef = useRef(document.title);
 
     useEffect(() => {
         if (typeof Notification !== "undefined" && Notification.permission === "default") {
@@ -15,28 +17,39 @@ export function useReminders(tasks) {
 
             tasks.forEach((task) => {
                 if (!task.reminderDate || !task.reminderTime) return;
-                if (firedRef.current.has(task.id)) return;
 
-                const reminderDateTime = new Date(
-                    `${task.reminderDate}T${task.reminderTime}:00`
-                );
+                const reminderKey = `${task.reminderDate}T${task.reminderTime}`;
+
+                if (firedRef.current.get(task.id) === reminderKey) return;
+
+                const reminderDateTime = new Date(`${reminderKey}:00`);
 
                 if (isNaN(reminderDateTime.getTime())) return;
 
                 if (reminderDateTime <= now) {
-                    firedRef.current.add(task.id);
+                    firedRef.current.set(task.id, reminderKey);
 
-                    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-                        new Notification("Task reminder", {
-                            body: task.title || "You have a task due",
+                    try {
+                        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+                            new Notification("Task reminder", {
+                                body: task.title || "You have a task due",
+                            });
+                        }
+
+                        document.title = `Reminder: ${task.title || "Task"}`;
+                        setTimeout(() => {
+                            document.title = originalTitleRef.current;
+                        }, 5000);
+
+                        httpClient(`http://localhost:3000/api/tasks/${task.id}`, {
+                            method: "PATCH",
+                            body: JSON.stringify({ reminderDate: null, reminderTime: null }),
+                        }).catch((err) => {
+                            console.log("Failed to clear reminder:", err);
                         });
+                    } catch (err) {
+                        console.log("Error handling reminder for task", task.id, err);
                     }
-
-                    const originalTitle = document.title;
-                    document.title = `Reminder: ${task.title || "Task"}`;
-                    setTimeout(() => {
-                        document.title = originalTitle;
-                    }, 5000);
                 }
             });
         };

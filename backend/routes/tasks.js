@@ -376,7 +376,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
   }
 
     // Reminder date validation
-    if ("reminderDate" in updates) {
+    if ("reminderDate" in updates && updates.reminderDate !== null) {
         if (
             typeof updates.reminderDate !== "string" ||
             !/^\d{4}-\d{2}-\d{2}$/.test(updates.reminderDate)
@@ -396,7 +396,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
 
     // Reminder time validation 
-    if ("reminderTime" in updates) {
+    if ("reminderTime" in updates && updates.reminderTime !== null) {
         if (
             typeof updates.reminderTime !== "string" ||
             !/^\d{2}:\d{2}$/.test(updates.reminderTime)

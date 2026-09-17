@@ -23,5 +23,5 @@ export function useTasks() {
     fetchTasks();
   }, [fetchTasks]);
 
-  return { tasks, setTasks, isLoading, error };
+  return { tasks, setTasks, isLoading, error, refetch: fetchTasks };
 }
