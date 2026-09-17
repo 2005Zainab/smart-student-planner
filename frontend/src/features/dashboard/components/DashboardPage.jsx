@@ -75,7 +75,9 @@ function DashboardPage() {
                     <p className="mt-1 text-xs text-muted-foreground">
                       {task.daysUntilDue === 0
                         ? "Due today"
-                        : `Due in ${task.daysUntilDue} days`}
+                        : task.daysUntilDue === 1
+                          ? "Due in 1 day"
+                          : `Due in ${task.daysUntilDue} days`}
                     </p>
                   </div>
                   <Badge
