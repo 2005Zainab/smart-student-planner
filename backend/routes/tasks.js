@@ -71,7 +71,14 @@ router.post("/", requireAuth, async (req, res) => {
     return res.status(400).json({
       message: "Reminder time must use HH:MM format",
     });
-  }
+    }
+
+    // reminder date and time must be set together
+    if (Boolean(reminderDate) !== Boolean(reminderTime)) {
+        return res.status(400).json({
+            message: "Date and time is required to set a reminder.",
+        });
+    }
 
   // Title must be text
   if (typeof title !== "string") {
@@ -432,6 +439,18 @@ router.patch("/:id", requireAuth, async (req, res) => {
         message: "Unauthorized to edit this task: You do not own this task",
       });
     }
+
+      const existingData = taskSnap.data();
+      const finalReminderDate =
+          "reminderDate" in updates ? updates.reminderDate : existingData.reminderDate;
+      const finalReminderTime =
+          "reminderTime" in updates ? updates.reminderTime : existingData.reminderTime;
+
+      if (Boolean(finalReminderDate) !== Boolean(finalReminderTime)) {
+          return res.status(400).json({
+              message: "Date and time is required to set a reminder.",
+          });
+      }
 
     await taskDoc.update(updates);
 

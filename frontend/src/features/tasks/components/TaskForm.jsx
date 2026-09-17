@@ -29,7 +29,8 @@ function TaskForm({
   readOnly = false,
   requireDateAndTime = false,
 }) {
-  const [dateError, setDateError] = useState("");
+    const [dateError, setDateError] = useState("");
+    const [reminderError, setReminderError] = useState("");
 
   const handleSave = (event) => {
     event.preventDefault();
@@ -38,6 +39,15 @@ function TaskForm({
     if (requireDateAndTime && !draft.dueDate) {
       setDateError("Due date is required for adding task to schedule.");
       return;
+      }
+
+    setReminderError(""); // Reset reminder error before validation
+    const hasReminderDate = Boolean(draft.reminderDate);
+    const hasReminderTime = Boolean(draft.reminderTime);
+
+    if (hasReminderDate !== hasReminderTime) {
+        setReminderError("Date and time is required to set a reminder.");
+        return;
     }
 
     onSave();
@@ -241,6 +251,7 @@ function TaskForm({
             value={draft.reminderTime || ""}
           />
         </div>
+              {reminderError && <p className="text-sm text-destructive">{reminderError}</p>} 
       </div>
       {saveError && <p className="text-sm text-destructive">{saveError}</p>}
       {!readOnly && (
