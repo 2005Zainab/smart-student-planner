@@ -1,14 +1,18 @@
 import { format } from "date-fns";
 import { CalendarDays } from "lucide-react";
+import { useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+
 import {
   Select,
   SelectContent,
@@ -16,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 import { Textarea } from "@/components/ui/textarea";
 
 function TaskForm({
@@ -26,21 +31,42 @@ function TaskForm({
   titleError,
   saveError,
   readOnly = false,
+  requireDateAndTime = false,
 }) {
+  const [dateError, setDateError] = useState("");
+
+  const handleSave = (event) => {
+    event.preventDefault();
+
+    setDateError("");
+
+    if (requireDateAndTime && !draft.dueDate) {
+      setDateError(
+        "Due date is required for adding task to schedule.",
+      );
+      return;
+    }
+
+    onSave();
+  };
+
   return (
     <form
       className="space-y-4"
       onSubmit={(event) => {
-        event.preventDefault();
-        onSave();
+        handleSave(event);
       }}
     >
       <div className="space-y-2">
         <Label htmlFor="task-title">Task name</Label>
+
         <Input
           id="task-title"
           onChange={(event) =>
-            setDraft({ ...draft, title: event.target.value })
+            setDraft((prev) => ({
+              ...prev,
+              title: event.target.value,
+            }))
           }
           disabled={readOnly}
           maxLength={200}
@@ -61,15 +87,17 @@ function TaskForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="task-description">Description</Label>
+        <Label htmlFor="task-description">
+          Description
+        </Label>
 
         <Textarea
           id="task-description"
           onChange={(event) =>
-            setDraft({
-              ...draft,
+            setDraft((prev) => ({
+              ...prev,
               description: event.target.value,
-            })
+            }))
           }
           maxLength={1000}
           disabled={readOnly}
@@ -90,10 +118,10 @@ function TaskForm({
           <Input
             id="task-subject"
             onChange={(event) =>
-              setDraft({
-                ...draft,
+              setDraft((prev) => ({
+                ...prev,
                 subject: event.target.value,
-              })
+              }))
             }
             maxLength={200}
             disabled={readOnly}
@@ -114,10 +142,10 @@ function TaskForm({
           <Input
             id="task-label"
             onChange={(event) =>
-              setDraft({
-                ...draft,
+              setDraft((prev) => ({
+                ...prev,
                 label: event.target.value,
-              })
+              }))
             }
             disabled={readOnly}
             value={draft.label || ""}
@@ -128,15 +156,17 @@ function TaskForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="task-priority">Priority</Label>
+          <Label htmlFor="task-priority">
+            Priority
+          </Label>
 
           <Select
             disabled={readOnly}
             onValueChange={(priority) =>
-              setDraft({
-                ...draft,
+              setDraft((prev) => ({
+                ...prev,
                 priority,
-              })
+              }))
             }
             value={draft.priority}
           >
@@ -150,7 +180,9 @@ function TaskForm({
 
             <SelectContent>
               <SelectItem value="High">High</SelectItem>
-              <SelectItem value="Medium">Medium</SelectItem>
+              <SelectItem value="Medium">
+                Medium
+              </SelectItem>
               <SelectItem value="Low">Low</SelectItem>
             </SelectContent>
           </Select>
@@ -162,10 +194,10 @@ function TaskForm({
           <Select
             disabled={readOnly}
             onValueChange={(status) =>
-              setDraft({
-                ...draft,
+              setDraft((prev) => ({
+                ...prev,
                 status,
-              })
+              }))
             }
             value={draft.status}
           >
@@ -190,41 +222,85 @@ function TaskForm({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="task-due-date">Due date</Label>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="task-due-date">
+            Due date{" "}
+            {requireDateAndTime && (
+              <span className="text-destructive">*</span>
+            )}
+          </Label>
 
-        <Popover>
-          <PopoverTrigger
-            render={
-              <Button
-                className="w-full justify-start font-normal"
-                disabled={readOnly}
-                id="task-due-date"
-                type="button"
-                variant="outline"
-              />
-            }
-          >
-            <CalendarDays />
-
-            {draft.dueDate
-              ? format(draft.dueDate, "PPP")
-              : "Choose a date"}
-          </PopoverTrigger>
-
-          <PopoverContent className="w-auto p-0">
-            <Calendar
-              mode="single"
-              onSelect={(dueDate) =>
-                setDraft({
-                  ...draft,
-                  dueDate,
-                })
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button
+                  className={`w-full justify-start font-normal ${
+                    dateError
+                      ? "border-destructive"
+                      : ""
+                  }`}
+                  disabled={readOnly}
+                  id="task-due-date"
+                  type="button"
+                  variant="outline"
+                />
               }
-              selected={draft.dueDate}
-            />
-          </PopoverContent>
-        </Popover>
+            >
+              <CalendarDays />
+
+              {draft.dueDate
+                ? format(draft.dueDate, "PPP")
+                : "Choose a date"}
+            </PopoverTrigger>
+
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                onSelect={(dueDate) => {
+                  setDraft((prev) => ({
+                    ...prev,
+                    dueDate,
+                  }));
+
+                  if (dueDate) {
+                    setDateError("");
+                  }
+                }}
+                selected={draft.dueDate}
+              />
+            </PopoverContent>
+          </Popover>
+
+          {dateError && (
+            <p className="text-sm text-destructive">
+              {dateError}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="task-time">
+            Time{" "}
+            {requireDateAndTime && (
+              <span className="text-destructive">*</span>
+            )}
+          </Label>
+
+          <Input
+            id="task-time"
+            type="time"
+            required={requireDateAndTime}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                time: event.target.value,
+              }))
+            }
+            disabled={readOnly}
+            value={draft.time || ""}
+          />
+        </div>
       </div>
 
       {saveError && (

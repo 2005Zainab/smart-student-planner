@@ -12,6 +12,7 @@ const ALLOWED_FIELDS = [
   "priority",
   "status",
   "dueDate",
+  "time",
 ];
 
 const ALLOWED_PRIORITIES = ["low", "medium", "high"];
@@ -68,9 +69,46 @@ router.post("/", requireAuth, async (req, res) => {
     priority = "Medium",
     status = "To Do",
     dueDate = null,
+    time: rawTime = "",
   } = req.body;
 
-  if (typeof title !== "string" || title.trim() === "") {
+  const time =
+    typeof rawTime === "string" && rawTime.trim() !== ""
+      ? rawTime.trim()
+      : null;
+
+  //Check time
+  if (time && !/^\d{2}:\d{2}$/.test(time)) {
+    return res.status(400).json({
+      message: "Time must use HH:MM format",
+    });
+  }
+
+  if (time) {
+    const [hours, minutes] = time.split(":").map(Number);
+
+    if (
+      isNaN(hours) ||
+      isNaN(minutes) ||
+      hours < 0 ||
+      hours > 23 ||
+      minutes < 0 ||
+      minutes > 59
+    ) {
+      return res.status(400).json({
+        message: "Not a valid time",
+      });
+    }
+  }
+
+  //Check title
+  if (typeof title !== "string") {
+    return res.status(400).json({
+      message: "Title has to be a string",
+    });
+  }
+
+  if (title.trim() === "") {
     return res.status(400).json({
       message: "Title cannot be empty or blank",
     });
@@ -82,6 +120,7 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
+  //Check description
   if (typeof description !== "string") {
     return res.status(400).json({
       message: "Description must be text",
@@ -94,6 +133,7 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
+  //Check subject
   if (typeof subject !== "string") {
     return res.status(400).json({
       message: "Subject must be text",
@@ -106,6 +146,7 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
+  //Check label
   if (typeof label !== "string") {
     return res.status(400).json({
       message: "Label must be text",
@@ -118,7 +159,14 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
-  const priorityLower = priority.toLowerCase();
+  //Check priority
+  if (typeof priority !== "string") {
+    return res.status(400).json({
+      message: "Priority must be text",
+    });
+  }
+
+  const priorityLower = priority.trim().toLowerCase();
 
   if (!ALLOWED_PRIORITIES.includes(priorityLower)) {
     return res.status(400).json({
@@ -126,7 +174,14 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
-  const statusLower = status.toLowerCase();
+  //Check status
+  if (typeof status !== "string") {
+    return res.status(400).json({
+      message: "Status must be text",
+    });
+  }
+
+  const statusLower = status.trim().toLowerCase();
 
   if (!ALLOWED_STATUSES.includes(statusLower)) {
     return res.status(400).json({
@@ -134,6 +189,7 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
+  //Check due date
   if (
     dueDate &&
     (typeof dueDate !== "string" ||
@@ -153,25 +209,26 @@ router.post("/", requireAuth, async (req, res) => {
       priority: getPriorityFromDueDate(dueDate),
       status: STATUS_DISPLAY[statusLower],
       dueDate,
+      time,
       userId: uid,
     };
 
     const taskRef = await db.collection("tasks").add(newTask);
 
-    res.status(201).json({
+    return res.status(201).json({
       id: taskRef.id,
       ...newTask,
     });
   } catch (err) {
     console.log(err);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Failed to create task",
     });
   }
 });
 
-//Try to delete task
+//Deletes tasks from Firestore using Express API route then updates local UI
 router.delete("/:id", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
@@ -194,18 +251,19 @@ router.delete("/:id", requireAuth, async (req, res) => {
 
     await taskDoc.delete();
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Task Deleted",
     });
   } catch (err) {
     console.log(err);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Failed to Delete Task",
     });
   }
 });
 
+//Edit task
 router.patch("/:id", requireAuth, async (req, res) => {
   const uid = req.user.uid;
   const updates = {};
@@ -222,7 +280,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     });
   }
 
-  //Not allowed blank/empty title, rejects before updating firestore
+  //Check title
   if ("title" in updates) {
     if (typeof updates.title !== "string") {
       return res.status(400).json({
@@ -236,7 +294,6 @@ router.patch("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    //Cap title edits to 200 chars
     updates.title = updates.title.trim();
 
     if (updates.title.length > 200) {
@@ -246,7 +303,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
   }
 
-  //prevent non string entries
+  //Check description
   if ("description" in updates) {
     if (typeof updates.description !== "string") {
       return res.status(400).json({
@@ -254,7 +311,6 @@ router.patch("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    //Cap description edits to 1000 chars
     updates.description = updates.description.trim();
 
     if (updates.description.length > 1000) {
@@ -264,7 +320,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
   }
 
-  //prevent non string entries
+  //Check subject
   if ("subject" in updates) {
     if (typeof updates.subject !== "string") {
       return res.status(400).json({
@@ -272,7 +328,6 @@ router.patch("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    //Cap subject edits to 200 chars
     updates.subject = updates.subject.trim();
 
     if (updates.subject.length > 200) {
@@ -282,7 +337,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
   }
 
-  // Validate edited label
+  //Check label
   if ("label" in updates) {
     if (typeof updates.label !== "string") {
       return res.status(400).json({
@@ -299,17 +354,15 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
   }
 
-  //prevent non string entries
+  //Check priority
   if ("priority" in updates) {
     if (typeof updates.priority !== "string") {
       return res.status(400).json({
-        message: "Not a valid priority",
+        message: "Priority must be text",
       });
     }
 
-    const trimmedLower = updates.priority
-      .trim()
-      .toLowerCase();
+    const trimmedLower = updates.priority.trim().toLowerCase();
 
     if (!ALLOWED_PRIORITIES.includes(trimmedLower)) {
       return res.status(400).json({
@@ -320,17 +373,15 @@ router.patch("/:id", requireAuth, async (req, res) => {
     updates.priority = PRIORITY_DISPLAY[trimmedLower];
   }
 
-  //prevent non string entries
+  //Check status
   if ("status" in updates) {
     if (typeof updates.status !== "string") {
       return res.status(400).json({
-        message: "Not a valid status",
+        message: "Status must be text",
       });
     }
 
-    const trimmedLower = updates.status
-      .trim()
-      .toLowerCase();
+    const trimmedLower = updates.status.trim().toLowerCase();
 
     if (!ALLOWED_STATUSES.includes(trimmedLower)) {
       return res.status(400).json({
@@ -341,6 +392,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     updates.status = STATUS_DISPLAY[trimmedLower];
   }
 
+  //Check due date
   if ("dueDate" in updates) {
     if (
       typeof updates.dueDate !== "string" ||
@@ -361,18 +413,42 @@ router.patch("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    // If deadline changes, automatically update priority too
+    //If deadline changes update priority too
     updates.priority = getPriorityFromDueDate(
       updates.dueDate,
     );
   }
 
-  try {
-    //Fetches task first and checks it exists and who owns it
-    const taskDoc = db
-      .collection("tasks")
-      .doc(req.params.id);
+  //Check time
+  if ("time" in updates) {
+    if (
+      typeof updates.time !== "string" ||
+      !/^\d{2}:\d{2}$/.test(updates.time)
+    ) {
+      return res.status(400).json({
+        message: "Time must use HH:MM format",
+      });
+    }
 
+    const [hours, minutes] =
+      updates.time.split(":").map(Number);
+
+    if (
+      isNaN(hours) ||
+      isNaN(minutes) ||
+      hours < 0 ||
+      hours > 23 ||
+      minutes < 0 ||
+      minutes > 59
+    ) {
+      return res.status(400).json({
+        message: "Not a valid time",
+      });
+    }
+  }
+
+  try {
+    const taskDoc = db.collection("tasks").doc(req.params.id);
     const taskSnap = await taskDoc.get();
 
     if (!taskSnap.exists) {
@@ -390,19 +466,19 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     await taskDoc.update(updates);
 
-    res.status(200).json({
+    return res.status(200).json({
       message: "Task Updated",
     });
   } catch (err) {
     console.log(err);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Failed to Update Task",
     });
   }
 });
 
-// view all tasks
+//View all tasks
 router.get("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
@@ -426,11 +502,11 @@ router.get("/", requireAuth, async (req, res) => {
       });
     });
 
-    res.status(200).json(tasks);
+    return res.status(200).json(tasks);
   } catch (err) {
     console.log(err);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Failed to fetch tasks",
     });
   }
