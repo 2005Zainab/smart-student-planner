@@ -45,11 +45,12 @@ function CalendarPage() {
     priority: "Medium",
     status: "To Do",
     dueDate: undefined,
+    time: "",
   };
 
   const [draft, setDraft] = useState(emptyDraft);
 
-  //Show tasks that have a date
+  //Tasks that have a date can show on calendar
   const calendarTasks = tasks.filter((task) => task.dueDate);
 
   //Group tasks by date
@@ -63,7 +64,6 @@ function CalendarPage() {
     return groupedTasks;
   }, {});
 
-  //Get calendar dates
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
 
@@ -80,7 +80,7 @@ function CalendarPage() {
     end: calendarEnd,
   });
 
-  //Open form to add a task
+  //Open form for a new task
   const openAddForm = (date = undefined) => {
     setFormMode("create");
     setEditingTaskId(null);
@@ -95,7 +95,7 @@ function CalendarPage() {
     setEditorOpen(true);
   };
 
-  //Open form to edit a task
+  //Open existing task to edit
   const openEditForm = (task) => {
     setFormMode("edit");
     setEditingTaskId(task.id);
@@ -108,12 +108,12 @@ function CalendarPage() {
         typeof task.dueDate === "string"
           ? parseISO(task.dueDate)
           : task.dueDate,
+      time: task.time || "",
     });
 
     setEditorOpen(true);
   };
 
-  //Close the form
   const closeEditor = () => {
     setEditorOpen(false);
     setFormMode("create");
@@ -123,10 +123,16 @@ function CalendarPage() {
     setDraft(emptyDraft);
   };
 
-  //Save add or edit
+  //Save new task or edited task
   const saveTask = async () => {
     if (!draft.title || draft.title.trim() === "") {
       setTitleError("Title cannot be empty");
+      return;
+    }
+
+    //Calendar tasks need a date
+    if (!draft.dueDate) {
+      setSaveError("Please choose a due date for the calendar task");
       return;
     }
 
@@ -139,16 +145,18 @@ function CalendarPage() {
       subject: draft.subject || "",
       priority: draft.priority || "Medium",
       status: draft.status || "To Do",
-      dueDate: draft.dueDate
-        ? draft.dueDate instanceof Date
+
+      dueDate:
+        draft.dueDate instanceof Date
           ? format(draft.dueDate, "yyyy-MM-dd")
-          : draft.dueDate
-        : null,
+          : draft.dueDate,
+
+      //Send time to backend
+      time: draft.time || null,
     };
 
     try {
       if (formMode === "create") {
-        //Add new task
         const savedTask = await httpClient(
           "http://localhost:3000/api/tasks",
           {
@@ -159,7 +167,6 @@ function CalendarPage() {
 
         setTasks((current) => [...current, savedTask]);
       } else {
-        //Update existing task
         await httpClient(
           `http://localhost:3000/api/tasks/${editingTaskId}`,
           {
@@ -198,8 +205,6 @@ function CalendarPage() {
   return (
     <main className="flex-1 space-y-6 p-4 md:p-6">
       <div className="rounded-xl border bg-card p-6">
-
-        {/* Calendar heading */}
         <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <h2 className="text-3xl font-bold">
@@ -211,7 +216,6 @@ function CalendarPage() {
             </p>
           </div>
 
-          {/* Calendar buttons */}
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -245,7 +249,6 @@ function CalendarPage() {
           </div>
         </div>
 
-        {/* Days of week */}
         <div className="grid grid-cols-7 border-x border-t bg-muted text-center text-sm font-semibold text-muted-foreground">
           <div className="p-3">Mon</div>
           <div className="p-3">Tue</div>
@@ -256,7 +259,6 @@ function CalendarPage() {
           <div className="p-3">Sun</div>
         </div>
 
-        {/* Calendar grid */}
         <div className="grid grid-cols-7 border-l border-t">
           {calendarDays.map((day) => {
             const dateKey = format(day, "yyyy-MM-dd");
@@ -272,7 +274,6 @@ function CalendarPage() {
                 }`}
                 onDoubleClick={() => openAddForm(day)}
               >
-                {/* Date */}
                 <div className="mb-2 flex justify-end">
                   <span
                     className={`flex h-7 w-7 items-center justify-center rounded-full text-sm ${
@@ -287,7 +288,6 @@ function CalendarPage() {
                   </span>
                 </div>
 
-                {/* Tasks */}
                 <div className="space-y-1">
                   {dayTasks.map((task) => (
                     <button
@@ -299,7 +299,9 @@ function CalendarPage() {
                       }}
                       className="w-full truncate rounded-md bg-secondary px-2 py-1.5 text-left text-xs font-medium text-secondary-foreground hover:bg-secondary/80"
                     >
-                      {task.title}
+                      {task.time
+                        ? `${task.time} - ${task.title}`
+                        : task.title}
                     </button>
                   ))}
                 </div>
@@ -309,7 +311,6 @@ function CalendarPage() {
         </div>
       </div>
 
-      {/* Add and edit task dialog */}
       <Dialog
         open={editorOpen}
         onOpenChange={(open) => {
