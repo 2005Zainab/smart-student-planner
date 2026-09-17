@@ -26,6 +26,7 @@ const STATUS_DISPLAY = {
   completed: "Completed",
 };
 
+
 //Validates the checklist and ensures checklist items added are the proper type
 function validateChecklist(checklist) {
   if (!Array.isArray(checklist)) {
@@ -56,7 +57,6 @@ function validateChecklist(checklist) {
   return { cleanChecklist };
 }
 
-// Add task to Firestore
 //Work out priority from the due date
 function getPriorityFromDueDate(dueDate) {
   //No due date means low priority
