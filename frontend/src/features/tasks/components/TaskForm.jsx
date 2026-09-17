@@ -35,14 +35,43 @@ function TaskForm({
 }) {
   const [dateError, setDateError] = useState("");
 
+  // Notification error
+  const [notificationError, setNotificationError] =
+    useState("");
+
   const handleSave = (event) => {
     event.preventDefault();
 
     setDateError("");
+    setNotificationError("");
 
     if (requireDateAndTime && !draft.dueDate) {
       setDateError(
         "Due date is required for adding task to schedule.",
+      );
+      return;
+    }
+
+    // If a notification date is selected,
+    // a notification time must also be selected.
+    if (
+      draft.notificationDate &&
+      !draft.notificationTime
+    ) {
+      setNotificationError(
+        "Please choose a notification time.",
+      );
+      return;
+    }
+
+    // If a notification time is selected,
+    // a notification date must also be selected.
+    if (
+      draft.notificationTime &&
+      !draft.notificationDate
+    ) {
+      setNotificationError(
+        "Please choose a notification date.",
       );
       return;
     }
@@ -290,6 +319,139 @@ function TaskForm({
           </Select>
         </div>
       </div>
+
+      {/* Notification section */}
+      <div className="space-y-1">
+        <Label>Notification / Reminder</Label>
+
+        <p className="text-sm text-muted-foreground">
+          Choose when you would like to be reminded about this task.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Notification date */}
+        <div className="space-y-2">
+          <Label htmlFor="notification-date">
+            Notification date
+          </Label>
+
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button
+                  className={`w-full justify-start font-normal ${
+                    notificationError
+                      ? "border-destructive"
+                      : ""
+                  }`}
+                  disabled={readOnly}
+                  id="notification-date"
+                  type="button"
+                  variant="outline"
+                />
+              }
+            >
+              <CalendarDays />
+
+              {draft.notificationDate
+                ? format(
+                    draft.notificationDate,
+                    "PPP",
+                  )
+                : "Choose a date"}
+            </PopoverTrigger>
+
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={draft.notificationDate}
+                onSelect={(notificationDate) => {
+                  setDraft((prev) => ({
+                    ...prev,
+                    notificationDate,
+                  }));
+
+                  if (notificationDate) {
+                    setNotificationError("");
+                  }
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Notification time */}
+        <div className="space-y-2">
+          <Label htmlFor="notification-time">
+            Notification time
+          </Label>
+
+          <Input
+            id="notification-time"
+            type="time"
+            disabled={readOnly}
+            value={draft.notificationTime || ""}
+            onChange={(event) => {
+              setDraft((prev) => ({
+                ...prev,
+                notificationTime:
+                  event.target.value,
+              }));
+
+              setNotificationError("");
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Notification frequency */}
+      <div className="space-y-2">
+        <Label htmlFor="notification-frequency">
+          How often
+        </Label>
+
+        <Select
+          disabled={readOnly}
+          value={
+            draft.notificationFrequency || "Once"
+          }
+          onValueChange={(notificationFrequency) =>
+            setDraft((prev) => ({
+              ...prev,
+              notificationFrequency,
+            }))
+          }
+        >
+          <SelectTrigger
+            id="notification-frequency"
+            className="w-full"
+            aria-label="Notification frequency"
+          >
+            <SelectValue />
+          </SelectTrigger>
+
+          <SelectContent>
+            <SelectItem value="Once">
+              Once
+            </SelectItem>
+
+            <SelectItem value="Daily">
+              Daily
+            </SelectItem>
+
+            <SelectItem value="Weekly">
+              Weekly
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {notificationError && (
+        <p className="text-sm text-destructive">
+          {notificationError}
+        </p>
+      )}
 
       {saveError && (
         <p className="text-sm text-destructive">

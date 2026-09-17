@@ -1,4 +1,7 @@
-import { MoreHorizontal } from "lucide-react";
+import {
+  MoreHorizontal,
+  Bell,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,7 +47,10 @@ function TaskRow({
       className="flex cursor-pointer items-start gap-3 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={onView}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
+        if (
+          event.key === "Enter" ||
+          event.key === " "
+        ) {
           event.preventDefault();
           onView();
         }
@@ -56,7 +62,9 @@ function TaskRow({
       <Checkbox
         aria-label={`Mark ${task.title} complete`}
         checked={task.status === "Completed"}
-        onClick={(event) => event.stopPropagation()}
+        onClick={(event) =>
+          event.stopPropagation()
+        }
         onCheckedChange={onToggle}
       />
 
@@ -83,6 +91,24 @@ function TaskRow({
           >
             {task.label}
           </Badge>
+        )}
+
+        {/* Notification information */}
+        {task.notificationDate && (
+          <div className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
+            <Bell className="h-4 w-4" />
+
+            <span>
+              Reminder:{" "}
+              {task.notificationDate}
+
+              {task.notificationTime &&
+                ` at ${task.notificationTime}`}
+
+              {task.notificationFrequency &&
+                ` - ${task.notificationFrequency}`}
+            </span>
+          </div>
         )}
       </div>
 
@@ -112,7 +138,9 @@ function TaskRow({
       {/* Edit and delete menu */}
       <DropdownMenu>
         <DropdownMenuTrigger
-          onClick={(event) => event.stopPropagation()}
+          onClick={(event) =>
+            event.stopPropagation()
+          }
           render={
             <Button
               aria-label={`Actions for ${task.title}`}
@@ -126,16 +154,22 @@ function TaskRow({
 
         <DropdownMenuContent
           align="end"
-          onClick={(event) => event.stopPropagation()}
+          onClick={(event) =>
+            event.stopPropagation()
+          }
           onKeyDown={(event) =>
             event.stopPropagation()
           }
         >
-          <DropdownMenuItem onClick={onEdit}>
+          <DropdownMenuItem
+            onClick={onEdit}
+          >
             Edit
           </DropdownMenuItem>
 
-          <DropdownMenuItem onClick={onDelete}>
+          <DropdownMenuItem
+            onClick={onDelete}
+          >
             Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
