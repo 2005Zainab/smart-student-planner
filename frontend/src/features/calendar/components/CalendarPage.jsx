@@ -8,31 +8,60 @@ import {
   endOfWeek,
   eachDayOfInterval,
   format,
+  parseISO,
   isSameMonth,
-  isSameDay,
   isToday,
 } from "date-fns";
 
+import { Plus } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 import { useTasks } from "../../tasks/hooks/useTasks";
-import { getTasks } from "../../tasks/api/getTasks";
+import { TaskForm } from "../../tasks/components/TaskForm";
 import { httpClient } from "../../../shared/http-client";
 
 function CalendarPage() {
   const { tasks, setTasks, isLoading, error } = useTasks();
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [editingTask, setEditingTask] = useState(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [formMode, setFormMode] = useState("create");
+  const [editingTaskId, setEditingTaskId] = useState(null);
 
-  const [draft, setDraft] = useState({
+  const [titleError, setTitleError] = useState(null);
+  const [saveError, setSaveError] = useState(null);
+
+  const emptyDraft = {
     title: "",
-    dueDate: "",
-  });
+    description: "",
+    subject: "",
+    priority: "Medium",
+    status: "To Do",
+    dueDate: undefined,
+  };
 
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState("");
+  const [draft, setDraft] = useState(emptyDraft);
 
   //Show tasks that have a date
   const calendarTasks = tasks.filter((task) => task.dueDate);
+
+  //Group tasks by date
+  const tasksByDate = calendarTasks.reduce((groupedTasks, task) => {
+    if (!groupedTasks[task.dueDate]) {
+      groupedTasks[task.dueDate] = [];
+    }
+
+    groupedTasks[task.dueDate].push(task);
+
+    return groupedTasks;
+  }, {});
 
   //Get calendar dates
   const monthStart = startOfMonth(currentMonth);
@@ -51,84 +80,110 @@ function CalendarPage() {
     end: calendarEnd,
   });
 
-  //Open task to edit
-  const startEditing = (task) => {
-    setEditingTask(task);
+  //Open form to add a task
+  const openAddForm = (date = undefined) => {
+    setFormMode("create");
+    setEditingTaskId(null);
+    setTitleError(null);
+    setSaveError(null);
 
     setDraft({
-      title: task.title,
-      dueDate: task.dueDate,
+      ...emptyDraft,
+      dueDate: date,
     });
 
-    setSaveError("");
+    setEditorOpen(true);
   };
 
-  //Clear the form
-  const clearForm = () => {
-    setEditingTask(null);
+  //Open form to edit a task
+  const openEditForm = (task) => {
+    setFormMode("edit");
+    setEditingTaskId(task.id);
+    setTitleError(null);
+    setSaveError(null);
 
     setDraft({
-      title: "",
-      dueDate: "",
+      ...task,
+      dueDate:
+        typeof task.dueDate === "string"
+          ? parseISO(task.dueDate)
+          : task.dueDate,
     });
 
-    setSaveError("");
+    setEditorOpen(true);
   };
 
-  //Add a new item or save changes
-  const saveCalendarItem = async () => {
-    if (draft.title.trim() === "") {
-      setSaveError("Title cannot be empty.");
+  //Close the form
+  const closeEditor = () => {
+    setEditorOpen(false);
+    setFormMode("create");
+    setEditingTaskId(null);
+    setTitleError(null);
+    setSaveError(null);
+    setDraft(emptyDraft);
+  };
+
+  //Save add or edit
+  const saveTask = async () => {
+    if (!draft.title || draft.title.trim() === "") {
+      setTitleError("Title cannot be empty");
       return;
     }
 
-    if (!draft.dueDate) {
-      setSaveError("Please select a date.");
-      return;
-    }
+    setTitleError(null);
+    setSaveError(null);
+
+    const taskToSave = {
+      title: draft.title.trim(),
+      description: draft.description || "",
+      subject: draft.subject || "",
+      priority: draft.priority || "Medium",
+      status: draft.status || "To Do",
+      dueDate: draft.dueDate
+        ? draft.dueDate instanceof Date
+          ? format(draft.dueDate, "yyyy-MM-dd")
+          : draft.dueDate
+        : null,
+    };
 
     try {
-      setIsSaving(true);
-      setSaveError("");
-
-      if (editingTask) {
-        //Update the task already selected
-        await httpClient(
-          `http://localhost:3000/api/tasks/${editingTask.id}`,
+      if (formMode === "create") {
+        //Add new task
+        const savedTask = await httpClient(
+          "http://localhost:3000/api/tasks",
           {
-            method: "PATCH",
-            body: JSON.stringify({
-              title: draft.title.trim(),
-              dueDate: draft.dueDate,
-            }),
+            method: "POST",
+            body: JSON.stringify(taskToSave),
           },
         );
+
+        setTasks((current) => [...current, savedTask]);
       } else {
-        //Add a new task to the calendar
-        await httpClient("http://localhost:3000/api/tasks", {
-          method: "POST",
-          body: JSON.stringify({
-            title: draft.title.trim(),
-            description: "",
-            subject: "",
-            priority: "Medium",
-            status: "To Do",
-            dueDate: draft.dueDate,
-          }),
-        });
+        //Update existing task
+        await httpClient(
+          `http://localhost:3000/api/tasks/${editingTaskId}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(taskToSave),
+          },
+        );
+
+        setTasks((current) =>
+          current.map((task) =>
+            task.id === editingTaskId
+              ? {
+                  ...task,
+                  ...taskToSave,
+                }
+              : task,
+          ),
+        );
       }
 
-      //Load tasks again after saving
-      const updatedTasks = await getTasks();
-
-      setTasks(updatedTasks ?? []);
-
-      clearForm();
+      closeEditor();
     } catch (err) {
       console.log(err);
-      setSaveError("Unable to save. Please try again.");
-    } finally {
-      setIsSaving(false);
+      setSaveError(err.message || "Unable to save task");
     }
   };
 
@@ -141,52 +196,57 @@ function CalendarPage() {
   }
 
   return (
-    <main className="min-h-screen flex-1 bg-gray-50 p-4 md:p-8">
-      <div className="mx-auto max-w-6xl rounded-2xl border bg-white p-6 shadow-sm">
+    <main className="flex-1 space-y-6 p-4 md:p-6">
+      <div className="rounded-xl border bg-card p-6">
 
         {/* Calendar heading */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <h2 className="text-3xl font-bold">
               {format(currentMonth, "MMMM yyyy")}
             </h2>
 
-            <p className="mt-1 text-sm text-gray-500">
-              View, add and edit your task deadlines.
+            <p className="mt-1 text-sm text-muted-foreground">
+              View and edit your task deadlines.
             </p>
           </div>
 
-          {/* Month buttons */}
+          {/* Calendar buttons */}
           <div className="flex items-center gap-2">
-            <button
-              className="rounded-lg border bg-white px-4 py-2 hover:bg-gray-100"
+            <Button
+              variant="outline"
               onClick={() =>
                 setCurrentMonth(subMonths(currentMonth, 1))
               }
             >
               ←
-            </button>
+            </Button>
 
-            <button
-              className="rounded-lg border bg-white px-4 py-2 text-sm font-medium hover:bg-gray-100"
+            <Button
+              variant="outline"
               onClick={() => setCurrentMonth(new Date())}
             >
               Today
-            </button>
+            </Button>
 
-            <button
-              className="rounded-lg border bg-white px-4 py-2 hover:bg-gray-100"
+            <Button
+              variant="outline"
               onClick={() =>
                 setCurrentMonth(addMonths(currentMonth, 1))
               }
             >
               →
-            </button>
+            </Button>
+
+            <Button onClick={() => openAddForm()}>
+              <Plus />
+              Add task
+            </Button>
           </div>
         </div>
 
         {/* Days of week */}
-        <div className="grid grid-cols-7 border-x border-t bg-gray-50 text-center text-sm font-semibold text-gray-600">
+        <div className="grid grid-cols-7 border-x border-t bg-muted text-center text-sm font-semibold text-muted-foreground">
           <div className="p-3">Mon</div>
           <div className="p-3">Tue</div>
           <div className="p-3">Wed</div>
@@ -199,31 +259,28 @@ function CalendarPage() {
         {/* Calendar grid */}
         <div className="grid grid-cols-7 border-l border-t">
           {calendarDays.map((day) => {
-            const dayTasks = calendarTasks.filter((task) =>
-              isSameDay(
-                new Date(task.dueDate + "T00:00:00"),
-                day,
-              ),
-            );
+            const dateKey = format(day, "yyyy-MM-dd");
+            const dayTasks = tasksByDate[dateKey] || [];
 
             return (
               <div
                 key={day.toISOString()}
                 className={`min-h-36 border-b border-r p-2 ${
                   !isSameMonth(day, currentMonth)
-                    ? "bg-gray-50"
-                    : "bg-white"
+                    ? "bg-muted/40"
+                    : "bg-card"
                 }`}
+                onDoubleClick={() => openAddForm(day)}
               >
                 {/* Date */}
                 <div className="mb-2 flex justify-end">
                   <span
                     className={`flex h-7 w-7 items-center justify-center rounded-full text-sm ${
                       isToday(day)
-                        ? "bg-black font-semibold text-white"
+                        ? "bg-primary font-semibold text-primary-foreground"
                         : isSameMonth(day, currentMonth)
-                          ? "text-gray-800"
-                          : "text-gray-400"
+                          ? "text-foreground"
+                          : "text-muted-foreground"
                     }`}
                   >
                     {format(day, "d")}
@@ -235,12 +292,12 @@ function CalendarPage() {
                   {dayTasks.map((task) => (
                     <button
                       key={task.id}
-                      onClick={() => startEditing(task)}
-                      className={`w-full truncate rounded-md px-2 py-1.5 text-left text-xs font-medium transition ${
-                        editingTask?.id === task.id
-                          ? "bg-violet-300 text-violet-950"
-                          : "bg-violet-100 text-violet-800 hover:bg-violet-200"
-                      }`}
+                      type="button"
+                      onDoubleClick={(event) => {
+                        event.stopPropagation();
+                        openEditForm(task);
+                      }}
+                      className="w-full truncate rounded-md bg-secondary px-2 py-1.5 text-left text-xs font-medium text-secondary-foreground hover:bg-secondary/80"
                     >
                       {task.title}
                     </button>
@@ -250,98 +307,42 @@ function CalendarPage() {
             );
           })}
         </div>
-
-        {/* Add and edit section */}
-        <div className="mx-auto mt-6 max-w-xl rounded-2xl border bg-gray-50 p-6 shadow-sm">
-          <h3 className="mb-2 text-2xl font-semibold">
-            {editingTask
-              ? "Edit calendar item"
-              : "Add calendar item"}
-          </h3>
-
-          <p className="mb-5 text-sm text-gray-500">
-            {editingTask
-              ? "Change the task details below."
-              : "Enter a title and choose a date to add it to the calendar."}
-          </p>
-
-          <div className="space-y-5">
-
-            {/* Title */}
-            <div>
-              <label className="mb-2 block text-sm font-medium">
-                Title
-              </label>
-
-              <input
-                className="w-full rounded-lg border bg-white p-3"
-                value={draft.title}
-                placeholder="Enter task title"
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    title: event.target.value,
-                  })
-                }
-              />
-            </div>
-
-            {/* Date */}
-            <div>
-              <label className="mb-2 block text-sm font-medium">
-                Date
-              </label>
-
-              <input
-                className="w-full cursor-pointer rounded-lg border bg-white p-3"
-                type="date"
-                value={draft.dueDate}
-                onClick={(event) => {
-                  if (event.currentTarget.showPicker) {
-                    event.currentTarget.showPicker();
-                  }
-                }}
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    dueDate: event.target.value,
-                  })
-                }
-              />
-            </div>
-
-            {/* Error */}
-            {saveError && (
-              <p className="text-sm text-red-600">
-                {saveError}
-              </p>
-            )}
-
-            {/* Buttons */}
-            <div className="flex gap-3">
-              <button
-                className="rounded-lg bg-black px-5 py-3 text-white hover:bg-gray-800 disabled:opacity-40"
-                onClick={saveCalendarItem}
-                disabled={isSaving}
-              >
-                {isSaving
-                  ? "Saving..."
-                  : editingTask
-                    ? "Save changes"
-                    : "Add to calendar"}
-              </button>
-
-              <button
-                className="rounded-lg border bg-white px-5 py-3 hover:bg-gray-100 disabled:opacity-40"
-                onClick={clearForm}
-                disabled={isSaving}
-              >
-                {editingTask ? "Cancel" : "Clear"}
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
+
+      {/* Add and edit task dialog */}
+      <Dialog
+        open={editorOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setEditorOpen(true);
+          } else {
+            closeEditor();
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogTitle>
+            {formMode === "create"
+              ? "Add task"
+              : "Edit task"}
+          </DialogTitle>
+
+          <DialogDescription>
+            {formMode === "create"
+              ? "Create a task for your calendar."
+              : "Update the details for this task."}
+          </DialogDescription>
+
+          <TaskForm
+            draft={draft}
+            setDraft={setDraft}
+            onSave={saveTask}
+            onCancel={closeEditor}
+            titleError={titleError}
+            saveError={saveError}
+          />
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
