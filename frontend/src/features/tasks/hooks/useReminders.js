@@ -16,8 +16,6 @@ export function useReminders(tasks) {
             const now = new Date();
 
             tasks.forEach((task) => {
-                // Skip completed tasks and tasks without reminders
-                if (task.status === "Completed") return;
                 if (!task.reminderDate || !task.reminderTime) return;
 
                 const reminderKey = `${task.reminderDate}T${task.reminderTime}`;
