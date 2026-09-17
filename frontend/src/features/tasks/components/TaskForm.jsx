@@ -199,6 +199,48 @@ function TaskForm({
             </SelectContent>
           </Select>
         </div>
+
+               <div className="space-y-2">
+          <Label htmlFor="task-reminder-date">Reminder date</Label>
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button
+                  className="w-full justify-start font-normal"
+                  disabled={readOnly}
+                  id="task-reminder-date"
+                  type="button"
+                  variant="outline"
+                />
+              }
+            >
+              <CalendarDays />
+              {draft.reminderDate ? format(draft.reminderDate, "PPP") : "Choose a date"}
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                onSelect={(reminderDate) =>
+                  setDraft((prev) => ({ ...prev, reminderDate }))
+                }
+                selected={draft.reminderDate}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="task-reminder-time">Reminder time</Label>
+          <Input
+            id="task-reminder-time"
+            type="time"
+            onChange={(event) =>
+              setDraft((prev) => ({ ...prev, reminderTime: event.target.value }))
+            }
+            disabled={readOnly}
+            value={draft.reminderTime || ""}
+          />
+        </div>
       </div>
       {saveError && <p className="text-sm text-destructive">{saveError}</p>}
       {!readOnly && (
