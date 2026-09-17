@@ -4,6 +4,7 @@ import { RequireAuth } from "@/features/auth/components/RequireAuth";
 import { DashboardPage } from "@/features/dashboard/components/DashboardPage";
 import { TasksPage } from "@/features/tasks/components/TasksPage";
 import { CalendarPage } from "@/features/calendar/components/CalendarPage";
+import { SchedulePage } from "@/features/schedule/components/SchedulePage";
 
 function ProtectedRoutes() {
   return (
@@ -12,6 +13,7 @@ function ProtectedRoutes() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/schedule" element={<SchedulePage />} />
       </Route>
     </Route>
   );

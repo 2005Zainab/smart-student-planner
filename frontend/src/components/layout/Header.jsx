@@ -6,6 +6,7 @@ const pageTitles = {
   "/dashboard": "Dashboard",
   "/tasks": "Tasks",
   "/calendar": "Calendar",
+  "/schedule": "Schedule",
 };
 
 function Header() {

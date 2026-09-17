@@ -11,6 +11,7 @@ const ALLOWED_FIELDS = [
   "priority",
   "status",
   "dueDate",
+  "time",
 ];
 
 const ALLOWED_PRIORITIES = ["low", "medium", "high"];
@@ -28,7 +29,7 @@ const STATUS_DISPLAY = {
   completed: "Completed",
 };
 
-//Add a new task
+// Add task to Firestore
 router.post("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
@@ -39,63 +40,73 @@ router.post("/", requireAuth, async (req, res) => {
     priority = "Medium",
     status = "To Do",
     dueDate = null,
+    time: rawTime = "",
   } = req.body;
 
-  //Check title
+  // safely trim the time input
+  const time =
+    typeof rawTime === "string" && rawTime.trim() !== ""
+      ? rawTime.trim()
+      : null;
+
+  // validate time
+  if (time && !/^\d{2}:\d{2}$/.test(time)) {
+    return res.status(400).json({
+      message: "Time must use HH:MM format",
+    });
+  }
+
+  // Title must be text
   if (typeof title !== "string") {
     return res.status(400).json({
       message: "Title has to be a string",
     });
   }
 
+  // Title cannot be blank
   if (title.trim() === "") {
     return res.status(400).json({
       message: "Title cannot be empty or blank",
     });
   }
 
-  const cleanTitle = title.trim();
-
-  if (cleanTitle.length > 200) {
+  // Title maximum length
+  if (title.trim().length > 200) {
     return res.status(400).json({
       message: "Title cannot be more than 200 characters",
     });
   }
 
-  //Check description
+  // Description must be text
   if (typeof description !== "string") {
     return res.status(400).json({
       message: "Description must be text",
     });
   }
 
-  const cleanDescription = description.trim();
-
-  if (cleanDescription.length > 1000) {
+  if (description.length > 1000) {
     return res.status(400).json({
       message: "Description cannot be more than 1000 characters",
     });
   }
 
-  //Check subject
+  // Subject must be text
   if (typeof subject !== "string") {
     return res.status(400).json({
       message: "Subject must be text",
     });
   }
 
-  const cleanSubject = subject.trim();
-
-  if (cleanSubject.length > 200) {
+  if (subject.length > 200) {
     return res.status(400).json({
       message: "Subject cannot be more than 200 characters",
     });
   }
 
-  //Check priority
+  // Priority must be text before calling toLowerCase()
   if (typeof priority !== "string") {
     return res.status(400).json({
-      message: "Not a valid priority",
+      message: "Priority must be text",
     });
   }
 
@@ -107,10 +118,10 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
-  //Check status
+  // Status must be text before calling toLowerCase()
   if (typeof status !== "string") {
     return res.status(400).json({
-      message: "Not a valid status",
+      message: "Status must be text",
     });
   }
 
@@ -122,55 +133,44 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
-  //Check due date
-  if (dueDate !== null) {
-    if (
-      typeof dueDate !== "string" ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)
-    ) {
-      return res.status(400).json({
-        message: "Due date must use YYYY-MM-DD format",
-      });
-    }
-
-    const dateParsed = new Date(dueDate + "T00:00:00Z");
-
-    if (isNaN(dateParsed.getTime())) {
-      return res.status(400).json({
-        message: "Not a valid due date",
-      });
-    }
+  // Validate due date
+  if (
+    dueDate &&
+    (typeof dueDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate))
+  ) {
+    return res.status(400).json({
+      message: "Due date must use YYYY-MM-DD format",
+    });
   }
 
   try {
     const newTask = {
-      title: cleanTitle,
-      description: cleanDescription,
-      subject: cleanSubject,
+      title: title.trim(),
+      description: description.trim(),
+      subject: subject.trim(),
       priority: PRIORITY_DISPLAY[priorityLower],
       status: STATUS_DISPLAY[statusLower],
       dueDate,
+      time,
       userId: uid,
     };
 
-    const taskRef = await db
-      .collection("tasks")
-      .add(newTask);
+    const taskRef = await db.collection("tasks").add(newTask);
 
-    return res.status(201).json({
+    res.status(201).json({
       id: taskRef.id,
       ...newTask,
     });
   } catch (err) {
     console.log(err);
 
-    return res.status(500).json({
+    res.status(500).json({
       message: "Failed to create task",
     });
   }
 });
 
-//Try to delete task
+//Deletes tasks from Firestore using Express API route then updates local UI
 router.delete("/:id", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
@@ -186,8 +186,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
 
     if (taskSnap.data().userId != uid) {
       return res.status(403).json({
-        message:
-          "Unauthorized to delete this task: You do not own this task",
+        message: "Unauthorized to delete this task: You do not own this task",
       });
     }
 
@@ -205,7 +204,6 @@ router.delete("/:id", requireAuth, async (req, res) => {
   }
 });
 
-//Edit task
 router.patch("/:id", requireAuth, async (req, res) => {
   const uid = req.user.uid;
   const updates = {};
@@ -222,7 +220,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     });
   }
 
-  //Check title
+  // Not allowed blank/empty title
   if ("title" in updates) {
     if (typeof updates.title !== "string") {
       return res.status(400).json({
@@ -245,7 +243,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
   }
 
-  //Check description
+  // Description validation
   if ("description" in updates) {
     if (typeof updates.description !== "string") {
       return res.status(400).json({
@@ -257,13 +255,12 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     if (updates.description.length > 1000) {
       return res.status(400).json({
-        message:
-          "Description cannot be more than 1000 characters",
+        message: "Description cannot be more than 1000 characters",
       });
     }
   }
 
-  //Check subject
+  // Subject validation
   if ("subject" in updates) {
     if (typeof updates.subject !== "string") {
       return res.status(400).json({
@@ -280,16 +277,15 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
   }
 
-  //Check priority
+  // Priority validation
   if ("priority" in updates) {
     if (typeof updates.priority !== "string") {
       return res.status(400).json({
-        message: "Not a valid priority",
+        message: "Priority must be text",
       });
     }
 
-    const trimmedLower =
-      updates.priority.trim().toLowerCase();
+    const trimmedLower = updates.priority.trim().toLowerCase();
 
     if (!ALLOWED_PRIORITIES.includes(trimmedLower)) {
       return res.status(400).json({
@@ -297,20 +293,18 @@ router.patch("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    updates.priority =
-      PRIORITY_DISPLAY[trimmedLower];
+    updates.priority = PRIORITY_DISPLAY[trimmedLower];
   }
 
-  //Check status
+  // Status validation
   if ("status" in updates) {
     if (typeof updates.status !== "string") {
       return res.status(400).json({
-        message: "Not a valid status",
+        message: "Status must be text",
       });
     }
 
-    const trimmedLower =
-      updates.status.trim().toLowerCase();
+    const trimmedLower = updates.status.trim().toLowerCase();
 
     if (!ALLOWED_STATUSES.includes(trimmedLower)) {
       return res.status(400).json({
@@ -318,24 +312,21 @@ router.patch("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    updates.status =
-      STATUS_DISPLAY[trimmedLower];
+    updates.status = STATUS_DISPLAY[trimmedLower];
   }
 
-  //Check due date
+  // Due date validation
   if ("dueDate" in updates) {
     if (
       typeof updates.dueDate !== "string" ||
       !/^\d{4}-\d{2}-\d{2}$/.test(updates.dueDate)
     ) {
       return res.status(400).json({
-        message: "Due date must use YYYY-MM-DD format",
+        message: "Due date must use YYYY-MM-DD format Please",
       });
     }
 
-    const dateParsed = new Date(
-      updates.dueDate + "T00:00:00Z",
-    );
+    const dateParsed = new Date(updates.dueDate + "T00:00:00Z");
 
     if (isNaN(dateParsed.getTime())) {
       return res.status(400).json({
@@ -344,12 +335,36 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
   }
 
-  try {
-    //Get task and check who owns it
-    const taskDoc = db
-      .collection("tasks")
-      .doc(req.params.id);
+  // add time validation here:
+  if ("time" in updates) {
+    if (
+      typeof updates.time !== "string" ||
+      !/^\d{2}:\d{2}$/.test(updates.time)
+    ) {
+      return res.status(400).json({
+        message: "Time must use HH:MM format",
+      });
+    }
 
+    const [hours, minutes] = updates.time.split(":").map(Number);
+
+    if (
+      isNaN(hours) ||
+      isNaN(minutes) ||
+      hours < 0 ||
+      hours > 23 ||
+      minutes < 0 ||
+      minutes > 59
+    ) {
+      return res.status(400).json({
+        message: "Not a valid time",
+      });
+    }
+  }
+
+  try {
+    // Fetch task first and check it exists and who owns it
+    const taskDoc = db.collection("tasks").doc(req.params.id);
     const taskSnap = await taskDoc.get();
 
     if (!taskSnap.exists) {
@@ -360,8 +375,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     if (taskSnap.data().userId != uid) {
       return res.status(403).json({
-        message:
-          "Unauthorized to edit this task: You do not own this task",
+        message: "Unauthorized to edit this task: You do not own this task",
       });
     }
 
@@ -379,19 +393,18 @@ router.patch("/:id", requireAuth, async (req, res) => {
   }
 });
 
-//View all tasks
+// View all tasks
 router.get("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
   try {
     const tasksRef = db.collection("tasks");
-
-    const snapshot = await tasksRef
-      .where("userId", "==", uid)
-      .get();
+    const snapshot = await tasksRef.where("userId", "==", uid).get();
 
     if (snapshot.empty) {
-      return res.status(200).json([]);
+      return res.status(200).json({
+        message: "No tasks found",
+      });
     }
 
     const tasks = [];
