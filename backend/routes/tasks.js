@@ -25,9 +25,9 @@ const STATUS_DISPLAY = {
   completed: "Completed",
 };
 
-//Work out priority from due date
+//Work out priority from the due date
 function getPriorityFromDueDate(dueDate) {
-  //No due date
+  //No due date means low priority
   if (!dueDate) {
     return "Low";
   }
@@ -45,9 +45,9 @@ function getPriorityFromDueDate(dueDate) {
     differenceInTime / (1000 * 60 * 60 * 24),
   );
 
-  //Date has already passed
+  //Overdue tasks are high priority
   if (daysUntilDue < 0) {
-    return "Low";
+    return "High";
   }
 
   //Due today or within 3 days
@@ -64,7 +64,7 @@ function getPriorityFromDueDate(dueDate) {
   return "Low";
 }
 
-//Add task to Firestore
+//Add task
 router.post("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
@@ -78,7 +78,8 @@ router.post("/", requireAuth, async (req, res) => {
   } = req.body;
 
   const time =
-    typeof rawTime === "string" && rawTime.trim() !== ""
+    typeof rawTime === "string" &&
+    rawTime.trim() !== ""
       ? rawTime.trim()
       : null;
 
@@ -90,7 +91,8 @@ router.post("/", requireAuth, async (req, res) => {
   }
 
   if (time) {
-    const [hours, minutes] = time.split(":").map(Number);
+    const [hours, minutes] =
+      time.split(":").map(Number);
 
     if (
       isNaN(hours) ||
@@ -123,7 +125,8 @@ router.post("/", requireAuth, async (req, res) => {
 
   if (cleanTitle.length > 200) {
     return res.status(400).json({
-      message: "Title cannot be more than 200 characters",
+      message:
+        "Title cannot be more than 200 characters",
     });
   }
 
@@ -138,7 +141,8 @@ router.post("/", requireAuth, async (req, res) => {
 
   if (cleanDescription.length > 1000) {
     return res.status(400).json({
-      message: "Description cannot be more than 1000 characters",
+      message:
+        "Description cannot be more than 1000 characters",
     });
   }
 
@@ -153,7 +157,8 @@ router.post("/", requireAuth, async (req, res) => {
 
   if (cleanSubject.length > 200) {
     return res.status(400).json({
-      message: "Subject cannot be more than 200 characters",
+      message:
+        "Subject cannot be more than 200 characters",
     });
   }
 
@@ -180,7 +185,8 @@ router.post("/", requireAuth, async (req, res) => {
       !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)
     ) {
       return res.status(400).json({
-        message: "Due date must use YYYY-MM-DD format",
+        message:
+          "Due date must use YYYY-MM-DD format",
       });
     }
 
@@ -305,7 +311,8 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     if (updates.title.length > 200) {
       return res.status(400).json({
-        message: "Title cannot be more than 200 characters",
+        message:
+          "Title cannot be more than 200 characters",
       });
     }
   }
@@ -337,8 +344,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    updates.subject =
-      updates.subject.trim();
+    updates.subject = updates.subject.trim();
 
     if (updates.subject.length > 200) {
       return res.status(400).json({
@@ -398,6 +404,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
       }
     }
 
+    //Update priority when due date changes
     updates.priority =
       getPriorityFromDueDate(updates.dueDate);
   }
@@ -408,9 +415,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
       updates.time !== null &&
       (
         typeof updates.time !== "string" ||
-        !/^\d{2}:\d{2}$/.test(
-          updates.time,
-        )
+        !/^\d{2}:\d{2}$/.test(updates.time)
       )
     ) {
       return res.status(400).json({
@@ -459,8 +464,12 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     await taskDoc.update(updates);
 
+    //Get updated task so frontend gets new priority
+    const updatedSnap = await taskDoc.get();
+
     return res.status(200).json({
-      message: "Task Updated",
+      id: updatedSnap.id,
+      ...updatedSnap.data(),
     });
   } catch (err) {
     console.log(err);
