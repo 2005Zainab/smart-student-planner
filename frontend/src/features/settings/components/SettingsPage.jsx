@@ -20,7 +20,7 @@ import {
 
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/shared/auth-provider";
-import { httpClient } from "@shared/http-client";
+import { httpClient } from "@/shared/http-client";
 
 function SettingsPage() {
   const { user, refreshUser } = useAuth();
