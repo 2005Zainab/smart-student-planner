@@ -71,6 +71,14 @@ function LoginPage() {
                 "Sign in"
               )}
             </Button>
+            <p className="text-center text-sm">
+              <Link
+                className="font-medium text-foreground underline underline-offset-4"
+                to="/forgot-password"
+              >
+                Forgot password?
+              </Link>
+            </p>
           </form>
           {error && (
             <p className="mt-3 text-sm text-destructive" role="alert">
