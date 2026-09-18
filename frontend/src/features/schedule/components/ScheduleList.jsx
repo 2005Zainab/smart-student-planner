@@ -1,4 +1,4 @@
-import { MoreHorizontal, Clock } from "lucide-react";
+import { MoreHorizontal, Clock, CheckSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 
-function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
+function ScheduleRow({ task, onEdit, onDelete, onView, onToggle, isLoading }) {
   if (isLoading) {
     return (
       <div className="flex items-start gap-4 p-4 border-l-4 border-l-transparent">
@@ -83,6 +83,15 @@ function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
 
       {/* Badges and Actions */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Checklist progress indicator */}
+        {task.checklist && task.checklist.length > 0 && (
+          <Badge variant="outline" className="flex items-center gap-1 text-muted-foreground">
+            <CheckSquare className="h-3.5 w-3.5" />
+            <span>
+              {task.checklist.filter((i) => i.completed).length}/{task.checklist.length}
+            </span>
+          </Badge>
+        )}
         <Badge
           variant={task.priority === "High" ? "high" : task.priority === "Medium" ? "medium" : task.priority === "Low" ? "low" : "secondary"}
           className="hidden sm:inline-flex"
