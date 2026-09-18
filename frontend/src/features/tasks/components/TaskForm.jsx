@@ -295,9 +295,11 @@ function TaskForm({
         <Label>Checklist</Label>
 
         {(draft.checklist || []).map((item) => (
-          <div key={item.id} className="flex items-center gap-2 min-w-0">
+          <div key={item.id} className="flex items-center justify-between gap-2 min-w-0 p-1.5 rounded-md hover:bg-muted/50 transition-colors group">
+            <div className="flex items-center gap-2 min-w-0">
             <Checkbox
               checked={item.completed}
+              className="cursor-pointer"
               disabled={false}
               onCheckedChange={() => {
                 if (readOnly) {
@@ -313,11 +315,13 @@ function TaskForm({
               }}
             />
             <span className="flex-1 min-w-0 wrap-anywhere text-sm">{item.text}</span>
+            </div>
             {!readOnly && (
               <Button
                 type="button"
                 variant="outline"
                 size="icon-sm"
+                className="cursor-pointer group-focus-within:opacity-100 transition-opacity"
                 onClick={() =>
                   setDraft((prev) => ({
                     ...prev,
