@@ -51,6 +51,19 @@ function TaskForm({
         setReminderError("Date and time is required to set a reminder.");
         return;
     }
+    // Validate that the reminder date and time is not in the past
+      if (hasReminderDate && hasReminderTime) {
+          const reminderDateOnly =
+              draft.reminderDate instanceof Date
+                  ? format(draft.reminderDate, "yyyy-MM-dd")
+                  : draft.reminderDate;
+          const reminderDateTime = new Date(`${reminderDateOnly}T${draft.reminderTime}:00`);
+
+          if (reminderDateTime <= new Date()) {
+              setReminderError("Reminders cannot be set in the past.");
+              return;
+          }
+      }
 
     onSave();
   };
