@@ -31,7 +31,7 @@ function LoginPage() {
   const [linkSent, setLinkSent] = useState(false);
   const [linkError, setLinkError] = useState("");
 
-  (useEffect(() => {
+  useEffect(() => {
     if (isSignInWithEmailLink(auth, window.location.href)) {
       let storedEmail = window.localStorage.getItem("emailForSignIn");
 
@@ -52,8 +52,7 @@ function LoginPage() {
           });
       }
     }
-  }),
-    [navigate]);
+  }, [navigate]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -105,11 +104,12 @@ function LoginPage() {
               <p className="text-sm font-medium text-low-priority">
                 Password-less sign-in link sent! Check your email inbox.
               </p>
-              <button variant="outline" onClick={() => setLinkSent(false)}>
+              <Button variant="outline" onClick={() => setLinkSent(false)}>
                 Back to login
-              </button>
+              </Button>
             </div>
-          <form className="space-y-5" onSubmit={handleSubmit}>
+          ) : (
+            <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -168,10 +168,13 @@ function LoginPage() {
               </p>
             </form>
           )}
+
+          {(error || linkError) && (
             <p className="mt-3 text-sm text-destructive" role="alert">
               {linkError || getAuthErrorMessage(error)}
             </p>
           )}
+
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
             <Link

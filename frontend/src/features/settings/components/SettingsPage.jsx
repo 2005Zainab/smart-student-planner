@@ -43,7 +43,7 @@ function SettingsPage() {
 
       try {
         const data = await httpClient(
-          "http://localhost:3000/api/user/settings",
+          "http://localhost:3000/api/users/settings",
           { method: "GET" },
         );
         setIsPasswordLessEnabled(data.passwordLessEnabled || false);
