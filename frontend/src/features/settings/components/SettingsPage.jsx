@@ -20,7 +20,7 @@ import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/shared/auth-provider";
 
 function SettingsPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   const [open, setOpen] = useState(false);
   const [newUsername, setNewUsername] = useState("");
@@ -62,7 +62,7 @@ function SettingsPage() {
         displayName: newUsernameTrimmed,
       });
 
-      await user.reload();
+      refreshUser();
 
       toast.add({
         title: "Successfully changed username",
