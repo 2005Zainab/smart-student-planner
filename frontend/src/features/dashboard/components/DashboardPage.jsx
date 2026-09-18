@@ -23,18 +23,20 @@ function DashboardPage() {
   return (
     <main className="flex-1 space-y-6 p-4 md:p-6">
       <section>
-        <p className="text-sm text-muted-foreground">
-          {format(new Date(), "EEEE, MMMM d")}
-        </p>
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+        <h2 className="text-2xl font-semibold tracking-tight">
           Good morning, {userName}
         </h2>
-        <p className="mt-1 text-muted-foreground">
-          Here is what is on your study plan today.
-        </p>
+        <div className="mt-1 flex items-baseline justify-between">
+          <p className="text-muted-foreground">
+            Here is what is on your study plan today.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {format(new Date(), "EEEE, MMMM d")}
+          </p>
+        </div>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_1.35fr]">
+      <div className="grid gap-6 xl:grid-cols-[1fr_2fr]">
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle>Tasks to Prioritize</CardTitle>
@@ -154,14 +156,15 @@ function DashboardPage() {
                 }`}
                 key={label}
               >
-                <p className="break-words whitespace-normal text-sm font-medium">
-                  {label}
-                </p>
+                <p className="truncate text-sm font-medium">{label}</p>
                 <div className="mt-3 space-y-2">
                   {dayTasks.length > 0 ? (
                     dayTasks.map((task) => (
                       <div key={task.id}>
-                        <p className="break-words whitespace-normal text-xs font-medium leading-relaxed">
+                        <p
+                          className="truncate text-xs font-medium leading-relaxed"
+                          title={task.title}
+                        >
                           {task.title}
                         </p>
                         <p className="text-xs leading-relaxed text-muted-foreground">
