@@ -35,6 +35,8 @@ function SettingsPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(true);
 
+  const [emailSent, setEmailSent] = useState(false);
+
   useEffect(() => {
     async function fetchSettings() {
       if (!user) return;
@@ -111,6 +113,7 @@ function SettingsPage() {
     setIsVerifying(true);
     try {
       await sendEmailVerification(user);
+      setEmailSent(true);
       toast.add({
         title: "Verification email sent. Please check your inbox.",
         type: "success",
@@ -125,6 +128,13 @@ function SettingsPage() {
     }
   };
 
+  const checkVerificationStatus = async () => {
+    setIsVerifying(true);
+    await user.reload();
+    refreshUser();
+    setIsVerifying(false);
+  };
+
   const togglePasswordLess = async (checked) => {
     setIsPasswordLessEnabled(checked);
     try {
@@ -134,7 +144,7 @@ function SettingsPage() {
       });
 
       toast.add({
-        title: 'Password-less sign-in ${checked ? "enabled" : "disabled"}',
+        title: `Password-less sign-in: ${checked ? "enabled" : "disabled"}`,
         type: "",
       });
     } catch {
@@ -199,6 +209,14 @@ function SettingsPage() {
               checked={isPasswordLessEnabled}
               onCheckedChange={togglePasswordLess}
             />
+          ) : emailSent ? (
+            <Button
+              variant="outline"
+              onClick={checkVerificationStatus}
+              disabled={isVerifying}
+            >
+              {isVerifying ? "Checking..." : "I've verified my email"}
+            </Button>
           ) : (
             <Button
               variant="secondary"

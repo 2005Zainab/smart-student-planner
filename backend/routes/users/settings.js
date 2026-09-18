@@ -1,6 +1,6 @@
 import express from "express";
 import { db } from "../../src/firebase.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth } from "../../middleware/auth.js";
 
 const router = express.Router();
 
