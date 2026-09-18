@@ -34,12 +34,10 @@ import {
 
 import { TaskForm } from "./TaskForm";
 import { TaskList } from "./TaskList";
-//import { useTasks } from "../hooks/useTasks";
 import { useTasksContext } from "../context/TasksContext";
 import { httpClient } from "../../../shared/http-client";
 
 function TasksPage() {
-  //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error } =
     useTasksContext();
 
@@ -170,7 +168,6 @@ function TasksPage() {
 
   //Save a new task or edit an existing task
   const saveTask = async () => {
-    //Check title is not empty
     if (
       !draft.title ||
       draft.title.trim() === ""
@@ -318,7 +315,6 @@ function TasksPage() {
       }
 
       try {
-        //Backend returns the updated task with new priority
         const updatedTask =
           await httpClient(
             `http://localhost:3000/api/tasks/${editingTaskId}`,
@@ -388,7 +384,6 @@ function TasksPage() {
             status: newStatus,
           };
 
-    //Update the task status in the backend and local state
     try {
       await httpClient(
         `http://localhost:3000/api/tasks/${id}`,
@@ -411,7 +406,6 @@ function TasksPage() {
         ),
       );
 
-      //Show undo option when task is completed
       if (newStatus === "Completed") {
         const toastId = toast.add({
           title: "Task Completed",

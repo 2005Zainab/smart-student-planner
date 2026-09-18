@@ -34,8 +34,8 @@ function TaskForm({
   readOnly = false,
   requireDateAndTime = false,
 }) {
-    const [dateError, setDateError] = useState("");
-    const [reminderError, setReminderError] = useState("");
+  const [dateError, setDateError] = useState("");
+  const [reminderError, setReminderError] = useState("");
 
   //Store the labels that belong to the user
   const [labels, setLabels] = useState([]);
@@ -61,6 +61,48 @@ function TaskForm({
     loadLabels();
   }, []);
 
+  //Create a new reusable label
+  const createLabel = async () => {
+    setLabelError("");
+
+    if (!newLabel.trim()) {
+      setLabelError("Label cannot be empty");
+      return;
+    }
+
+    try {
+      const savedLabel = await httpClient(
+        "http://localhost:3000/api/labels",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            name: newLabel,
+          }),
+        },
+      );
+
+      //Add the new label to the dropdown
+      setLabels((current) => [
+        ...current,
+        savedLabel,
+      ]);
+
+      //Select the new label for this task
+      setDraft((prev) => ({
+        ...prev,
+        label: savedLabel.name,
+      }));
+
+      setNewLabel("");
+    } catch (err) {
+      console.log(err);
+
+      setLabelError(
+        err.message || "Failed to create label",
+      );
+    }
+  };
+
   const handleSave = (event) => {
     event.preventDefault();
 
@@ -71,29 +113,45 @@ function TaskForm({
         "Due date is required for adding task to schedule.",
       );
       return;
-      }
+    }
 
-    setReminderError(""); // Reset reminder error before validation
-    const hasReminderDate = Boolean(draft.reminderDate);
-    const hasReminderTime = Boolean(draft.reminderTime);
+    setReminderError("");
+
+    const hasReminderDate = Boolean(
+      draft.reminderDate,
+    );
+    const hasReminderTime = Boolean(
+      draft.reminderTime,
+    );
 
     if (hasReminderDate !== hasReminderTime) {
-        setReminderError("Date and time is required to set a reminder.");
-        return;
+      setReminderError(
+        "Date and time is required to set a reminder.",
+      );
+      return;
     }
-    // Validate that the reminder date and time is not in the past
-      if (hasReminderDate && hasReminderTime) {
-          const reminderDateOnly =
-              draft.reminderDate instanceof Date
-                  ? format(draft.reminderDate, "yyyy-MM-dd")
-                  : draft.reminderDate;
-          const reminderDateTime = new Date(`${reminderDateOnly}T${draft.reminderTime}:00`);
 
-          if (reminderDateTime <= new Date()) {
-              setReminderError("Reminders cannot be set in the past.");
-              return;
-          }
+    //Check reminder is not in the past
+    if (hasReminderDate && hasReminderTime) {
+      const reminderDateOnly =
+        draft.reminderDate instanceof Date
+          ? format(
+              draft.reminderDate,
+              "yyyy-MM-dd",
+            )
+          : draft.reminderDate;
+
+      const reminderDateTime = new Date(
+        `${reminderDateOnly}T${draft.reminderTime}:00`,
+      );
+
+      if (reminderDateTime <= new Date()) {
+        setReminderError(
+          "Reminders cannot be set in the past.",
+        );
+        return;
       }
+    }
 
     onSave();
   };
@@ -152,7 +210,8 @@ function TaskForm({
           value={draft.description || ""}
         />
 
-        {(draft.description?.length || 0) >= 1000 && (
+        {(draft.description?.length || 0) >=
+          1000 && (
           <p className="text-sm text-medium-priority">
             Description cannot be more than 1000 characters
           </p>
@@ -179,7 +238,8 @@ function TaskForm({
             value={draft.subject || ""}
           />
 
-          {(draft.subject?.length || 0) >= 200 && (
+          {(draft.subject?.length || 0) >=
+            200 && (
             <p className="text-sm text-medium-priority">
               Subject cannot be more than 200 characters
             </p>
@@ -191,19 +251,63 @@ function TaskForm({
             Label
           </Label>
 
-          <Input
-            id="task-label"
-            onChange={(event) =>
+          <Select
+            disabled={readOnly}
+            value={draft.label || ""}
+            onValueChange={(label) =>
               setDraft((prev) => ({
                 ...prev,
-                label: event.target.value,
+                label,
               }))
             }
-            disabled={readOnly}
-            maxLength={100}
-            value={draft.label || ""}
-            placeholder="e.g. Assignment, Exam, Study"
-          />
+          >
+            <SelectTrigger
+              className="w-full"
+              id="task-label"
+            >
+              <SelectValue placeholder="Choose a label" />
+            </SelectTrigger>
+
+            <SelectContent>
+              {labels.map((label) => (
+                <SelectItem
+                  key={label.id}
+                  value={label.name}
+                >
+                  {label.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {!readOnly && (
+            <div className="flex gap-2">
+              <Input
+                value={newLabel}
+                onChange={(event) =>
+                  setNewLabel(
+                    event.target.value,
+                  )
+                }
+                maxLength={100}
+                placeholder="Create new label"
+              />
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={createLabel}
+              >
+                Add
+              </Button>
+            </div>
+          )}
+
+          {labelError && (
+            <p className="text-sm text-destructive">
+              {labelError}
+            </p>
+          )}
         </div>
       </div>
 
@@ -245,7 +349,10 @@ function TaskForm({
               <CalendarDays />
 
               {draft.dueDate
-                ? format(draft.dueDate, "PPP")
+                ? format(
+                    draft.dueDate,
+                    "PPP",
+                  )
                 : "Choose a date"}
             </PopoverTrigger>
 
@@ -338,8 +445,11 @@ function TaskForm({
           </Select>
         </div>
 
-               <div className="space-y-2">
-          <Label htmlFor="task-reminder-date">Reminder date</Label>
+        <div className="space-y-2">
+          <Label htmlFor="task-reminder-date">
+            Reminder date
+          </Label>
+
           <Popover>
             <PopoverTrigger
               render={
@@ -353,38 +463,70 @@ function TaskForm({
               }
             >
               <CalendarDays />
-              {draft.reminderDate ? format(draft.reminderDate, "PPP") : "Choose a date"}
+
+              {draft.reminderDate
+                ? format(
+                    draft.reminderDate,
+                    "PPP",
+                  )
+                : "Choose a date"}
             </PopoverTrigger>
+
             <PopoverContent className="w-auto p-0">
               <Calendar
                 mode="single"
                 onSelect={(reminderDate) =>
-                  setDraft((prev) => ({ ...prev, reminderDate }))
+                  setDraft((prev) => ({
+                    ...prev,
+                    reminderDate,
+                  }))
                 }
-                selected={draft.reminderDate}
+                selected={
+                  draft.reminderDate
+                }
               />
             </PopoverContent>
           </Popover>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="task-reminder-time">Reminder time</Label>
+          <Label htmlFor="task-reminder-time">
+            Reminder time
+          </Label>
+
           <Input
             id="task-reminder-time"
             type="time"
             onChange={(event) =>
-              setDraft((prev) => ({ ...prev, reminderTime: event.target.value }))
+              setDraft((prev) => ({
+                ...prev,
+                reminderTime:
+                  event.target.value,
+              }))
             }
             disabled={readOnly}
-            value={draft.reminderTime || ""}
+            value={
+              draft.reminderTime || ""
+            }
           />
         </div>
-              {typeof Notification !== "undefined" && Notification.permission === "denied" && (
-                  <p className="text-sm text-muted-foreground">
-                      Notifications are blocked in your browser: reminders won't show a popup.
-                  </p>
-              )}
-              {reminderError && <p className="text-sm text-destructive">{reminderError}</p>} 
+
+        {typeof Notification !==
+          "undefined" &&
+          Notification.permission ===
+            "denied" && (
+            <p className="text-sm text-muted-foreground">
+              Notifications are blocked in
+              your browser: reminders won't
+              show a popup.
+            </p>
+          )}
+
+        {reminderError && (
+          <p className="text-sm text-destructive">
+            {reminderError}
+          </p>
+        )}
       </div>
 
       {saveError && (
