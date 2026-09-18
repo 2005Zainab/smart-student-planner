@@ -26,12 +26,15 @@ function SettingsPage() {
   const [newUsername, setNewUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const changeUsername = async (event) => {
     event.preventDefault();
     setError("");
 
-    if (!newUsername.trim()) {
+    const newUsernameTrimmed = newUsername.trim();
+
+    if (!newUsernameTrimmed) {
       setError("Username cannot be empty");
       return;
     }
@@ -41,26 +44,22 @@ function SettingsPage() {
       return;
     }
 
-    if (newUsername.trim() === user.displayName) {
+    if (newUsernameTrimmed === user?.displayName) {
       setError("Please enter a different username");
       return;
     }
 
+    setIsLoading(true);
+
     try {
       //Check the user's password before changing the username
-      const credential = EmailAuthProvider.credential(
-        user.email,
-        password,
-      );
+      const credential = EmailAuthProvider.credential(user.email, password);
 
-      await reauthenticateWithCredential(
-        user,
-        credential,
-      );
+      await reauthenticateWithCredential(user, credential);
 
       //Update the display username in Firebase
       await updateProfile(user, {
-        displayName: newUsername.trim(),
+        displayName: newUsernameTrimmed,
       });
 
       await user.reload();
@@ -76,18 +75,16 @@ function SettingsPage() {
     } catch (err) {
       console.log(err);
 
-      setError(
-        "Unable to change username. Please check your password.",
-      );
+      setError("Unable to change username. Please check your password.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <main className="flex-1 space-y-6 p-4 md:p-6">
       <div>
-        <h2 className="text-2xl font-semibold">
-          Settings
-        </h2>
+        <h2 className="text-2xl font-semibold">Settings</h2>
 
         <p className="mt-1 text-muted-foreground">
           Manage your account settings.
@@ -95,17 +92,13 @@ function SettingsPage() {
       </div>
 
       <div className="rounded-xl border bg-card p-6">
-        <h3 className="text-lg font-semibold">
-          Profile
-        </h3>
+        <h3 className="text-lg font-semibold">Profile</h3>
 
         <div className="mt-4 space-y-1">
-          <p className="text-sm text-muted-foreground">
-            Username
-          </p>
+          <p className="text-sm text-muted-foreground">Username</p>
 
           <p className="font-medium">
-            {user?.displayName || user?.email}
+            {user?.displayName || user?.email || "Loading..."}
           </p>
         </div>
 
@@ -122,70 +115,55 @@ function SettingsPage() {
         </Button>
       </div>
 
-      <Dialog
-        open={open}
-        onOpenChange={setOpen}
-      >
+      <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogTitle>
-            Change username
-          </DialogTitle>
+          <DialogTitle>Change username</DialogTitle>
 
           <DialogDescription>
             Enter a new username and your current password.
           </DialogDescription>
 
-          <form
-            className="space-y-4"
-            onSubmit={changeUsername}
-          >
+          <form className="space-y-4" onSubmit={changeUsername}>
             <div className="space-y-2">
-              <Label htmlFor="new-username">
-                New username
-              </Label>
+              <Label htmlFor="new-username">New username</Label>
 
               <Input
                 id="new-username"
+                autoComplete="username"
                 value={newUsername}
-                onChange={(event) =>
-                  setNewUsername(event.target.value)
-                }
+                onChange={(event) => setNewUsername(event.target.value)}
                 maxLength={50}
+                disabled={isLoading}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="current-password">
-                Current password
-              </Label>
+              <Label htmlFor="current-password">Current password</Label>
 
               <Input
                 id="current-password"
+                autoComplete="current-password"
                 type="password"
                 value={password}
-                onChange={(event) =>
-                  setPassword(event.target.value)
-                }
+                onChange={(event) => setPassword(event.target.value)}
+                disabled={isLoading}
               />
             </div>
 
-            {error && (
-              <p className="text-sm text-destructive">
-                {error}
-              </p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
 
             <div className="flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setOpen(false)}
+                disabled={isLoading}
               >
                 Cancel
               </Button>
 
-              <Button type="submit">
-                Change username
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </form>
