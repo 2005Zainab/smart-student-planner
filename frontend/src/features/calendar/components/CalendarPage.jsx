@@ -171,23 +171,17 @@ function CalendarPage() {
 
     try {
       if (formMode === "create") {
-        const savedTask = await httpClient(
-          "http://localhost:3000/api/tasks",
-          {
-            method: "POST",
-            body: JSON.stringify(taskToSave),
-          },
-        );
+        const savedTask = await httpClient("http://localhost:3000/api/tasks", {
+          method: "POST",
+          body: JSON.stringify(taskToSave),
+        });
 
         setTasks((current) => [...current, savedTask]);
       } else {
-        await httpClient(
-          `http://localhost:3000/api/tasks/${editingTaskId}`,
-          {
-            method: "PATCH",
-            body: JSON.stringify(taskToSave),
-          },
-        );
+        await httpClient(`http://localhost:3000/api/tasks/${editingTaskId}`, {
+          method: "PATCH",
+          body: JSON.stringify(taskToSave),
+        });
 
         setTasks((current) =>
           current.map((task) =>
@@ -233,9 +227,7 @@ function CalendarPage() {
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              onClick={() =>
-                setCurrentMonth(subMonths(currentMonth, 1))
-              }
+              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
             >
               ←
             </Button>
@@ -249,9 +241,7 @@ function CalendarPage() {
 
             <Button
               variant="outline"
-              onClick={() =>
-                setCurrentMonth(addMonths(currentMonth, 1))
-              }
+              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
             >
               →
             </Button>
@@ -278,9 +268,7 @@ function CalendarPage() {
             const dateKey = format(day, "yyyy-MM-dd");
 
             //Sort tasks by time for each day
-            const dayTasks = [
-              ...(tasksByDate[dateKey] || []),
-            ].sort((a, b) => {
+            const dayTasks = [...(tasksByDate[dateKey] || [])].sort((a, b) => {
               if (!a.time && !b.time) {
                 return 0;
               }
@@ -300,9 +288,7 @@ function CalendarPage() {
               <div
                 key={day.toISOString()}
                 className={`min-h-36 border-b border-r p-2 ${
-                  !isSameMonth(day, currentMonth)
-                    ? "bg-muted/40"
-                    : "bg-card"
+                  !isSameMonth(day, currentMonth) ? "bg-muted/40" : "bg-card"
                 }`}
                 onDoubleClick={() => openAddForm(day)}
               >
@@ -329,24 +315,23 @@ function CalendarPage() {
                         event.stopPropagation();
                         openEditForm(task);
                       }}
-                      className={`w-full rounded-md bg-secondary px-2 py-1.5 text-left text-xs hover:bg-secondary/80 ${
-                        task.status === "Completed"
-                          ? "opacity-60"
-                          : ""
+                      className={`flex w-full items-center rounded-md bg-secondary px-2 py-1.5 text-left text-xs hover:bg-secondary/80 ${
+                        task.status === "Completed" ? "opacity-60" : ""
                       }`}
                     >
                       {task.time && (
-                        <span className="mr-1 text-muted-foreground">
+                        <span className="shrink-0 mr-1 text-muted-foreground">
                           {formatTaskTime(task.time)}
                         </span>
                       )}
 
                       <span
-                        className={
+                        className={`truncate ${
                           task.status === "Completed"
                             ? "line-through text-muted-foreground"
                             : "font-medium text-secondary-foreground"
-                        }
+                        }`}
+                        title={task.title}
                       >
                         {task.title}
                       </span>
@@ -371,9 +356,7 @@ function CalendarPage() {
       >
         <DialogContent>
           <DialogTitle>
-            {formMode === "create"
-              ? "Add task"
-              : "Edit task"}
+            {formMode === "create" ? "Add task" : "Edit task"}
           </DialogTitle>
 
           <DialogDescription>
