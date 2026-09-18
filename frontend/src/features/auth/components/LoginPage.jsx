@@ -109,8 +109,7 @@ function LoginPage() {
                 Back to login
               </button>
             </div>
-          ) : (
-            <form className="space-y-5" onSubmit={handleSubmit}>
+          <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -137,7 +136,7 @@ function LoginPage() {
               </div>
 
               <div className="flex flex-col gap-2 pt-2">
-                <Button disabled={isPending || isLinkPending} type="submit">
+                <Button className="w-full" disabled={isPending || isLinkPending} type="submit">
                   {isPending ? (
                     <>
                       <Spinner data-icon="inline-start" /> Signing in...
@@ -158,10 +157,17 @@ function LoginPage() {
                     : "Send me password-less sign-in link"}
                 </Button>
               </div>
+
+              <p className="text-center text-sm">
+                <Link
+                  className="font-medium text-foreground underline underline-offset-4"
+                  to="/forgot-password"
+                >
+                  Forgot password?
+                </Link>
+              </p>
             </form>
           )}
-
-          {(error || linkError) && (
             <p className="mt-3 text-sm text-destructive" role="alert">
               {linkError || getAuthErrorMessage(error)}
             </p>
