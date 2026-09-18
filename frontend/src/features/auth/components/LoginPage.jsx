@@ -17,7 +17,7 @@ import { getAuthErrorMessage } from "../utils/get-auth-error-message";
 import {
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
-  signInWithEmailLink
+  signInWithEmailLink,
 } from "firebase/auth";
 import { auth } from "../../../shared/auth";
 
