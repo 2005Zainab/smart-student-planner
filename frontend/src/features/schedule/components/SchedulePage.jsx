@@ -75,21 +75,21 @@ function SchedulePage() {
       setDraft(
         task
           ? {
-              ...task,
-              dueDate:
-                typeof task.dueDate === "string"
-                  ? parseISO(task.dueDate)
-                  : task.dueDate,
-            }
+            ...task,
+            dueDate:
+              typeof task.dueDate === "string"
+                ? parseISO(task.dueDate)
+                : task.dueDate,
+          }
           : {
-              title: "",
-              description: "",
-              subject: "",
-              priority: "Medium",
-              status: "To Do",
-              dueDate: undefined,
-              time: "",
-            },
+            title: "",
+            description: "",
+            subject: "",
+            priority: "Medium",
+            status: "To Do",
+            dueDate: undefined,
+            time: "",
+          },
       );
     }
     if (window.matchMedia("(max-width: 767px)").matches)
@@ -221,6 +221,48 @@ function SchedulePage() {
   //           : task,
   //       ),
   //     );
+
+
+  //Toggles a checklists item completeion state and also saves the checklist
+  const toggleChecklistItem = async (taskId, itemId) => {
+    const task = tasks.find(
+      (existingTask) => existingTask.id === taskId,
+    );
+
+    if (!task || !task.checklist) {
+      return;
+    }
+
+    const updateChecklist = task.checklist.map((item) =>
+      item.id === itemId ? { ...item, completed: !item.completed } : item,
+    );
+
+    try {
+      const updatedTask = await httpClient(
+        `http://localhost:3000/api/tasks/${taskId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            checklist: updateChecklist,
+          }),
+        },
+      );
+
+      setTasks((current) =>
+        current.map((existingTask) =>
+          existingTask.id === taskId ? updatedTask : existingTask,
+        ),
+      );
+
+      setDraft((prev) => ({
+        ...prev,
+        checklist: updatedTask.checklist,
+      }));
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
 
   const deleteTask = async (id) => {
     try {
@@ -358,6 +400,9 @@ function SchedulePage() {
             titleError={emptyTitleCheck}
             saveError={saveError}
             requireDateAndTime={true}
+            onToggleChecklistItem={(itemId) =>
+              toggleChecklistItem(editingTaskId, itemId)
+            }
           />
         </DialogContent>
       </Dialog>
@@ -395,6 +440,9 @@ function SchedulePage() {
               titleError={emptyTitleCheck}
               saveError={saveError}
               requireDateAndTime={true}
+              onToggleChecklistItem={(itemId) =>
+                toggleChecklistItem(editingTaskId, itemId)
+              }
             />
           </div>
         </SheetContent>

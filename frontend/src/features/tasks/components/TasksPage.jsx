@@ -42,15 +42,26 @@ function TasksPage() {
     useTasksContext();
 
   const [editorOpen, setEditorOpen] = useState(false);
+
   const [mobileEditorOpen, setMobileEditorOpen] =
     useState(false);
-  const [formMode, setFormMode] = useState("create");
+
+  const [formMode, setFormMode] =
+    useState("create");
+
   const [editingTaskId, setEditingTaskId] =
     useState(null);
-  const [deleteId, setDeleteId] = useState(null);
-  const [emptyTitleCheck, setEmptyTitleCheck] =
+
+  const [deleteId, setDeleteId] =
     useState(null);
-  const [saveError, setSaveError] = useState(null);
+
+  const [
+    emptyTitleCheck,
+    setEmptyTitleCheck,
+  ] = useState(null);
+
+  const [saveError, setSaveError] =
+    useState(null);
 
   const [
     previousStatusLookup,
@@ -66,6 +77,7 @@ function TasksPage() {
     status: "To Do",
     dueDate: undefined,
     time: "",
+    checklist: [],
     reminderDate: undefined,
     reminderTime: "",
   });
@@ -90,6 +102,7 @@ function TasksPage() {
         status: "To Do",
         dueDate: undefined,
         time: "",
+        checklist: [],
         reminderDate: undefined,
         reminderTime: "",
       };
@@ -110,14 +123,25 @@ function TasksPage() {
           ? {
               ...task,
               label: task.label || "",
+              checklist:
+                task.checklist || [],
               dueDate:
-                typeof task.dueDate === "string"
-                  ? parseISO(task.dueDate)
+                typeof task.dueDate ===
+                "string"
+                  ? parseISO(
+                      task.dueDate,
+                    )
                   : task.dueDate,
+              time: task.time || "",
               reminderDate:
-                typeof task.reminderDate === "string"
-                  ? parseISO(task.reminderDate)
+                typeof task.reminderDate ===
+                "string"
+                  ? parseISO(
+                      task.reminderDate,
+                    )
                   : task.reminderDate,
+              reminderTime:
+                task.reminderTime || "",
             }
           : {
               title: "",
@@ -128,6 +152,7 @@ function TasksPage() {
               status: "To Do",
               dueDate: undefined,
               time: "",
+              checklist: [],
               reminderDate: undefined,
               reminderTime: "",
             },
@@ -153,7 +178,8 @@ function TasksPage() {
     ) {
       setTasks((current) =>
         current.filter(
-          (task) => task.id !== editingTaskId,
+          (task) =>
+            task.id !== editingTaskId,
         ),
       );
     }
@@ -175,6 +201,7 @@ function TasksPage() {
       setEmptyTitleCheck(
         "Title Cannot Be Empty",
       );
+
       return;
     }
 
@@ -184,9 +211,13 @@ function TasksPage() {
     if (formMode === "create") {
       const taskToSave = {
         title: draft.title,
-        description: draft.description,
+        description:
+          draft.description,
         subject: draft.subject,
+
+        //Keep task label
         label: draft.label || "",
+
         status: draft.status,
 
         dueDate: draft.dueDate
@@ -200,29 +231,37 @@ function TasksPage() {
 
         time: draft.time || null,
 
-        reminderDate: draft.reminderDate
-          ? draft.reminderDate instanceof Date
-            ? format(
-                draft.reminderDate,
-                "yyyy-MM-dd",
-              )
-            : draft.reminderDate
-          : null,
+        //Keep checklist from main
+        checklist:
+          draft.checklist || [],
+
+        //Keep reminder fields
+        reminderDate:
+          draft.reminderDate
+            ? draft.reminderDate instanceof
+              Date
+              ? format(
+                  draft.reminderDate,
+                  "yyyy-MM-dd",
+                )
+              : draft.reminderDate
+            : null,
 
         reminderTime:
           draft.reminderTime || null,
       };
 
       try {
-        const savedTask = await httpClient(
-          "http://localhost:3000/api/tasks",
-          {
-            method: "POST",
-            body: JSON.stringify(
-              taskToSave,
-            ),
-          },
-        );
+        const savedTask =
+          await httpClient(
+            "http://localhost:3000/api/tasks",
+            {
+              method: "POST",
+              body: JSON.stringify(
+                taskToSave,
+              ),
+            },
+          );
 
         setTasks((current) =>
           current.map((task) =>
@@ -245,7 +284,8 @@ function TasksPage() {
         );
 
         toast.add({
-          title: "Failed to add task",
+          title:
+            "Failed to add task",
           type: "error",
         });
 
@@ -256,7 +296,9 @@ function TasksPage() {
       const taskToEdit = {
         ...draft,
 
-        label: draft.label || "",
+        //Keep task label
+        label:
+          draft.label || "",
 
         dueDate: draft.dueDate
           ? draft.dueDate instanceof Date
@@ -267,50 +309,66 @@ function TasksPage() {
             : draft.dueDate
           : null,
 
-        time: draft.time || null,
+        time:
+          draft.time || null,
 
-        reminderDate: draft.reminderDate
-          ? draft.reminderDate instanceof Date
-            ? format(
-                draft.reminderDate,
-                "yyyy-MM-dd",
-              )
-            : draft.reminderDate
-          : null,
+        //Keep checklist from main
+        checklist:
+          draft.checklist || [],
+
+        //Keep reminder fields
+        reminderDate:
+          draft.reminderDate
+            ? draft.reminderDate instanceof
+              Date
+              ? format(
+                  draft.reminderDate,
+                  "yyyy-MM-dd",
+                )
+              : draft.reminderDate
+            : null,
 
         reminderTime:
           draft.reminderTime || null,
       };
 
-      const original = tasks.find(
-        (task) =>
-          task.id === editingTaskId,
-      );
+      const original =
+        tasks.find(
+          (task) =>
+            task.id ===
+            editingTaskId,
+        );
 
       //Only send fields that were changed
-      const changes = Object.keys(
-        taskToEdit,
-      ).reduce(
-        (updatedFields, key) => {
-          if (
-            taskToEdit[key] !==
-            original?.[key]
-          ) {
-            updatedFields[key] =
-              taskToEdit[key];
-          }
+      const changes =
+        Object.keys(
+          taskToEdit,
+        ).reduce(
+          (
+            updatedFields,
+            key,
+          ) => {
+            if (
+              taskToEdit[key] !==
+              original?.[key]
+            ) {
+              updatedFields[key] =
+                taskToEdit[key];
+            }
 
-          return updatedFields;
-        },
-        {},
-      );
+            return updatedFields;
+          },
+          {},
+        );
 
       if (
-        Object.keys(changes).length === 0
+        Object.keys(changes)
+          .length === 0
       ) {
         setEditorOpen(false);
         setMobileEditorOpen(false);
         setEditingTaskId(null);
+
         return;
       }
 
@@ -328,7 +386,8 @@ function TasksPage() {
 
         setTasks((current) =>
           current.map((task) =>
-            task.id === editingTaskId
+            task.id ===
+            editingTaskId
               ? updatedTask
               : task,
           ),
@@ -349,21 +408,29 @@ function TasksPage() {
   };
 
   //Save task status when checkbox is clicked
-  const toggleTask = async (id) => {
+  const toggleTask = async (
+    id,
+  ) => {
     const task = tasks.find(
       (existingTask) =>
         existingTask.id === id,
     );
 
-    const originalStatus = task.status;
+    const originalStatus =
+      task.status;
 
     const newStatus =
-      originalStatus === "Completed"
-        ? (previousStatusLookup[id] ??
-          "To Do")
+      originalStatus ===
+      "Completed"
+        ? (previousStatusLookup[
+            id
+          ] ?? "To Do")
         : "Completed";
 
-    if (newStatus === "Completed") {
+    if (
+      newStatus ===
+      "Completed"
+    ) {
       setPreviousStatusLookup(
         (current) => ({
           ...current,
@@ -374,7 +441,8 @@ function TasksPage() {
 
     //If task is completed clear reminder date and time
     const patchBody =
-      newStatus === "Completed"
+      newStatus ===
+      "Completed"
         ? {
             status: newStatus,
             reminderDate: null,
@@ -396,38 +464,49 @@ function TasksPage() {
       );
 
       setTasks((current) =>
-        current.map((existingTask) =>
-          existingTask.id === id
-            ? {
-                ...existingTask,
-                ...patchBody,
-              }
-            : existingTask,
+        current.map(
+          (existingTask) =>
+            existingTask.id ===
+            id
+              ? {
+                  ...existingTask,
+                  ...patchBody,
+                }
+              : existingTask,
         ),
       );
 
-      if (newStatus === "Completed") {
-        const toastId = toast.add({
-          title: "Task Completed",
-          description: task.title,
-          type: "success",
-          timeout: 10000,
+      if (
+        newStatus ===
+        "Completed"
+      ) {
+        const toastId =
+          toast.add({
+            title:
+              "Task Completed",
+            description:
+              task.title,
+            type: "success",
+            timeout: 10000,
 
-          actionProps: {
-            children: "Undo",
+            actionProps: {
+              children: "Undo",
 
-            onClick: () => {
-              undoCompleted(
-                id,
-                previousStatusLookup[
-                  id
-                ] ?? originalStatus,
-              );
+              onClick: () => {
+                undoCompleted(
+                  id,
+                  previousStatusLookup[
+                    id
+                  ] ??
+                    originalStatus,
+                );
 
-              toast.close(toastId);
+                toast.close(
+                  toastId,
+                );
+              },
             },
-          },
-        });
+          });
       }
     } catch (err) {
       console.log(err);
@@ -435,40 +514,109 @@ function TasksPage() {
   };
 
   //Change completed task back to previous status
-  const undoCompleted = async (
-    id,
-    originalStatus,
-  ) => {
-    try {
-      await httpClient(
-        `http://localhost:3000/api/tasks/${id}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            status: originalStatus,
-          }),
-        },
+  const undoCompleted =
+    async (
+      id,
+      originalStatus,
+    ) => {
+      try {
+        await httpClient(
+          `http://localhost:3000/api/tasks/${id}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({
+              status:
+                originalStatus,
+            }),
+          },
+        );
+
+        setTasks((current) =>
+          current.map(
+            (existingTask) =>
+              existingTask.id ===
+              id
+                ? {
+                    ...existingTask,
+                    status:
+                      originalStatus,
+                  }
+                : existingTask,
+          ),
+        );
+      } catch (err) {
+        console.log(err);
+      }
+    };
+
+  //Toggles a checklists item completeion state and also saves the checklist
+  const toggleChecklistItem =
+    async (
+      taskId,
+      itemId,
+    ) => {
+      const task = tasks.find(
+        (existingTask) =>
+          existingTask.id ===
+          taskId,
       );
 
-      setTasks((current) =>
-        current.map(
-          (existingTask) =>
-            existingTask.id === id
+      if (
+        !task ||
+        !task.checklist
+      ) {
+        return;
+      }
+
+      const updateChecklist =
+        task.checklist.map(
+          (item) =>
+            item.id === itemId
               ? {
-                  ...existingTask,
-                  status:
-                    originalStatus,
+                  ...item,
+                  completed:
+                    !item.completed,
                 }
-              : existingTask,
-        ),
-      );
-    } catch (err) {
-      console.log(err);
-    }
-  };
+              : item,
+        );
+
+      try {
+        const updatedTask =
+          await httpClient(
+            `http://localhost:3000/api/tasks/${taskId}`,
+            {
+              method: "PATCH",
+              body: JSON.stringify({
+                checklist:
+                  updateChecklist,
+              }),
+            },
+          );
+
+        setTasks((current) =>
+          current.map(
+            (existingTask) =>
+              existingTask.id ===
+              taskId
+                ? updatedTask
+                : existingTask,
+          ),
+        );
+
+        setDraft((prev) => ({
+          ...prev,
+          checklist:
+            updatedTask.checklist,
+        }));
+      } catch (err) {
+        console.log(err);
+      }
+    };
 
   //Deletes tasks from Firestore using Express API route then updates local UI
-  const deleteTask = async (id) => {
+  const deleteTask = async (
+    id,
+  ) => {
     try {
       await httpClient(
         `http://localhost:3000/api/tasks/${id}`,
@@ -479,12 +627,14 @@ function TasksPage() {
 
       setTasks((current) =>
         current.filter(
-          (task) => task.id !== id,
+          (task) =>
+            task.id !== id,
         ),
       );
 
       toast.add({
-        title: "Task Deleted",
+        title:
+          "Task Deleted",
         type: "success",
       });
     } catch (err) {
@@ -503,13 +653,15 @@ function TasksPage() {
           </h2>
 
           <p className="mt-1 text-muted-foreground">
-            Keep your coursework moving
-            forward.
+            Keep your coursework
+            moving forward.
           </p>
         </div>
 
         <Button
-          onClick={() => openEditor()}
+          onClick={() =>
+            openEditor()
+          }
         >
           <Plus />
           Add task
@@ -520,15 +672,27 @@ function TasksPage() {
         <CardContent className="p-0">
           <TaskList
             tasks={tasks}
-            isLoading={isLoading}
+            isLoading={
+              isLoading
+            }
             error={error}
             onEdit={(task) =>
-              openEditor(task, "edit")
+              openEditor(
+                task,
+                "edit",
+              )
             }
-            onDelete={setDeleteId}
-            onToggle={toggleTask}
+            onDelete={
+              setDeleteId
+            }
+            onToggle={
+              toggleTask
+            }
             onView={(task) =>
-              openEditor(task, "view")
+              openEditor(
+                task,
+                "view",
+              )
             }
           />
         </CardContent>
@@ -538,65 +702,98 @@ function TasksPage() {
         open={editorOpen}
         onOpenChange={(open) =>
           open
-            ? setEditorOpen(true)
+            ? setEditorOpen(
+                true,
+              )
             : closeEditor()
         }
       >
         <DialogContent>
           <DialogTitle>
-            {formMode === "view"
+            {formMode ===
+            "view"
               ? "View task"
-              : formMode === "create"
+              : formMode ===
+                  "create"
                 ? "Add task"
                 : "Edit task"}
           </DialogTitle>
 
           <DialogDescription>
-            {formMode === "view"
+            {formMode ===
+            "view"
               ? "Review the details for this task."
-              : formMode === "create"
+              : formMode ===
+                  "create"
                 ? "Create a task for your study plan."
                 : "Update the details for this task."}
           </DialogDescription>
 
           <TaskForm
             draft={draft}
-            onCancel={closeEditor}
+            onCancel={
+              closeEditor
+            }
             onSave={saveTask}
             readOnly={
-              formMode === "view"
+              formMode ===
+              "view"
             }
-            setDraft={setDraft}
+            setDraft={
+              setDraft
+            }
             titleError={
               emptyTitleCheck
             }
-            saveError={saveError}
+            saveError={
+              saveError
+            }
+            onToggleChecklistItem={(
+              itemId,
+            ) =>
+              toggleChecklistItem(
+                editingTaskId,
+                itemId,
+              )
+            }
+            isNewTask={
+              formMode ===
+              "create"
+            }
           />
         </DialogContent>
       </Dialog>
 
       <Sheet
-        open={mobileEditorOpen}
+        open={
+          mobileEditorOpen
+        }
         onOpenChange={(open) =>
           open
-            ? setMobileEditorOpen(true)
+            ? setMobileEditorOpen(
+                true,
+              )
             : closeEditor()
         }
       >
         <SheetContent className="overflow-y-auto">
           <SheetHeader>
             <SheetTitle>
-              {formMode === "view"
+              {formMode ===
+              "view"
                 ? "View task"
-                : formMode === "create"
+                : formMode ===
+                    "create"
                   ? "Add task"
                   : "Edit task"}
             </SheetTitle>
 
             <SheetDescription>
-              {formMode === "view"
+              {formMode ===
+              "view"
                 ? "Review the details for this task."
-                : formMode === "create"
+                : formMode ===
+                    "create"
                   ? "Create a task for your study plan."
                   : "Update the details for this task."}
             </SheetDescription>
@@ -605,24 +802,49 @@ function TasksPage() {
           <div className="p-4">
             <TaskForm
               draft={draft}
-              onCancel={closeEditor}
-              onSave={saveTask}
-              readOnly={
-                formMode === "view"
+              onCancel={
+                closeEditor
               }
-              setDraft={setDraft}
+              onSave={
+                saveTask
+              }
+              readOnly={
+                formMode ===
+                "view"
+              }
+              setDraft={
+                setDraft
+              }
               titleError={
                 emptyTitleCheck
               }
-              saveError={saveError}
+              saveError={
+                saveError
+              }
+              onToggleChecklistItem={(
+                itemId,
+              ) =>
+                toggleChecklistItem(
+                  editingTaskId,
+                  itemId,
+                )
+              }
+              isNewTask={
+                formMode ===
+                "create"
+              }
             />
           </div>
         </SheetContent>
       </Sheet>
 
       <AlertDialog
-        open={deleteId !== null}
-        onOpenChange={(open) =>
+        open={
+          deleteId !== null
+        }
+        onOpenChange={(
+          open,
+        ) =>
           !open &&
           setDeleteId(null)
         }
@@ -634,8 +856,9 @@ function TasksPage() {
             </AlertDialogTitle>
 
             <AlertDialogDescription>
-              This task will be removed
-              from your study plan.
+              This task will be
+              removed from your
+              study plan.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -646,7 +869,9 @@ function TasksPage() {
 
             <AlertDialogAction
               onClick={() => {
-                deleteTask(deleteId);
+                deleteTask(
+                  deleteId,
+                );
               }}
             >
               Delete
