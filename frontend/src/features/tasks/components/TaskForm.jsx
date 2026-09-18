@@ -1,9 +1,10 @@
 import { format } from "date-fns";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
 import {
   Popover,
@@ -28,9 +29,38 @@ function TaskForm({
   saveError,
   readOnly = false,
   requireDateAndTime = false,
+  onToggleChecklistItem,
 }) {
-    const [dateError, setDateError] = useState("");
-    const [reminderError, setReminderError] = useState("");
+  const [dateError, setDateError] = useState("");
+  const [reminderError, setReminderError] = useState("");
+  const [checklistItemInput, setChecklistItemInput] = useState("");
+  const [checklistError, setChecklistError] = useState("");
+
+  const checklist = draft.checklist || [];
+  const completedItems = checklist.filter((item) => item.completed).length;
+  const progress = checklist.length > 0 ? Math.round((completedItems / checklist.length) * 100) : 0;
+
+  const checklistHandleAddItem = () => {
+
+    if(checklist.length >= 10){
+      setChecklistError("10 is maximum number of checklist items");
+      return;
+    }
+
+    if (!checklistItemInput.trim()) {
+      setChecklistError("Checklist item cannot be empty")
+      return;
+    }
+    setChecklistError("");
+    setDraft((prev) => ({
+      ...prev,
+      checklist: [
+        ...(prev.checklist || []),
+        { id: `temp-${Date.now()}`, text: checklistItemInput.trim(), completed: false },
+      ],
+    }));
+    setChecklistItemInput("");
+  };
 
   const handleSave = (event) => {
     event.preventDefault();
@@ -183,11 +213,10 @@ function TaskForm({
             <PopoverTrigger
               render={
                 <Button
-                  className={`w-full justify-start font-normal ${
-                    dateError
-                      ? "border-destructive"
-                      : ""
-                  }`}
+                  className={`w-full justify-start font-normal ${dateError
+                    ? "border-destructive"
+                    : ""
+                    }`}
                   disabled={readOnly}
                   id="task-due-date"
                   type="button"
@@ -340,6 +369,105 @@ function TaskForm({
                   </p>
               )}
               {reminderError && <p className="text-sm text-destructive">{reminderError}</p>} 
+      </div>
+
+      {/* Checklist */}
+      <div className="space-y-2">
+        {/* Header with a counter */}
+        <div className="flex items-center justify-between">
+        <Label>Checklist</Label>
+        {checklist.length > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {completedItems} of {checklist.length} completed
+          </span>
+        )}
+        </div>
+        {/* Progress bar */}
+        {checklist.length > 0 && (
+          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-300 ease-in-out"
+              style={{width: `${progress}%`}}
+            />
+          </div>
+        )}
+        {(draft.checklist || []).map((item) => (
+          <div key={item.id} className="flex items-center justify-between gap-2 min-w-0 p-1.5 rounded-md hover:bg-muted/50 transition-colors group">
+            <div className="flex items-center gap-2 min-w-0">
+            <Checkbox
+              checked={item.completed}
+              className="cursor-pointer"
+              disabled={false}
+              onCheckedChange={() => {
+                if (readOnly) {
+                  onToggleChecklistItem(item.id);
+                } else {
+                  setDraft((prev) => ({
+                    ...prev,
+                    checklist: prev.checklist.map((i) =>
+                      i.id === item.id ? { ...i, completed: !i.completed } : i
+                    ),
+                  }));
+                }
+              }}
+            />
+            <span className="flex-1 min-w-0 wrap-anywhere text-sm">{item.text}</span>
+            </div>
+            {!readOnly && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                className="cursor-pointer group-focus-within:opacity-100 transition-opacity"
+                onClick={() =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    checklist: prev.checklist.filter((i) => i.id !== item.id),
+                  }))
+                }
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        ))}
+
+        {!readOnly && (
+          <div className="space-y-1">
+            <div className="flex gap-2">
+              <Label htmlFor="new-checklist-item" className="sr-only">
+                Add a checklist item
+              </Label>
+              <Input
+                id="new-checklist-item"
+                placeholder="Add a checklist item"
+                maxLength={100}
+                value={checklistItemInput}
+                onChange={(event) => {
+                  setChecklistItemInput(event.target.value);
+                  if(checklistError) setChecklistError("")
+                  }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    checklistHandleAddItem();
+                  }
+                }}
+              />
+              <Button type="button" variant="outline" onClick={checklistHandleAddItem}>
+                Add
+              </Button>
+            </div>
+            {checklistError && (
+              <p className="text-sm text-medium-priority">{checklistError}</p>
+            )}
+            {checklistItemInput.length >= 100 && (
+              <p className="text-sm text-medium-priority">
+                Checklist item cannot be more than 100 characters
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {saveError && (
