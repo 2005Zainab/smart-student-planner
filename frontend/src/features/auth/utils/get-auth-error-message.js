@@ -8,6 +8,7 @@ const authErrorMessages = {
     "We could not connect to the authentication service. Try again.",
   "auth/email-already-in-use": "An account already exists for this email.",
   "auth/weak-password": "Your password must be at least six characters.",
+  "auth/email-not-found": "No account found with that email.",
 };
 
 function getAuthErrorMessage(
