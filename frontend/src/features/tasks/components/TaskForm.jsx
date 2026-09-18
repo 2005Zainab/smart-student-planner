@@ -334,6 +334,11 @@ function TaskForm({
             value={draft.reminderTime || ""}
           />
         </div>
+              {typeof Notification !== "undefined" && Notification.permission === "denied" && (
+                  <p className="text-sm text-muted-foreground">
+                      Notifications are blocked in your browser: reminders won't show a popup.
+                  </p>
+              )}
               {reminderError && <p className="text-sm text-destructive">{reminderError}</p>} 
       </div>
 

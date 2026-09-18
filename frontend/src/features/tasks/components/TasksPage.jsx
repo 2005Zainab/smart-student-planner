@@ -300,25 +300,23 @@ function TasksPage() {
         [id]: originalStatus,
       }));
     }
-
+    // If the task is being marked as completed, clear the reminder date and time
+        const patchBody =
+      newStatus === "Completed"
+        ? { status: newStatus, reminderDate: null, reminderTime: null }
+        : { status: newStatus };
+    // Update the task status in the backend and update the local state
     try {
       await httpClient(
         `http://localhost:3000/api/tasks/${id}`,
         {
-          method: "PATCH",
-          body: JSON.stringify({
-            status: newStatus,
-          }),
-        },
-      );
-
+        method: "PATCH",
+        body: JSON.stringify(patchBody),
+      });
       setTasks((current) =>
         current.map((existingTask) =>
           existingTask.id === id
-            ? {
-                ...existingTask,
-                status: newStatus,
-              }
+            ? { ...existingTask, ...patchBody }
             : existingTask,
         ),
       );
