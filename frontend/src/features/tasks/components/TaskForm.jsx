@@ -33,18 +33,24 @@ function TaskForm({
 }) {
   const [dateError, setDateError] = useState("");
   const [checklistItemInput, setChecklistItemInput] = useState("");
-  const [checklistEmptyError, setChecklistEmptyError] = useState("");
+  const [checklistError, setChecklistError] = useState("");
 
   const checklist = draft.checklist || [];
   const completedItems = checklist.filter((item) => item.completed).length;
   const progress = checklist.length > 0 ? Math.round((completedItems / checklist.length) * 100) : 0;
 
   const checklistHandleAddItem = () => {
-    if (!checklistItemInput.trim()) {
-      setChecklistEmptyError("Checklist item cannot be empty")
+
+    if(checklist.length >= 10){
+      setChecklistError("10 is maximum number of checklist items");
       return;
     }
-    setChecklistEmptyError("");
+
+    if (!checklistItemInput.trim()) {
+      setChecklistError("Checklist item cannot be empty")
+      return;
+    }
+    setChecklistError("");
     setDraft((prev) => ({
       ...prev,
       checklist: [
@@ -368,7 +374,7 @@ function TaskForm({
                 value={checklistItemInput}
                 onChange={(event) => {
                   setChecklistItemInput(event.target.value);
-                  if(checklistEmptyError) setChecklistEmptyError("")
+                  if(checklistError) setChecklistError("")
                   }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -381,8 +387,8 @@ function TaskForm({
                 Add
               </Button>
             </div>
-            {checklistEmptyError && (
-              <p className="text-sm text-medium-priority">{checklistEmptyError}</p>
+            {checklistError && (
+              <p className="text-sm text-medium-priority">{checklistError}</p>
             )}
             {checklistItemInput.length >= 100 && (
               <p className="text-sm text-medium-priority">
