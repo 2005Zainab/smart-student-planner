@@ -1,13 +1,19 @@
-import { MoreHorizontal, CheckSquare } from "lucide-react";
+import {
+  MoreHorizontal,
+  CheckSquare,
+} from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
 import { Skeleton } from "@/components/ui/skeleton";
 
 function TaskRow({
@@ -41,7 +47,10 @@ function TaskRow({
       className="flex cursor-pointer items-start gap-3 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={onView}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
+        if (
+          event.key === "Enter" ||
+          event.key === " "
+        ) {
           event.preventDefault();
           onView();
         }
@@ -53,7 +62,9 @@ function TaskRow({
       <Checkbox
         aria-label={`Mark ${task.title} complete`}
         checked={task.status === "Completed"}
-        onClick={(event) => event.stopPropagation()}
+        onClick={(event) =>
+          event.stopPropagation()
+        }
         onCheckedChange={onToggle}
       />
 
@@ -72,6 +83,15 @@ function TaskRow({
         <p className="mt-1 text-sm text-muted-foreground">
           {task.subject}
         </p>
+
+        {task.label && (
+          <Badge
+            className="mt-2"
+            variant="outline"
+          >
+            {task.label}
+          </Badge>
+        )}
       </div>
 
       {/* Priority colour changes depending on priority */}
@@ -90,16 +110,28 @@ function TaskRow({
       </Badge>
 
       {/* Checklist progress indicator */}
-      {task.checklist && task.checklist.length > 0 && (
-        <Badge variant="outline" className="flex items-center gap-1 text-muted-foreground">
-          <CheckSquare className="h-3.5 w-3.5" />
-          <span>
-            {task.checklist.filter((i) => i.completed).length}/{task.checklist.length}
-          </span>
-        </Badge>
-      )}
+      {task.checklist &&
+        task.checklist.length > 0 && (
+          <Badge
+            variant="outline"
+            className="flex items-center gap-1 text-muted-foreground"
+          >
+            <CheckSquare className="h-3.5 w-3.5" />
 
-      <Badge variant="outline">{task.status}</Badge>
+            <span>
+              {
+                task.checklist.filter(
+                  (item) => item.completed,
+                ).length
+              }
+              /{task.checklist.length}
+            </span>
+          </Badge>
+        )}
+
+      <Badge variant="outline">
+        {task.status}
+      </Badge>
 
       <Badge variant="outline">
         {task.dueDate || "No due date"}
@@ -108,7 +140,9 @@ function TaskRow({
       {/* Edit and delete menu */}
       <DropdownMenu>
         <DropdownMenuTrigger
-          onClick={(event) => event.stopPropagation()}
+          onClick={(event) =>
+            event.stopPropagation()
+          }
           render={
             <Button
               aria-label={`Actions for ${task.title}`}
@@ -122,14 +156,22 @@ function TaskRow({
 
         <DropdownMenuContent
           align="end"
-          onClick={(event) => event.stopPropagation()}
-          onKeyDown={(event) => event.stopPropagation()}
+          onClick={(event) =>
+            event.stopPropagation()
+          }
+          onKeyDown={(event) =>
+            event.stopPropagation()
+          }
         >
-          <DropdownMenuItem onClick={onEdit}>
+          <DropdownMenuItem
+            onClick={onEdit}
+          >
             Edit
           </DropdownMenuItem>
 
-          <DropdownMenuItem onClick={onDelete}>
+          <DropdownMenuItem
+            onClick={onDelete}
+          >
             Delete
           </DropdownMenuItem>
         </DropdownMenuContent>

@@ -9,6 +9,7 @@ const ALLOWED_FIELDS = [
   "title",
   "description",
   "subject",
+  "label",
   "status",
   "dueDate",
   "time",
@@ -129,6 +130,7 @@ router.post("/", requireAuth, async (req, res) => {
     title,
     description = "",
     subject = "",
+    label = "",
     status = "To Do",
     dueDate = null,
     time: rawTime = "",
@@ -220,6 +222,22 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
+  //Check label
+  if (typeof label !== "string") {
+    return res.status(400).json({
+      message: "Label must be text",
+    });
+  }
+
+  const cleanLabel = label.trim();
+
+  if (cleanLabel.length > 100) {
+    return res.status(400).json({
+      message:
+        "Label cannot be more than 100 characters",
+    });
+  }
+
   //Check status
   if (typeof status !== "string") {
     return res.status(400).json({
@@ -265,6 +283,7 @@ router.post("/", requireAuth, async (req, res) => {
       title: cleanTitle,
       description: cleanDescription,
       subject: cleanSubject,
+      label: cleanLabel,
       priority,
       status: STATUS_DISPLAY[statusLower],
       dueDate,
@@ -395,6 +414,24 @@ router.patch("/:id", requireAuth, async (req, res) => {
     if (updates.subject.length > 200) {
       return res.status(400).json({
         message: "Subject cannot be more than 200 characters",
+      });
+    }
+  }
+
+  //Check label
+  if ("label" in updates) {
+    if (typeof updates.label !== "string") {
+      return res.status(400).json({
+        message: "Label must be text",
+      });
+    }
+
+    updates.label = updates.label.trim();
+
+    if (updates.label.length > 100) {
+      return res.status(400).json({
+        message:
+          "Label cannot be more than 100 characters",
       });
     }
   }
