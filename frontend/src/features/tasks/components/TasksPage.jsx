@@ -100,6 +100,7 @@ function TasksPage() {
                 typeof task.dueDate === "string"
                   ? parseISO(task.dueDate)
                   : task.dueDate,
+              time: task.time || "",
               reminderDate:
                   typeof task.reminderDate === "string"
                       ? parseISO(task.reminderDate)
@@ -164,8 +165,8 @@ function TasksPage() {
             ? format(draft.dueDate, "yyyy-MM-dd")
             : draft.dueDate
           : null,
-          time: draft.time || null,
-
+        time: draft.time || null,
+        checklist: draft.checklist || [],
           reminderDate: draft.reminderDate
               ? draft.reminderDate instanceof Date
                   ? format(draft.reminderDate, "yyyy-MM-dd")
@@ -220,6 +221,8 @@ function TasksPage() {
             : draft.dueDate
               : undefined,
 
+        time: draft.time || null,
+        checklist: draft.checklist || [],
           reminderDate: draft.reminderDate
               ? draft.reminderDate instanceof Date
                   ? format(draft.reminderDate, "yyyy-MM-dd")
@@ -336,7 +339,7 @@ function TasksPage() {
               undoCompleted(
                 id,
                 previousStatusLookup[id] ??
-                  originalStatus,
+                originalStatus,
               );
 
               toast.close(toastId);
@@ -369,12 +372,52 @@ function TasksPage() {
         current.map((existingTask) =>
           existingTask.id === id
             ? {
-                ...existingTask,
-                status: originalStatus,
-              }
+              ...existingTask,
+              status: originalStatus,
+            }
             : existingTask,
         ),
       );
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  //Toggles a checklists item completeion state and also saves the checklist
+  const toggleChecklistItem = async (taskId, itemId) => {
+    const task = tasks.find(
+      (existingTask) => existingTask.id === taskId,
+    );
+
+    if (!task || !task.checklist) {
+      return;
+    }
+
+    const updateChecklist = task.checklist.map((item) =>
+      item.id === itemId ? { ...item, completed: !item.completed } : item,
+    );
+
+    try {
+      const updatedTask = await httpClient(
+        `http://localhost:3000/api/tasks/${taskId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            checklist: updateChecklist,
+          }),
+        },
+      );
+
+      setTasks((current) =>
+        current.map((existingTask) =>
+          existingTask.id === taskId ? updatedTask : existingTask,
+        ),
+      );
+
+      setDraft((prev) => ({
+        ...prev,
+        checklist: updatedTask.checklist,
+      }));
     } catch (err) {
       console.log(err);
     }
@@ -475,6 +518,10 @@ function TasksPage() {
             setDraft={setDraft}
             titleError={emptyTitleCheck}
             saveError={saveError}
+            onToggleChecklistItem={(itemId) =>
+              toggleChecklistItem(editingTaskId, itemId)
+            }
+            isNewTask={formMode === "create"}
           />
         </DialogContent>
       </Dialog>
@@ -515,6 +562,10 @@ function TasksPage() {
               setDraft={setDraft}
               titleError={emptyTitleCheck}
               saveError={saveError}
+              onToggleChecklistItem={(itemId) =>
+                toggleChecklistItem(editingTaskId, itemId)
+              }
+              isNewTask={formMode === "create"}
             />
           </div>
         </SheetContent>
