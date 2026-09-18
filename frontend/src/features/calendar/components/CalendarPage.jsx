@@ -27,6 +27,20 @@ import { useTasks } from "../../tasks/hooks/useTasks";
 import { TaskForm } from "../../tasks/components/TaskForm";
 import { httpClient } from "../../../shared/http-client";
 
+//Change task time from 24 hour to 12 hour format
+function formatTaskTime(time) {
+  if (!time) {
+    return "";
+  }
+
+  const [hours, minutes] = time.split(":").map(Number);
+
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+
+  return format(date, "h:mm a");
+}
+
 function CalendarPage() {
   const { tasks, setTasks, isLoading, error } = useTasks();
 
@@ -262,7 +276,25 @@ function CalendarPage() {
         <div className="grid grid-cols-7 border-l border-t">
           {calendarDays.map((day) => {
             const dateKey = format(day, "yyyy-MM-dd");
-            const dayTasks = tasksByDate[dateKey] || [];
+
+            //Sort tasks by time for each day
+            const dayTasks = [
+              ...(tasksByDate[dateKey] || []),
+            ].sort((a, b) => {
+              if (!a.time && !b.time) {
+                return 0;
+              }
+
+              if (!a.time) {
+                return 1;
+              }
+
+              if (!b.time) {
+                return -1;
+              }
+
+              return a.time.localeCompare(b.time);
+            });
 
             return (
               <div
@@ -297,11 +329,27 @@ function CalendarPage() {
                         event.stopPropagation();
                         openEditForm(task);
                       }}
-                      className="w-full truncate rounded-md bg-secondary px-2 py-1.5 text-left text-xs font-medium text-secondary-foreground hover:bg-secondary/80"
+                      className={`w-full rounded-md bg-secondary px-2 py-1.5 text-left text-xs hover:bg-secondary/80 ${
+                        task.status === "Completed"
+                          ? "opacity-60"
+                          : ""
+                      }`}
                     >
-                      {task.time
-                        ? `${task.time} - ${task.title}`
-                        : task.title}
+                      {task.time && (
+                        <span className="mr-1 text-muted-foreground">
+                          {formatTaskTime(task.time)}
+                        </span>
+                      )}
+
+                      <span
+                        className={
+                          task.status === "Completed"
+                            ? "line-through text-muted-foreground"
+                            : "font-medium text-secondary-foreground"
+                        }
+                      >
+                        {task.title}
+                      </span>
                     </button>
                   ))}
                 </div>
