@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { httpClient } from "../../../shared/http-client";
 
-export function useReminders(tasks) {
+export function useReminders(tasks, setTasks) {
     const firedRef = useRef(new Map());
     const originalTitleRef = useRef(document.title);
 
@@ -43,6 +43,14 @@ export function useReminders(tasks) {
                             document.title = originalTitleRef.current;
                         }, 5000);
 
+                        setTasks((current) =>
+                            current.map((t) =>
+                                t.id === task.id
+                                    ? { ...t, reminderDate: null, reminderTime: null }
+                                    : t,
+                            ),
+                        );
+
                         httpClient(`http://localhost:3000/api/tasks/${task.id}`, {
                             method: "PATCH",
                             body: JSON.stringify({ reminderDate: null, reminderTime: null }),
@@ -60,5 +68,5 @@ export function useReminders(tasks) {
         checkReminders();
 
         return () => clearInterval(intervalId);
-    }, [tasks]);
+    }, [tasks, setTasks]);
 }

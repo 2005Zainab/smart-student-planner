@@ -2,8 +2,8 @@ import { useTasksContext } from "../features/tasks/context/TasksContext";
 import { useReminders } from "../features/tasks/hooks/useReminders";
 
 function GlobalReminders() {
-    const { tasks } = useTasksContext();
-    useReminders(tasks);
+    const { tasks, setTasks } = useTasksContext();
+    useReminders(tasks, setTasks);
 
     return null;
 }
