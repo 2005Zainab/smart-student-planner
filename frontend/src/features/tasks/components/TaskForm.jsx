@@ -35,6 +35,10 @@ function TaskForm({
   const [checklistItemInput, setChecklistItemInput] = useState("");
   const [checklistEmptyError, setChecklistEmptyError] = useState("");
 
+  const checklist = draft.checklist || [];
+  const completedItems = checklist.filter((item) => item.completed).length;
+  const progress = checklist.length > 0 ? Math.round((completedItems / checklist.length) * 100) : 0;
+
   const checklistHandleAddItem = () => {
     if (!checklistItemInput.trim()) {
       setChecklistEmptyError("Checklist item cannot be empty")
@@ -292,8 +296,24 @@ function TaskForm({
 
       {/* Checklist */}
       <div className="space-y-2">
+        {/* Header with a counter */}
+        <div className="flex items-center justify-between">
         <Label>Checklist</Label>
-
+        {checklist.length > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {completedItems} of {checklist.length} completed
+          </span>
+        )}
+        </div>
+        {/* Progress bar */}
+        {checklist.length > 0 && (
+          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-300 ease-in-out"
+              style={{width: `${progress}%`}}
+            />
+          </div>
+        )}
         {(draft.checklist || []).map((item) => (
           <div key={item.id} className="flex items-center justify-between gap-2 min-w-0 p-1.5 rounded-md hover:bg-muted/50 transition-colors group">
             <div className="flex items-center gap-2 min-w-0">
