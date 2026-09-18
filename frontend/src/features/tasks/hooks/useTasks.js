@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../../../shared/auth";
 import { getTasks } from "../api/getTasks";
 
 export function useTasks() {
@@ -19,9 +21,15 @@ export function useTasks() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                fetchTasks();
+            }
+        });
 
-  return { tasks, setTasks, isLoading, error };
+        return () => unsubscribe();
+    }, [fetchTasks]);
+
+  return { tasks, setTasks, isLoading, error, refetch: fetchTasks };
 }

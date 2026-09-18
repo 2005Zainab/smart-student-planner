@@ -34,11 +34,13 @@ import {
 
 import { TaskForm } from "./TaskForm";
 import { TaskList } from "./TaskList";
-import { useTasks } from "../hooks/useTasks";
+//import { useTasks } from "../hooks/useTasks";
+import { useTasksContext } from "../context/TasksContext";
 import { httpClient } from "../../../shared/http-client";
 
 function TasksPage() {
-  const { tasks, setTasks, isLoading, error } = useTasks();
+  //const { tasks, setTasks, isLoading, error } = useTasks();
+  const { tasks, setTasks, isLoading, error } = useTasksContext();
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
@@ -57,6 +59,8 @@ function TasksPage() {
     status: "To Do",
     dueDate: undefined,
     time: "",
+    reminderDate: undefined,
+    reminderTime: "",
   });
 
   //Open the task form
@@ -78,6 +82,8 @@ function TasksPage() {
         status: "To Do",
         dueDate: undefined,
         time: "",
+        reminderDate: undefined,
+        reminderTime: "",
       };
 
       setEditingTaskId(newTask.id);
@@ -89,22 +95,28 @@ function TasksPage() {
       setDraft(
         task
           ? {
-            ...task,
-            dueDate:
-              typeof task.dueDate === "string"
-                ? parseISO(task.dueDate)
-                : task.dueDate,
-            time: task.time || "",
-          }
+              ...task,
+              dueDate:
+                typeof task.dueDate === "string"
+                  ? parseISO(task.dueDate)
+                  : task.dueDate,
+              time: task.time || "",
+              reminderDate:
+                  typeof task.reminderDate === "string"
+                      ? parseISO(task.reminderDate)
+                      : task.reminderDate,
+            }
           : {
-            title: "",
-            description: "",
-            subject: "",
-            priority: "Low",
-            status: "To Do",
-            dueDate: undefined,
-            time: "",
-          },
+              title: "",
+              description: "",
+              subject: "",
+              priority: "Low",
+              status: "To Do",
+              dueDate: undefined,
+              time: "",
+              reminderDate: undefined,
+              reminderTime: "",
+            },
       );
     }
 
@@ -155,6 +167,12 @@ function TasksPage() {
           : null,
         time: draft.time || null,
         checklist: draft.checklist || [],
+          reminderDate: draft.reminderDate
+              ? draft.reminderDate instanceof Date
+                  ? format(draft.reminderDate, "yyyy-MM-dd")
+                  : draft.reminderDate
+              : null,
+          reminderTime: draft.reminderTime || null,
       };
 
       try {
@@ -201,10 +219,15 @@ function TasksPage() {
           ? draft.dueDate instanceof Date
             ? format(draft.dueDate, "yyyy-MM-dd")
             : draft.dueDate
-          : null,
+              : undefined,
 
         time: draft.time || null,
         checklist: draft.checklist || [],
+          reminderDate: draft.reminderDate
+              ? draft.reminderDate instanceof Date
+                  ? format(draft.reminderDate, "yyyy-MM-dd")
+                  : draft.reminderDate
+              : undefined,
       };
 
       const original = tasks.find(
@@ -280,25 +303,23 @@ function TasksPage() {
         [id]: originalStatus,
       }));
     }
-
+    // If the task is being marked as completed, clear the reminder date and time
+        const patchBody =
+      newStatus === "Completed"
+        ? { status: newStatus, reminderDate: null, reminderTime: null }
+        : { status: newStatus };
+    // Update the task status in the backend and update the local state
     try {
       await httpClient(
         `http://localhost:3000/api/tasks/${id}`,
         {
-          method: "PATCH",
-          body: JSON.stringify({
-            status: newStatus,
-          }),
-        },
-      );
-
+        method: "PATCH",
+        body: JSON.stringify(patchBody),
+      });
       setTasks((current) =>
         current.map((existingTask) =>
           existingTask.id === id
-            ? {
-              ...existingTask,
-              status: newStatus,
-            }
+            ? { ...existingTask, ...patchBody }
             : existingTask,
         ),
       );
