@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { useState } from "react";
 import {
   Popover,
@@ -28,14 +29,18 @@ function TaskForm({
   saveError,
   readOnly = false,
   requireDateAndTime = false,
+  onToggleChecklistItem,
 }) {
   const [dateError, setDateError] = useState("");
   const [checklistItemInput, setChecklistItemInput] = useState("");
+  const [checklistEmptyError, setChecklistEmptyError] = useState("");
 
   const checklistHandleAddItem = () => {
     if (!checklistItemInput.trim()) {
+      setChecklistEmptyError("Checklist item cannot be empty")
       return;
     }
+    setChecklistEmptyError("");
     setDraft((prev) => ({
       ...prev,
       checklist: [
@@ -291,6 +296,22 @@ function TaskForm({
 
         {(draft.checklist || []).map((item) => (
           <div key={item.id} className="flex items-center gap-2 min-w-0">
+            <Checkbox
+              checked={item.completed}
+              disabled={false}
+              onCheckedChange={() => {
+                if (readOnly) {
+                  onToggleChecklistItem(item.id);
+                } else {
+                  setDraft((prev) => ({
+                    ...prev,
+                    checklist: prev.checklist.map((i) =>
+                      i.id === item.id ? { ...i, completed: !i.completed } : i
+                    ),
+                  }));
+                }
+              }}
+            />
             <span className="flex-1 min-w-0 wrap-anywhere text-sm">{item.text}</span>
             {!readOnly && (
               <Button
@@ -321,7 +342,10 @@ function TaskForm({
                 placeholder="Add a checklist item"
                 maxLength={100}
                 value={checklistItemInput}
-                onChange={(event) => setChecklistItemInput(event.target.value)}
+                onChange={(event) => {
+                  setChecklistItemInput(event.target.value);
+                  if(checklistEmptyError) setChecklistEmptyError("")
+                  }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
@@ -333,6 +357,9 @@ function TaskForm({
                 Add
               </Button>
             </div>
+            {checklistEmptyError && (
+              <p className="text-sm text-medium-priority">{checklistEmptyError}</p>
+            )}
             {checklistItemInput.length >= 100 && (
               <p className="text-sm text-medium-priority">
                 Checklist item cannot be more than 100 characters

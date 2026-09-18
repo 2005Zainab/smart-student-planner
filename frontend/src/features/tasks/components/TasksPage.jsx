@@ -154,6 +154,7 @@ function TasksPage() {
             : draft.dueDate
           : null,
         time: draft.time || null,
+        checklist: draft.checklist || [],
       };
 
       try {
@@ -203,6 +204,7 @@ function TasksPage() {
           : null,
 
         time: draft.time || null,
+        checklist: draft.checklist || [],
       };
 
       const original = tasks.find(
@@ -390,6 +392,11 @@ function TasksPage() {
           existingTask.id === taskId ? updatedTask : existingTask,
         ),
       );
+
+      setDraft((prev) => ({
+        ...prev,
+        checklist: updatedTask.checklist,
+      }));
     } catch (err) {
       console.log(err);
     }
@@ -493,6 +500,7 @@ function TasksPage() {
             onToggleChecklistItem={(itemId) =>
               toggleChecklistItem(editingTaskId, itemId)
             }
+            isNewTask={formMode === "create"}
           />
         </DialogContent>
       </Dialog>
@@ -536,6 +544,7 @@ function TasksPage() {
               onToggleChecklistItem={(itemId) =>
                 toggleChecklistItem(editingTaskId, itemId)
               }
+              isNewTask={formMode === "create"}
             />
           </div>
         </SheetContent>
