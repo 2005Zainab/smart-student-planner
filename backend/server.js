@@ -1,10 +1,12 @@
-import express from 'express';
-import cors from 'cors';
-import tasksRoute from './routes/tasks.js';
+import express from "express";
+import cors from "cors";
+import tasksRoute from "./routes/tasks.js";
+import labelsRoute from "./routes/labels.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+//Allow the frontend to connect to the backend
 app.use(
   cors({
     origin: [
@@ -14,17 +16,25 @@ app.use(
   }),
 );
 
-// Middleware
+//Allow the server to read JSON data
 app.use(express.json());
 
-// simple custom middleware that will output to the console the type of request and the url.
+//Show the request method and URL in the terminal
 app.use((req, res, next) => {
-  console.log(`req method is ${req.method} & req URL is ${req.url}`);
+  console.log(
+    `req method is ${req.method} & req URL is ${req.url}`,
+  );
+
   next();
 });
 
-app.use('/api/tasks', tasksRoute);
+//Task routes
+app.use("/api/tasks", tasksRoute);
 
+//Label routes
+app.use("/api/labels", labelsRoute);
+
+//Start the backend server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });

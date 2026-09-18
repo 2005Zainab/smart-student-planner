@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { CalendarDays } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 
 import { Textarea } from "@/components/ui/textarea";
+import { httpClient } from "../../../shared/http-client";
 
 function TaskForm({
   draft,
@@ -34,6 +35,30 @@ function TaskForm({
   requireDateAndTime = false,
 }) {
   const [dateError, setDateError] = useState("");
+
+  //Store the labels that belong to the user
+  const [labels, setLabels] = useState([]);
+
+  //Used when the user creates a new label
+  const [newLabel, setNewLabel] = useState("");
+  const [labelError, setLabelError] = useState("");
+
+  //Load saved labels from the backend
+  useEffect(() => {
+    const loadLabels = async () => {
+      try {
+        const savedLabels = await httpClient(
+          "http://localhost:3000/api/labels",
+        );
+
+        setLabels(savedLabels);
+      } catch (err) {
+        console.log(err);
+      }
+    };
+
+    loadLabels();
+  }, []);
 
   const handleSave = (event) => {
     event.preventDefault();
