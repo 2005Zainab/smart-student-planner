@@ -34,7 +34,8 @@ function TaskForm({
   readOnly = false,
   requireDateAndTime = false,
 }) {
-  const [dateError, setDateError] = useState("");
+    const [dateError, setDateError] = useState("");
+    const [reminderError, setReminderError] = useState("");
 
   //Store the labels that belong to the user
   const [labels, setLabels] = useState([]);
@@ -70,7 +71,29 @@ function TaskForm({
         "Due date is required for adding task to schedule.",
       );
       return;
+      }
+
+    setReminderError(""); // Reset reminder error before validation
+    const hasReminderDate = Boolean(draft.reminderDate);
+    const hasReminderTime = Boolean(draft.reminderTime);
+
+    if (hasReminderDate !== hasReminderTime) {
+        setReminderError("Date and time is required to set a reminder.");
+        return;
     }
+    // Validate that the reminder date and time is not in the past
+      if (hasReminderDate && hasReminderTime) {
+          const reminderDateOnly =
+              draft.reminderDate instanceof Date
+                  ? format(draft.reminderDate, "yyyy-MM-dd")
+                  : draft.reminderDate;
+          const reminderDateTime = new Date(`${reminderDateOnly}T${draft.reminderTime}:00`);
+
+          if (reminderDateTime <= new Date()) {
+              setReminderError("Reminders cannot be set in the past.");
+              return;
+          }
+      }
 
     onSave();
   };
@@ -314,6 +337,54 @@ function TaskForm({
             </SelectContent>
           </Select>
         </div>
+
+               <div className="space-y-2">
+          <Label htmlFor="task-reminder-date">Reminder date</Label>
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button
+                  className="w-full justify-start font-normal"
+                  disabled={readOnly}
+                  id="task-reminder-date"
+                  type="button"
+                  variant="outline"
+                />
+              }
+            >
+              <CalendarDays />
+              {draft.reminderDate ? format(draft.reminderDate, "PPP") : "Choose a date"}
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                onSelect={(reminderDate) =>
+                  setDraft((prev) => ({ ...prev, reminderDate }))
+                }
+                selected={draft.reminderDate}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="task-reminder-time">Reminder time</Label>
+          <Input
+            id="task-reminder-time"
+            type="time"
+            onChange={(event) =>
+              setDraft((prev) => ({ ...prev, reminderTime: event.target.value }))
+            }
+            disabled={readOnly}
+            value={draft.reminderTime || ""}
+          />
+        </div>
+              {typeof Notification !== "undefined" && Notification.permission === "denied" && (
+                  <p className="text-sm text-muted-foreground">
+                      Notifications are blocked in your browser: reminders won't show a popup.
+                  </p>
+              )}
+              {reminderError && <p className="text-sm text-destructive">{reminderError}</p>} 
       </div>
 
       {saveError && (

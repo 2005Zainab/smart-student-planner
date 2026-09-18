@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./auth";
 
@@ -16,8 +22,18 @@ export const AuthProvider = ({ children }) => {
     return unsubscribe;
   }, []);
 
+  const refreshUser = useCallback(() => {
+    if (auth.currentUser) {
+      const updatedUser = Object.assign(
+        Object.create(Object.getPrototypeOf(auth.currentUser)),
+        auth.currentUser,
+      );
+      setUser(updatedUser);
+    }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, isLoading }}>
+    <AuthContext.Provider value={{ user, isLoading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

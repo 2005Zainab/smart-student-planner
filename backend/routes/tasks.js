@@ -12,6 +12,8 @@ const ALLOWED_FIELDS = [
   "status",
   "dueDate",
   "time",
+  "reminderDate",
+  "reminderTime",
 ];
 
 const ALLOWED_STATUSES = [
@@ -77,6 +79,8 @@ router.post("/", requireAuth, async (req, res) => {
     status = "To Do",
     dueDate = null,
     time: rawTime = "",
+    reminderDate = null,
+    reminderTime: rawReminderTime = "",
   } = req.body;
 
   const time =
@@ -85,32 +89,34 @@ router.post("/", requireAuth, async (req, res) => {
       ? rawTime.trim()
       : null;
 
-  //Check time
-  if (time && !/^\d{2}:\d{2}$/.test(time)) {
+  // safely trim the time input
+  const reminderTime =
+    typeof rawReminderTime === "string" && rawReminderTime.trim() !== ""
+      ? rawReminderTime.trim()
+      : null;
+
+  // validate time
+  if (time && (!/^\d{2}:\d{2}$/.test(time))) {
     return res.status(400).json({
       message: "Time must use HH:MM format",
     });
   }
 
-  if (time) {
-    const [hours, minutes] =
-      time.split(":").map(Number);
-
-    if (
-      isNaN(hours) ||
-      isNaN(minutes) ||
-      hours < 0 ||
-      hours > 23 ||
-      minutes < 0 ||
-      minutes > 59
-    ) {
-      return res.status(400).json({
-        message: "Not a valid time",
-      });
+  // validate reminder time
+  if (reminderTime && (!/^\d{2}:\d{2}$/.test(reminderTime))) {
+    return res.status(400).json({
+      message: "Reminder time must use HH:MM format",
+    });
     }
-  }
 
-  //Check title
+    // reminder date and time must be set together
+    if (Boolean(reminderDate) !== Boolean(reminderTime)) {
+        return res.status(400).json({
+            message: "Date and time is required to set a reminder.",
+        });
+    }
+
+  // Title must be text
   if (typeof title !== "string") {
     return res.status(400).json({
       message: "Title has to be a string",
@@ -232,6 +238,8 @@ router.post("/", requireAuth, async (req, res) => {
       status: STATUS_DISPLAY[statusLower],
       dueDate,
       time,
+      reminderDate,
+      reminderTime,
       userId: uid,
     };
 
@@ -479,6 +487,47 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
   }
 
+    // Reminder date validation
+    if ("reminderDate" in updates && updates.reminderDate !== null) {
+        if (
+            typeof updates.reminderDate !== "string" ||
+            !/^\d{4}-\d{2}-\d{2}$/.test(updates.reminderDate)
+        ) {
+            return res.status(400).json({
+                message: "Reminder date must use YYYY-MM-DD format Please",
+            });
+        }
+
+        const dateParsed = new Date(updates.reminderDate + "T00:00:00Z");
+
+        if (isNaN(dateParsed.getTime())) {
+            return res.status(400).json({
+                message: "Not a valid reminder date",
+            });
+        }
+    }
+
+    // Reminder time validation 
+    if ("reminderTime" in updates && updates.reminderTime !== null) {
+        if (
+            typeof updates.reminderTime !== "string" ||
+            !/^\d{2}:\d{2}$/.test(updates.reminderTime)
+        ) {
+            return res.status(400).json({ message: "Time must use HH:MM format" });
+        }
+        const [hours, minutes] = updates.reminderTime.split(":").map(Number);
+        if (
+            isNaN(hours) ||
+            isNaN(minutes) ||
+            hours < 0 ||
+            hours > 23 ||
+            minutes < 0 ||
+            minutes > 59
+        ) {
+            return res.status(400).json({ message: "Not a valid time" });
+        }
+    }
+
   try {
     const taskDoc = db
       .collection("tasks")
@@ -498,6 +547,18 @@ router.patch("/:id", requireAuth, async (req, res) => {
           "Unauthorized to edit this task: You do not own this task",
       });
     }
+
+      const existingData = taskSnap.data();
+      const finalReminderDate =
+          "reminderDate" in updates ? updates.reminderDate : existingData.reminderDate;
+      const finalReminderTime =
+          "reminderTime" in updates ? updates.reminderTime : existingData.reminderTime;
+
+      if (Boolean(finalReminderDate) !== Boolean(finalReminderTime)) {
+          return res.status(400).json({
+              message: "Date and time is required to set a reminder.",
+          });
+      }
 
     await taskDoc.update(updates);
 
