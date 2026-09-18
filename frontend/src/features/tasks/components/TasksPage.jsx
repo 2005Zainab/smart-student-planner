@@ -34,11 +34,13 @@ import {
 
 import { TaskForm } from "./TaskForm";
 import { TaskList } from "./TaskList";
-import { useTasks } from "../hooks/useTasks";
+//import { useTasks } from "../hooks/useTasks";
+import { useTasksContext } from "../context/TasksContext";
 import { httpClient } from "../../../shared/http-client";
 
 function TasksPage() {
-  const { tasks, setTasks, isLoading, error } = useTasks();
+  //const { tasks, setTasks, isLoading, error } = useTasks();
+  const { tasks, setTasks, isLoading, error } = useTasksContext();
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
