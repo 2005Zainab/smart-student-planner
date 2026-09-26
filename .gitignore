@@ -9,7 +9,6 @@ backend/serviceAccountKey.json
 # express gitignore stuff
 # npm
 node_modules
-package-lock.json
 npm-shrinkwrap.json
 *.log
 *.gz
