@@ -1,23 +1,16 @@
-import { MoreHorizontal, CheckSquare } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { MoreHorizontal, CheckSquare } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
+} from '@/components/ui/dropdown-menu';
+import { Skeleton } from '@/components/ui/skeleton';
 
-function TaskRow({
-  task,
-  onEdit,
-  onDelete,
-  onToggle,
-  onView,
-  isLoading,
-}) {
+function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
   //Show loading layout while tasks are loading
   if (isLoading) {
     return (
@@ -41,7 +34,7 @@ function TaskRow({
       className="flex cursor-pointer items-start gap-3 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={onView}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
+        if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onView();
         }
@@ -52,7 +45,7 @@ function TaskRow({
       {/* Complete task checkbox */}
       <Checkbox
         aria-label={`Mark ${task.title} complete`}
-        checked={task.status === "Completed"}
+        checked={task.status === 'Completed'}
         onClick={(event) => event.stopPropagation()}
         onCheckedChange={onToggle}
       />
@@ -61,29 +54,27 @@ function TaskRow({
       <div className="min-w-0 flex-1">
         <p
           className={
-            task.status === "Completed"
-              ? "font-medium line-through text-muted-foreground"
-              : "font-medium"
+            task.status === 'Completed'
+              ? 'font-medium line-through text-muted-foreground'
+              : 'font-medium'
           }
         >
           {task.title}
         </p>
 
-        <p className="mt-1 text-sm text-muted-foreground">
-          {task.subject}
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{task.subject}</p>
       </div>
 
       {/* Priority colour changes depending on priority */}
       <Badge
         variant={
-          task.priority === "High"
-            ? "high"
-            : task.priority === "Medium"
-              ? "medium"
-              : task.priority === "Low"
-                ? "low"
-                : "secondary"
+          task.priority === 'High'
+            ? 'high'
+            : task.priority === 'Medium'
+              ? 'medium'
+              : task.priority === 'Low'
+                ? 'low'
+                : 'secondary'
         }
       >
         {task.priority}
@@ -101,20 +92,14 @@ function TaskRow({
 
       <Badge variant="outline">{task.status}</Badge>
 
-      <Badge variant="outline">
-        {task.dueDate || "No due date"}
-      </Badge>
+      <Badge variant="outline">{task.dueDate || 'No due date'}</Badge>
 
       {/* Edit and delete menu */}
       <DropdownMenu>
         <DropdownMenuTrigger
           onClick={(event) => event.stopPropagation()}
           render={
-            <Button
-              aria-label={`Actions for ${task.title}`}
-              size="icon-sm"
-              variant="ghost"
-            />
+            <Button aria-label={`Actions for ${task.title}`} size="icon-sm" variant="ghost" />
           }
         >
           <MoreHorizontal />
@@ -125,13 +110,9 @@ function TaskRow({
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          <DropdownMenuItem onClick={onEdit}>
-            Edit
-          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
 
-          <DropdownMenuItem onClick={onDelete}>
-            Delete
-          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onDelete}>Delete</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

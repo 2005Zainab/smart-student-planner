@@ -7,7 +7,7 @@ import {
   parseISO,
   startOfDay,
   startOfWeek,
-} from "date-fns";
+} from 'date-fns';
 
 /**
  * Returns a Date object representing the task's due date.
@@ -37,7 +37,7 @@ function getTaskDateAndTime(task) {
 
   if (!task.time) return startOfDay(taskDate);
 
-  const [hours, minutes] = task.time.split(":").map(Number);
+  const [hours, minutes] = task.time.split(':').map(Number);
   if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null;
 
   taskDate.setHours(hours, minutes, 0, 0);
@@ -51,7 +51,7 @@ function getTaskDateAndTime(task) {
  * @returns {boolean} - True if the task is incomplete, false otherwise.
  */
 function isIncomplete(task) {
-  return task.status !== "Completed";
+  return task.status !== 'Completed';
 }
 
 /**
@@ -102,10 +102,7 @@ function getUpcomingTasks(tasks, referenceDate = new Date()) {
     )
     .map((task) => ({
       ...task,
-      daysUntilDue: differenceInCalendarDays(
-        startOfDay(task.parsedDateTime),
-        startDate,
-      ),
+      daysUntilDue: differenceInCalendarDays(startOfDay(task.parsedDateTime), startDate),
     }))
     .sort(sortByDateTime);
 }
@@ -124,7 +121,7 @@ function getWeeklySchedule(tasks, referenceDate = new Date()) {
 
     return {
       date,
-      label: format(date, "EEEE, MMM d"),
+      label: format(date, 'EEEE, MMM d'),
       tasks: [],
     };
   });
@@ -163,9 +160,4 @@ function getUndatedTasks(tasks) {
   return tasks.filter((task) => isIncomplete(task) && !task.dueDate);
 }
 
-export {
-  getTaskDateAndTime,
-  getUpcomingTasks,
-  getUndatedTasks,
-  getWeeklySchedule,
-};
+export { getTaskDateAndTime, getUpcomingTasks, getUndatedTasks, getWeeklySchedule };

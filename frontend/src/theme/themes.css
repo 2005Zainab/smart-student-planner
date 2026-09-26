@@ -1,5 +1,5 @@
 :root,
-[data-theme="light"] {
+[data-theme='light'] {
   color-scheme: light;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -40,7 +40,7 @@
 }
 
 :root.dark,
-[data-theme="dark"] {
+[data-theme='dark'] {
   color-scheme: dark;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

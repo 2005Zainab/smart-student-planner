@@ -1,51 +1,42 @@
-import { useState } from "react";
-import {
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-  updateProfile,
-} from "firebase/auth";
+import { useState } from 'react';
+import { EmailAuthProvider, reauthenticateWithCredential, updateProfile } from 'firebase/auth';
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
-import { toast } from "@/components/ui/toast";
-import { useAuth } from "@/shared/auth-provider";
+import { toast } from '@/components/ui/toast';
+import { useAuth } from '@/shared/auth-provider';
 
 function SettingsPage() {
   const { user, refreshUser } = useAuth();
 
   const [open, setOpen] = useState(false);
-  const [newUsername, setNewUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [newUsername, setNewUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const changeUsername = async (event) => {
     event.preventDefault();
-    setError("");
+    setError('');
 
     const newUsernameTrimmed = newUsername.trim();
 
     if (!newUsernameTrimmed) {
-      setError("Username cannot be empty");
+      setError('Username cannot be empty');
       return;
     }
 
     if (!password) {
-      setError("Password is required");
+      setError('Password is required');
       return;
     }
 
     if (newUsernameTrimmed === user?.displayName) {
-      setError("Please enter a different username");
+      setError('Please enter a different username');
       return;
     }
 
@@ -65,17 +56,17 @@ function SettingsPage() {
       refreshUser();
 
       toast.add({
-        title: "Successfully changed username",
-        type: "success",
+        title: 'Successfully changed username',
+        type: 'success',
       });
 
       setOpen(false);
-      setNewUsername("");
-      setPassword("");
+      setNewUsername('');
+      setPassword('');
     } catch (err) {
       console.log(err);
 
-      setError("Unable to change username. Please check your password.");
+      setError('Unable to change username. Please check your password.');
     } finally {
       setIsLoading(false);
     }
@@ -86,9 +77,7 @@ function SettingsPage() {
       <div>
         <h2 className="text-2xl font-semibold">Settings</h2>
 
-        <p className="mt-1 text-muted-foreground">
-          Manage your account settings.
-        </p>
+        <p className="mt-1 text-muted-foreground">Manage your account settings.</p>
       </div>
 
       <div className="rounded-xl border bg-card p-6">
@@ -97,17 +86,15 @@ function SettingsPage() {
         <div className="mt-4 space-y-1">
           <p className="text-sm text-muted-foreground">Username</p>
 
-          <p className="font-medium">
-            {user?.displayName || user?.email || "Loading..."}
-          </p>
+          <p className="font-medium">{user?.displayName || user?.email || 'Loading...'}</p>
         </div>
 
         <Button
           className="mt-4"
           onClick={() => {
-            setError("");
-            setNewUsername(user?.displayName || "");
-            setPassword("");
+            setError('');
+            setNewUsername(user?.displayName || '');
+            setPassword('');
             setOpen(true);
           }}
         >
@@ -119,9 +106,7 @@ function SettingsPage() {
         <DialogContent>
           <DialogTitle>Change username</DialogTitle>
 
-          <DialogDescription>
-            Enter a new username and your current password.
-          </DialogDescription>
+          <DialogDescription>Enter a new username and your current password.</DialogDescription>
 
           <form className="space-y-4" onSubmit={changeUsername}>
             <div className="space-y-2">
@@ -163,7 +148,7 @@ function SettingsPage() {
               </Button>
 
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save Changes"}
+                {isLoading ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
           </form>

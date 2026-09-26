@@ -1,25 +1,20 @@
-import { httpClient } from "../../../shared/http-client";
-import { format, parseISO } from "date-fns";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Plus } from "lucide-react";
-import { useState } from "react";
-import { ScheduleList } from "./ScheduleList";
-import { TaskForm } from "../../tasks/components/TaskForm";
-import { toast } from "@/components/ui/toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { httpClient } from '../../../shared/http-client';
+import { format, parseISO } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Plus } from 'lucide-react';
+import { useState } from 'react';
+import { ScheduleList } from './ScheduleList';
+import { TaskForm } from '../../tasks/components/TaskForm';
+import { toast } from '@/components/ui/toast';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/sheet";
+} from '@/components/ui/sheet';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,42 +24,44 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useTasks } from "../../tasks/hooks/useTasks";
+} from '@/components/ui/alert-dialog';
+//import { useTasks } from '../../tasks/hooks/useTasks';
+import { useTasksContext } from '../../tasks/context/TasksContext';
 
 function SchedulePage() {
-  const { tasks, setTasks, isLoading, error } = useTasks();
+  //const { tasks, setTasks, isLoading, error } = useTasks();
+  const { tasks, setTasks, isLoading, error } = useTasksContext();
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
-  const [formMode, setFormMode] = useState("create");
+  const [formMode, setFormMode] = useState('create');
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [draft, setDraft] = useState({
-    title: "",
-    description: "",
-    subject: "",
-    priority: "Medium",
-    status: "To Do",
-    time: "",
+    title: '',
+    description: '',
+    subject: '',
+    priority: 'Medium',
+    status: 'To Do',
+    time: '',
   });
 
-  const openEditor = (task = null, mode = task ? "edit" : "create") => {
+  const openEditor = (task = null, mode = task ? 'edit' : 'create') => {
     setFormMode(mode);
     setEmptyTitleCheck(null);
     setSaveError(null);
 
-    if (mode === "create") {
+    if (mode === 'create') {
       const newTask = {
         id: `temp-${Date.now()}`,
-        title: "",
-        description: "",
-        subject: "",
-        priority: "Medium",
-        status: "To Do",
+        title: '',
+        description: '',
+        subject: '',
+        priority: 'Medium',
+        status: 'To Do',
         dueDate: undefined,
-        time: "",
+        time: '',
       };
 
       setEditingTaskId(newTask.id);
@@ -75,38 +72,32 @@ function SchedulePage() {
       setDraft(
         task
           ? {
-            ...task,
-            dueDate:
-              typeof task.dueDate === "string"
-                ? parseISO(task.dueDate)
-                : task.dueDate,
-          }
+              ...task,
+              dueDate: typeof task.dueDate === 'string' ? parseISO(task.dueDate) : task.dueDate,
+            }
           : {
-            title: "",
-            description: "",
-            subject: "",
-            priority: "Medium",
-            status: "To Do",
-            dueDate: undefined,
-            time: "",
-          },
+              title: '',
+              description: '',
+              subject: '',
+              priority: 'Medium',
+              status: 'To Do',
+              dueDate: undefined,
+              time: '',
+            },
       );
     }
-    if (window.matchMedia("(max-width: 767px)").matches)
-      setMobileEditorOpen(true);
+    if (window.matchMedia('(max-width: 767px)').matches) setMobileEditorOpen(true);
     else setEditorOpen(true);
   };
 
   const closeEditor = () => {
-    if (formMode === "create" && editingTaskId !== null) {
-      setTasks((current) =>
-        current.filter((task) => task.id !== editingTaskId),
-      );
+    if (formMode === 'create' && editingTaskId !== null) {
+      setTasks((current) => current.filter((task) => task.id !== editingTaskId));
     }
 
     setEditorOpen(false);
     setMobileEditorOpen(false);
-    setFormMode("create");
+    setFormMode('create');
     setEditingTaskId(null);
     setEmptyTitleCheck(null);
     setSaveError(null);
@@ -114,8 +105,8 @@ function SchedulePage() {
 
   const saveTask = async () => {
     //Blank title check, can't be empty or blank space
-    if (!draft.title || draft.title.trim() === "") {
-      setEmptyTitleCheck("Title Cannot Be Empty");
+    if (!draft.title || draft.title.trim() === '') {
+      setEmptyTitleCheck('Title Cannot Be Empty');
       return;
     }
 
@@ -123,7 +114,7 @@ function SchedulePage() {
     setSaveError(null);
 
     //Add task (only local right now)
-    if (formMode === "create") {
+    if (formMode === 'create') {
       const taskToSave = {
         title: draft.title,
         description: draft.description,
@@ -132,15 +123,15 @@ function SchedulePage() {
         status: draft.status,
         dueDate: draft.dueDate
           ? draft.dueDate instanceof Date
-            ? format(draft.dueDate, "yyyy-MM-dd")
+            ? format(draft.dueDate, 'yyyy-MM-dd')
             : draft.dueDate
           : null,
         time: draft.time || null,
       };
 
       try {
-        const savedTask = await httpClient("http://localhost:3000/api/tasks", {
-          method: "POST",
+        const savedTask = await httpClient('http://localhost:3000/api/tasks', {
+          method: 'POST',
           body: JSON.stringify(taskToSave),
         });
 
@@ -149,16 +140,16 @@ function SchedulePage() {
         );
 
         toast.add({
-          title: "Task Added",
-          type: "success",
+          title: 'Task Added',
+          type: 'success',
         });
       } catch (err) {
         console.log(err);
-        setSaveError(err.message || "Failed to add task");
+        setSaveError(err.message || 'Failed to add task');
 
         toast.add({
-          title: "Failed to add task",
-          type: "error",
+          title: 'Failed to add task',
+          type: 'error',
         });
 
         return;
@@ -171,7 +162,7 @@ function SchedulePage() {
         ...draft,
         dueDate: draft.dueDate
           ? draft.dueDate instanceof Date
-            ? format(draft.dueDate, "yyyy-MM-dd")
+            ? format(draft.dueDate, 'yyyy-MM-dd')
             : draft.dueDate
           : undefined,
       };
@@ -193,17 +184,15 @@ function SchedulePage() {
 
       try {
         await httpClient(`http://localhost:3000/api/tasks/${editingTaskId}`, {
-          method: "PATCH",
+          method: 'PATCH',
           body: JSON.stringify(changes),
         });
         setTasks((current) =>
-          current.map((task) =>
-            task.id === editingTaskId ? { ...task, ...changes } : task,
-          ),
+          current.map((task) => (task.id === editingTaskId ? { ...task, ...changes } : task)),
         );
       } catch (err) {
         console.log(err);
-        setSaveError(err.message || "Failed to save task");
+        setSaveError(err.message || 'Failed to save task');
         return;
       }
     }
@@ -222,12 +211,9 @@ function SchedulePage() {
   //       ),
   //     );
 
-
   //Toggles a checklists item completeion state and also saves the checklist
   const toggleChecklistItem = async (taskId, itemId) => {
-    const task = tasks.find(
-      (existingTask) => existingTask.id === taskId,
-    );
+    const task = tasks.find((existingTask) => existingTask.id === taskId);
 
     if (!task || !task.checklist) {
       return;
@@ -238,20 +224,15 @@ function SchedulePage() {
     );
 
     try {
-      const updatedTask = await httpClient(
-        `http://localhost:3000/api/tasks/${taskId}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            checklist: updateChecklist,
-          }),
-        },
-      );
+      const updatedTask = await httpClient(`http://localhost:3000/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          checklist: updateChecklist,
+        }),
+      });
 
       setTasks((current) =>
-        current.map((existingTask) =>
-          existingTask.id === taskId ? updatedTask : existingTask,
-        ),
+        current.map((existingTask) => (existingTask.id === taskId ? updatedTask : existingTask)),
       );
 
       setDraft((prev) => ({
@@ -263,16 +244,15 @@ function SchedulePage() {
     }
   };
 
-
   const deleteTask = async (id) => {
     try {
       await httpClient(`http://localhost:3000/api/tasks/${id}`, {
-        method: "DELETE",
+        method: 'DELETE',
       });
       setTasks((current) => current.filter((task) => task.id !== id));
       toast.add({
-        title: "Task Deleted",
-        type: "success",
+        title: 'Task Deleted',
+        type: 'success',
       });
     } catch (err) {
       console.log(err);
@@ -289,9 +269,7 @@ function SchedulePage() {
     }
 
     const taskDate = parseISO(dateValue);
-    const [hours, minutes] = task.time
-      ? task.time.split(":").map(Number)
-      : [0, 0];
+    const [hours, minutes] = task.time ? task.time.split(':').map(Number) : [0, 0];
 
     taskDate.setHours(hours, minutes);
     return taskDate;
@@ -309,15 +287,15 @@ function SchedulePage() {
         task.parsedDateTime !== null &&
         task.parsedDateTime >= now &&
         task.status &&
-        task.status !== "Completed",
+        task.status !== 'Completed',
     )
     .sort((a, b) => a.parsedDateTime - b.parsedDateTime);
 
   const groupedTasks = upcomingTasks.reduce((acc, task) => {
-    const dayLabel = task.parsedDateTime.toLocaleDateString("en-NZ", {
-      weekday: "long",
-      month: "short",
-      day: "numeric",
+    const dayLabel = task.parsedDateTime.toLocaleDateString('en-NZ', {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
     });
 
     if (!acc[dayLabel]) {
@@ -332,9 +310,7 @@ function SchedulePage() {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Schedule</h2>
-          <p className="mt-1 text-muted-foreground">
-            View your daily priorities.
-          </p>
+          <p className="mt-1 text-muted-foreground">View your daily priorities.</p>
         </div>
         <Button onClick={() => openEditor()}>
           <Plus /> Add Event
@@ -346,10 +322,7 @@ function SchedulePage() {
           {/* Map through the grouped tasks and display them by day */}
           {Object.entries(groupedTasks).length > 0 ? (
             Object.entries(groupedTasks).map(([day, dayTasks]) => (
-              <div
-                key={day}
-                className="border-b last:border-b-0 pb-4 mb-4 last:pb-0 last:mb-0"
-              >
+              <div key={day} className="border-b last:border-b-0 pb-4 mb-4 last:pb-0 last:mb-0">
                 <h3 className="bg-muted-foreground/31 px-4 py-2 text-sm font-medium text-secondary-foreground rounded-t-md">
                   {day}
                 </h3>
@@ -357,16 +330,16 @@ function SchedulePage() {
                   tasks={dayTasks}
                   isLoading={isLoading}
                   error={error}
-                  onEdit={(task) => openEditor(task, "edit")}
+                  onEdit={(task) => openEditor(task, 'edit')}
                   onDelete={setDeleteId}
-                  onView={(task) => openEditor(task, "view")}
+                  onView={(task) => openEditor(task, 'view')}
                 />
               </div>
             ))
           ) : (
             /* Fallback for when there are no valid tasks to display */
             <div className="p-8 text-center text-muted-foreground">
-              {isLoading ? "Loading tasks..." : "No tasks scheduled."}
+              {isLoading ? 'Loading tasks...' : 'No tasks scheduled.'}
             </div>
           )}
         </CardContent>
@@ -378,56 +351,44 @@ function SchedulePage() {
       >
         <DialogContent>
           <DialogTitle>
-            {formMode === "view"
-              ? "View task"
-              : formMode === "create"
-                ? "Add task"
-                : "Edit task"}
+            {formMode === 'view' ? 'View task' : formMode === 'create' ? 'Add task' : 'Edit task'}
           </DialogTitle>
           <DialogDescription>
-            {formMode === "view"
-              ? "Review the details for this task."
-              : formMode === "create"
-                ? "Create a task for your study plan."
-                : "Update the details for this task."}
+            {formMode === 'view'
+              ? 'Review the details for this task.'
+              : formMode === 'create'
+                ? 'Create a task for your study plan.'
+                : 'Update the details for this task.'}
           </DialogDescription>
           <TaskForm
             draft={draft}
             onCancel={closeEditor}
             onSave={saveTask}
-            readOnly={formMode === "view"}
+            readOnly={formMode === 'view'}
             setDraft={setDraft}
             titleError={emptyTitleCheck}
             saveError={saveError}
             requireDateAndTime={true}
-            onToggleChecklistItem={(itemId) =>
-              toggleChecklistItem(editingTaskId, itemId)
-            }
+            onToggleChecklistItem={(itemId) => toggleChecklistItem(editingTaskId, itemId)}
           />
         </DialogContent>
       </Dialog>
 
       <Sheet
         open={mobileEditorOpen}
-        onOpenChange={(open) =>
-          open ? setMobileEditorOpen(true) : closeEditor()
-        }
+        onOpenChange={(open) => (open ? setMobileEditorOpen(true) : closeEditor())}
       >
         <SheetContent className="overflow-y-auto">
           <SheetHeader>
             <SheetTitle>
-              {formMode === "view"
-                ? "View task"
-                : formMode === "create"
-                  ? "Add task"
-                  : "Edit task"}
+              {formMode === 'view' ? 'View task' : formMode === 'create' ? 'Add task' : 'Edit task'}
             </SheetTitle>
             <SheetDescription>
-              {formMode === "view"
-                ? "Review the details for this task."
-                : formMode === "create"
-                  ? "Create a task for your study plan."
-                  : "Update the details for this task."}
+              {formMode === 'view'
+                ? 'Review the details for this task.'
+                : formMode === 'create'
+                  ? 'Create a task for your study plan.'
+                  : 'Update the details for this task.'}
             </SheetDescription>
           </SheetHeader>
           <div className="p-4">
@@ -435,23 +396,18 @@ function SchedulePage() {
               draft={draft}
               onCancel={closeEditor}
               onSave={saveTask}
-              readOnly={formMode === "view"}
+              readOnly={formMode === 'view'}
               setDraft={setDraft}
               titleError={emptyTitleCheck}
               saveError={saveError}
               requireDateAndTime={true}
-              onToggleChecklistItem={(itemId) =>
-                toggleChecklistItem(editingTaskId, itemId)
-              }
+              onToggleChecklistItem={(itemId) => toggleChecklistItem(editingTaskId, itemId)}
             />
           </div>
         </SheetContent>
       </Sheet>
 
-      <AlertDialog
-        open={deleteId !== null}
-        onOpenChange={(open) => !open && setDeleteId(null)}
-      >
+      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete task?</AlertDialogTitle>

@@ -1,12 +1,6 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-} from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./auth";
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './auth';
 
 const AuthContext = createContext(undefined);
 
@@ -33,14 +27,12 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, refreshUser }}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={{ user, isLoading, refreshUser }}>{children}</AuthContext.Provider>
   );
 };
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 };

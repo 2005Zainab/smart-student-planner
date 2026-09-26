@@ -1,31 +1,27 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Link, useNavigate } from "react-router";
-import { useLogin } from "../hooks/use-login";
-import { getAuthErrorMessage } from "../utils/get-auth-error-message";
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Link, useNavigate } from 'react-router';
+import { useLogin } from '../hooks/use-login';
+import { getAuthErrorMessage } from '../utils/get-auth-error-message';
 
 function LoginPage() {
   const navigate = useNavigate();
   const { error, isPending, login } = useLogin();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   async function handleSubmit(event) {
     event.preventDefault();
     try {
       await login({ email, password });
-      navigate("/dashboard");
-    } catch {}
+      navigate('/dashboard');
+    } catch {
+      // Error is surfaced via the `error` state from useLogin
+    }
   }
 
   return (
@@ -33,9 +29,7 @@ function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Welcome back</CardTitle>
-          <CardDescription>
-            Sign in to continue planning your studies.
-          </CardDescription>
+          <CardDescription>Sign in to continue planning your studies.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-5" onSubmit={handleSubmit}>
@@ -68,7 +62,7 @@ function LoginPage() {
                   <Spinner data-icon="inline-start" /> Signing in...
                 </>
               ) : (
-                "Sign in"
+                'Sign in'
               )}
             </Button>
             <p className="text-center text-sm">
@@ -86,7 +80,7 @@ function LoginPage() {
             </p>
           )}
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
+            Don&apos;t have an account?{' '}
             <Link
               className="font-medium text-foreground underline underline-offset-4"
               to="/register"

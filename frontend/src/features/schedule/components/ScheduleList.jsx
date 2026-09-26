@@ -1,15 +1,15 @@
-import { MoreHorizontal, Clock, CheckSquare } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { MoreHorizontal, Clock, CheckSquare } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
+} from '@/components/ui/dropdown-menu';
+import { Skeleton } from '@/components/ui/skeleton';
 
-function ScheduleRow({ task, onEdit, onDelete, onView, onToggle, isLoading }) {
+function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
   if (isLoading) {
     return (
       <div className="flex items-start gap-4 p-4 border-l-4 border-l-transparent">
@@ -25,33 +25,39 @@ function ScheduleRow({ task, onEdit, onDelete, onView, onToggle, isLoading }) {
     );
   }
   // Use the parsedDateTime we generated in the SchedulePage, with a fallback just in case
-  let displayTime = "No time";
+  let displayTime = 'No time';
   if (task.parsedDateTime) {
-    displayTime = task.parsedDateTime.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
+    displayTime = task.parsedDateTime.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
     });
   } else if (task.dueTime) {
     // Fallback if parsedDateTime isn't available for some reason
-    const [hours, minutes] = task.dueTime.split(":");
+    const [hours, minutes] = task.dueTime.split(':');
     const d = new Date();
     d.setHours(parseInt(hours, 10), parseInt(minutes, 10));
-    displayTime = d.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
+    displayTime = d.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
     });
   }
 
   // Determine the accent color based on priority
   const borderAccent =
-    task.priority === "High" ? "border-l-high-priority" : task.priority === "Medium" ? "border-l-medium-priority" : task.priority === "Low" ? "border-l-low-priority" : "border-l-primary/40";
+    task.priority === 'High'
+      ? 'border-l-high-priority'
+      : task.priority === 'Medium'
+        ? 'border-l-medium-priority'
+        : task.priority === 'Low'
+          ? 'border-l-low-priority'
+          : 'border-l-primary/40';
 
   return (
     <div
       className={`group flex cursor-pointer items-start gap-4 p-4 border-l-4 ${borderAccent} hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
       onClick={() => onView(task)}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
+        if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onView(task);
         }
@@ -69,16 +75,14 @@ function ScheduleRow({ task, onEdit, onDelete, onView, onToggle, isLoading }) {
       <div className="min-w-0 flex-1">
         <p
           className={
-            task.status === "Completed"
-              ? "font-medium line-through text-muted-foreground"
-              : "font-medium"
+            task.status === 'Completed'
+              ? 'font-medium line-through text-muted-foreground'
+              : 'font-medium'
           }
         >
           {task.title}
         </p>
-        <p className="mt-1 text-sm text-muted-foreground line-clamp-1">
-          {task.subject}
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground line-clamp-1">{task.subject}</p>
       </div>
 
       {/* Badges and Actions */}
@@ -93,7 +97,15 @@ function ScheduleRow({ task, onEdit, onDelete, onView, onToggle, isLoading }) {
           </Badge>
         )}
         <Badge
-          variant={task.priority === "High" ? "high" : task.priority === "Medium" ? "medium" : task.priority === "Low" ? "low" : "secondary"}
+          variant={
+            task.priority === 'High'
+              ? 'high'
+              : task.priority === 'Medium'
+                ? 'medium'
+                : task.priority === 'Low'
+                  ? 'low'
+                  : 'secondary'
+          }
           className="hidden sm:inline-flex"
         >
           {task.priority}
@@ -106,11 +118,7 @@ function ScheduleRow({ task, onEdit, onDelete, onView, onToggle, isLoading }) {
           <DropdownMenuTrigger
             onClick={(event) => event.stopPropagation()}
             render={
-              <Button
-                aria-label={`Actions for ${task.title}`}
-                size="icon-sm"
-                variant="ghost"
-              />
+              <Button aria-label={`Actions for ${task.title}`} size="icon-sm" variant="ghost" />
             }
           >
             <MoreHorizontal />
@@ -120,12 +128,8 @@ function ScheduleRow({ task, onEdit, onDelete, onView, onToggle, isLoading }) {
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
           >
-            <DropdownMenuItem onClick={() => onEdit(task)}>
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onDelete(task.id)}>
-              Delete
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onEdit(task)}>Edit</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onDelete(task.id)}>Delete</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

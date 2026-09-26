@@ -1,24 +1,20 @@
-import { format } from "date-fns";
-import { CalendarDays, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { useState } from "react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { format } from 'date-fns';
+import { CalendarDays, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useState } from 'react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 function TaskForm({
   draft,
@@ -31,27 +27,26 @@ function TaskForm({
   requireDateAndTime = false,
   onToggleChecklistItem,
 }) {
-  const [dateError, setDateError] = useState("");
-  const [reminderError, setReminderError] = useState("");
-  const [checklistItemInput, setChecklistItemInput] = useState("");
-  const [checklistError, setChecklistError] = useState("");
+  const [dateError, setDateError] = useState('');
+  const [reminderError, setReminderError] = useState('');
+  const [checklistItemInput, setChecklistItemInput] = useState('');
+  const [checklistError, setChecklistError] = useState('');
 
   const checklist = draft.checklist || [];
   const completedItems = checklist.filter((item) => item.completed).length;
   const progress = checklist.length > 0 ? Math.round((completedItems / checklist.length) * 100) : 0;
 
   const checklistHandleAddItem = () => {
-
-    if(checklist.length >= 10){
-      setChecklistError("10 is maximum number of checklist items");
+    if (checklist.length >= 10) {
+      setChecklistError('10 is maximum number of checklist items');
       return;
     }
 
     if (!checklistItemInput.trim()) {
-      setChecklistError("Checklist item cannot be empty")
+      setChecklistError('Checklist item cannot be empty');
       return;
     }
-    setChecklistError("");
+    setChecklistError('');
     setDraft((prev) => ({
       ...prev,
       checklist: [
@@ -59,55 +54,48 @@ function TaskForm({
         { id: `temp-${Date.now()}`, text: checklistItemInput.trim(), completed: false },
       ],
     }));
-    setChecklistItemInput("");
+    setChecklistItemInput('');
   };
 
   const handleSave = (event) => {
     event.preventDefault();
-    setDateError("");
+    setDateError('');
 
     if (requireDateAndTime && !draft.dueDate) {
-      setDateError(
-        "Due date is required for adding task to schedule.",
-      );
+      setDateError('Due date is required for adding task to schedule.');
       return;
-      }
+    }
 
-    setReminderError(""); // Reset reminder error before validation
+    setReminderError(''); // Reset reminder error before validation
     const hasReminderDate = Boolean(draft.reminderDate);
     const hasReminderTime = Boolean(draft.reminderTime);
 
     if (hasReminderDate !== hasReminderTime) {
-        setReminderError("Date and time is required to set a reminder.");
-        return;
+      setReminderError('Date and time is required to set a reminder.');
+      return;
     }
     // Validate that the reminder date and time is not in the past
-      if (hasReminderDate && hasReminderTime) {
-          const reminderDateOnly =
-              draft.reminderDate instanceof Date
-                  ? format(draft.reminderDate, "yyyy-MM-dd")
-                  : draft.reminderDate;
-          const reminderDateTime = new Date(`${reminderDateOnly}T${draft.reminderTime}:00`);
+    if (hasReminderDate && hasReminderTime) {
+      const reminderDateOnly =
+        draft.reminderDate instanceof Date
+          ? format(draft.reminderDate, 'yyyy-MM-dd')
+          : draft.reminderDate;
+      const reminderDateTime = new Date(`${reminderDateOnly}T${draft.reminderTime}:00`);
 
-          if (reminderDateTime <= new Date()) {
-              setReminderError("Reminders cannot be set in the past.");
-              return;
-          }
+      if (reminderDateTime <= new Date()) {
+        setReminderError('Reminders cannot be set in the past.');
+        return;
       }
+    }
 
     onSave();
   };
 
   return (
-    <form
-      className="space-y-4"
-      onSubmit={handleSave}
-    >
+    <form className="space-y-4" onSubmit={handleSave}>
       {/* Task name */}
       <div className="space-y-2">
-        <Label htmlFor="task-title">
-          Task name
-        </Label>
+        <Label htmlFor="task-title">Task name</Label>
 
         <Input
           id="task-title"
@@ -119,27 +107,19 @@ function TaskForm({
           }
           disabled={readOnly}
           maxLength={200}
-          value={draft.title || ""}
+          value={draft.title || ''}
         />
 
         {(draft.title?.length || 0) >= 200 && (
-          <p className="text-sm text-medium-priority">
-            Title cannot be more than 200 characters
-          </p>
+          <p className="text-sm text-medium-priority">Title cannot be more than 200 characters</p>
         )}
 
-        {titleError && (
-          <p className="text-sm text-destructive">
-            {titleError}
-          </p>
-        )}
+        {titleError && <p className="text-sm text-destructive">{titleError}</p>}
       </div>
 
       {/* Description */}
       <div className="space-y-2">
-        <Label htmlFor="task-description">
-          Description
-        </Label>
+        <Label htmlFor="task-description">Description</Label>
 
         <Textarea
           id="task-description"
@@ -151,7 +131,7 @@ function TaskForm({
           }
           maxLength={1000}
           disabled={readOnly}
-          value={draft.description || ""}
+          value={draft.description || ''}
         />
 
         {(draft.description?.length || 0) >= 1000 && (
@@ -163,9 +143,7 @@ function TaskForm({
 
       {/* Subject */}
       <div className="space-y-2">
-        <Label htmlFor="task-subject">
-          Subject
-        </Label>
+        <Label htmlFor="task-subject">Subject</Label>
 
         <Input
           id="task-subject"
@@ -178,13 +156,11 @@ function TaskForm({
           maxLength={200}
           disabled={readOnly}
           required
-          value={draft.subject || ""}
+          value={draft.subject || ''}
         />
 
         {(draft.subject?.length || 0) >= 200 && (
-          <p className="text-sm text-medium-priority">
-            Subject cannot be more than 200 characters
-          </p>
+          <p className="text-sm text-medium-priority">Subject cannot be more than 200 characters</p>
         )}
       </div>
 
@@ -201,22 +177,16 @@ function TaskForm({
         {/* Due date */}
         <div className="space-y-2">
           <Label htmlFor="task-due-date">
-            Due date{" "}
-            {requireDateAndTime && (
-              <span className="text-destructive">
-                *
-              </span>
-            )}
+            Due date {requireDateAndTime && <span className="text-destructive">*</span>}
           </Label>
 
           <Popover>
             <PopoverTrigger
               render={
                 <Button
-                  className={`w-full justify-start font-normal ${dateError
-                    ? "border-destructive"
-                    : ""
-                    }`}
+                  className={`w-full justify-start font-normal ${
+                    dateError ? 'border-destructive' : ''
+                  }`}
                   disabled={readOnly}
                   id="task-due-date"
                   type="button"
@@ -226,9 +196,7 @@ function TaskForm({
             >
               <CalendarDays />
 
-              {draft.dueDate
-                ? format(draft.dueDate, "PPP")
-                : "Choose a date"}
+              {draft.dueDate ? format(draft.dueDate, 'PPP') : 'Choose a date'}
             </PopoverTrigger>
 
             <PopoverContent className="w-auto p-0">
@@ -241,7 +209,7 @@ function TaskForm({
                   }));
 
                   if (dueDate) {
-                    setDateError("");
+                    setDateError('');
                   }
                 }}
                 selected={draft.dueDate}
@@ -249,22 +217,13 @@ function TaskForm({
             </PopoverContent>
           </Popover>
 
-          {dateError && (
-            <p className="text-sm text-destructive">
-              {dateError}
-            </p>
-          )}
+          {dateError && <p className="text-sm text-destructive">{dateError}</p>}
         </div>
 
         {/* Time */}
         <div className="space-y-2">
           <Label htmlFor="task-time">
-            Time{" "}
-            {requireDateAndTime && (
-              <span className="text-destructive">
-                *
-              </span>
-            )}
+            Time {requireDateAndTime && <span className="text-destructive">*</span>}
           </Label>
 
           <Input
@@ -278,15 +237,13 @@ function TaskForm({
               }))
             }
             disabled={readOnly}
-            value={draft.time || ""}
+            value={draft.time || ''}
           />
         </div>
 
         {/* Status */}
         <div className="space-y-2">
-          <Label htmlFor="task-status">
-            Status
-          </Label>
+          <Label htmlFor="task-status">Status</Label>
 
           <Select
             disabled={readOnly}
@@ -296,33 +253,23 @@ function TaskForm({
                 status,
               }))
             }
-            value={draft.status || "To Do"}
+            value={draft.status || 'To Do'}
           >
-            <SelectTrigger
-              aria-label="Status"
-              className="w-full"
-              id="task-status"
-            >
+            <SelectTrigger aria-label="Status" className="w-full" id="task-status">
               <SelectValue />
             </SelectTrigger>
 
             <SelectContent>
-              <SelectItem value="To Do">
-                To Do
-              </SelectItem>
+              <SelectItem value="To Do">To Do</SelectItem>
 
-              <SelectItem value="In Progress">
-                In Progress
-              </SelectItem>
+              <SelectItem value="In Progress">In Progress</SelectItem>
 
-              <SelectItem value="Completed">
-                Completed
-              </SelectItem>
+              <SelectItem value="Completed">Completed</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-               <div className="space-y-2">
+        <div className="space-y-2">
           <Label htmlFor="task-reminder-date">Reminder date</Label>
           <Popover>
             <PopoverTrigger
@@ -337,14 +284,12 @@ function TaskForm({
               }
             >
               <CalendarDays />
-              {draft.reminderDate ? format(draft.reminderDate, "PPP") : "Choose a date"}
+              {draft.reminderDate ? format(draft.reminderDate, 'PPP') : 'Choose a date'}
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
               <Calendar
                 mode="single"
-                onSelect={(reminderDate) =>
-                  setDraft((prev) => ({ ...prev, reminderDate }))
-                }
+                onSelect={(reminderDate) => setDraft((prev) => ({ ...prev, reminderDate }))}
                 selected={draft.reminderDate}
               />
             </PopoverContent>
@@ -360,58 +305,61 @@ function TaskForm({
               setDraft((prev) => ({ ...prev, reminderTime: event.target.value }))
             }
             disabled={readOnly}
-            value={draft.reminderTime || ""}
+            value={draft.reminderTime || ''}
           />
         </div>
-              {typeof Notification !== "undefined" && Notification.permission === "denied" && (
-                  <p className="text-sm text-muted-foreground">
-                      Notifications are blocked in your browser: reminders won't show a popup.
-                  </p>
-              )}
-              {reminderError && <p className="text-sm text-destructive">{reminderError}</p>} 
+        {typeof Notification !== 'undefined' && Notification.permission === 'denied' && (
+          <p className="text-sm text-muted-foreground">
+            Notifications are blocked in your browser: reminders won't show a popup.
+          </p>
+        )}
+        {reminderError && <p className="text-sm text-destructive">{reminderError}</p>}
       </div>
 
       {/* Checklist */}
       <div className="space-y-2">
         {/* Header with a counter */}
         <div className="flex items-center justify-between">
-        <Label>Checklist</Label>
-        {checklist.length > 0 && (
-          <span className="text-xs text-muted-foreground">
-            {completedItems} of {checklist.length} completed
-          </span>
-        )}
+          <Label>Checklist</Label>
+          {checklist.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {completedItems} of {checklist.length} completed
+            </span>
+          )}
         </div>
         {/* Progress bar */}
         {checklist.length > 0 && (
           <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-primary transition-all duration-300 ease-in-out"
-              style={{width: `${progress}%`}}
+              style={{ width: `${progress}%` }}
             />
           </div>
         )}
         {(draft.checklist || []).map((item) => (
-          <div key={item.id} className="flex items-center justify-between gap-2 min-w-0 p-1.5 rounded-md hover:bg-muted/50 transition-colors group">
+          <div
+            key={item.id}
+            className="flex items-center justify-between gap-2 min-w-0 p-1.5 rounded-md hover:bg-muted/50 transition-colors group"
+          >
             <div className="flex items-center gap-2 min-w-0">
-            <Checkbox
-              checked={item.completed}
-              className="cursor-pointer"
-              disabled={false}
-              onCheckedChange={() => {
-                if (readOnly) {
-                  onToggleChecklistItem(item.id);
-                } else {
-                  setDraft((prev) => ({
-                    ...prev,
-                    checklist: prev.checklist.map((i) =>
-                      i.id === item.id ? { ...i, completed: !i.completed } : i
-                    ),
-                  }));
-                }
-              }}
-            />
-            <span className="flex-1 min-w-0 wrap-anywhere text-sm">{item.text}</span>
+              <Checkbox
+                checked={item.completed}
+                className="cursor-pointer"
+                disabled={false}
+                onCheckedChange={() => {
+                  if (readOnly) {
+                    onToggleChecklistItem(item.id);
+                  } else {
+                    setDraft((prev) => ({
+                      ...prev,
+                      checklist: prev.checklist.map((i) =>
+                        i.id === item.id ? { ...i, completed: !i.completed } : i,
+                      ),
+                    }));
+                  }
+                }}
+              />
+              <span className="flex-1 min-w-0 wrap-anywhere text-sm">{item.text}</span>
             </div>
             {!readOnly && (
               <Button
@@ -445,10 +393,10 @@ function TaskForm({
                 value={checklistItemInput}
                 onChange={(event) => {
                   setChecklistItemInput(event.target.value);
-                  if(checklistError) setChecklistError("")
-                  }}
+                  if (checklistError) setChecklistError('');
+                }}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") {
+                  if (event.key === 'Enter') {
                     event.preventDefault();
                     checklistHandleAddItem();
                   }
@@ -458,9 +406,7 @@ function TaskForm({
                 Add
               </Button>
             </div>
-            {checklistError && (
-              <p className="text-sm text-medium-priority">{checklistError}</p>
-            )}
+            {checklistError && <p className="text-sm text-medium-priority">{checklistError}</p>}
             {checklistItemInput.length >= 100 && (
               <p className="text-sm text-medium-priority">
                 Checklist item cannot be more than 100 characters
@@ -470,25 +416,15 @@ function TaskForm({
         )}
       </div>
 
-      {saveError && (
-        <p className="text-sm text-destructive">
-          {saveError}
-        </p>
-      )}
+      {saveError && <p className="text-sm text-destructive">{saveError}</p>}
 
       {!readOnly && (
         <div className="flex justify-end gap-2">
-          <Button
-            onClick={onCancel}
-            type="button"
-            variant="outline"
-          >
+          <Button onClick={onCancel} type="button" variant="outline">
             Cancel
           </Button>
 
-          <Button type="submit">
-            Save task
-          </Button>
+          <Button type="submit">Save task</Button>
         </div>
       )}
     </form>

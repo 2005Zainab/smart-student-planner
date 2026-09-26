@@ -1,6 +1,6 @@
-import { Navigate, Outlet } from "react-router";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/shared/auth-provider";
+import { Navigate, Outlet } from 'react-router';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/shared/auth-provider';
 
 function RequireAuth() {
   const { isLoading, user } = useAuth();

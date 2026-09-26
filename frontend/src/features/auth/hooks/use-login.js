@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { loginWithEmail } from "../api/login-with-email";
+import { useState, useCallback } from 'react';
+import { loginWithEmail } from '../api/login-with-email';
 
 export const useLogin = () => {
   const [isPending, setIsPending] = useState(false);
