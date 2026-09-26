@@ -17,6 +17,7 @@ export async function requireAuth(req, res, next) {
     req.user = await getAuth().verifyIdToken(idToken);
     next();
   } catch (err) {
+    console.log(err.message);
     return res.status(401).json({ message: "Token is invalid or Expired" });
   }
 }
