@@ -8,7 +8,7 @@ export const STATUS_DISPLAY = {
   completed: "Completed",
 };
 
-function validateDate(value, fieldName) {
+export function validateDate(value, fieldName) {
   if (value === null) {
     return null;
   }
