@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import tasksRoute from "./routes/tasks.js";
 import taskSeriesRoute from "./routes/taskSeries.js";
+import meRoute from "./routes/me.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -22,6 +23,7 @@ app.use((req, res, next) => {
 
 app.use("/api/tasks", tasksRoute);
 app.use("/api/task-series", taskSeriesRoute);
+app.use("/api/me", meRoute);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
