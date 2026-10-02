@@ -1,23 +1,23 @@
-import { format, isToday } from 'date-fns';
-import { Link } from 'react-router';
-import { Badge } from '@/components/ui/badge';
-import { buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/shared/auth-provider';
+import { format, isToday } from "date-fns";
+import { Link } from "react-router";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/shared/auth-provider";
 //import { useTasks } from '@/features/tasks/hooks/useTasks';
-import { useTasksContext } from '@/features/tasks/context/TasksContext';
+import { useTasksContext } from "@/features/tasks/context/TasksContext";
 import {
   getUpcomingTasks,
   getUndatedTasks,
   getWeeklySchedule,
-} from '@/features/tasks/utils/task-date-utils';
+} from "@/features/tasks/utils/task-date-utils";
 
 function DashboardPage() {
   const { user } = useAuth();
   //const { tasks, isLoading, error } = useTasks();
   const { tasks, isLoading, error } = useTasksContext();
-  const userName = user?.displayName ?? user?.email ?? 'Student';
+  const userName = user?.displayName ?? user?.email ?? "Student";
   const upcomingTasks = getUpcomingTasks(tasks);
   const undatedTasks = getUndatedTasks(tasks);
   const weeklySchedule = getWeeklySchedule(tasks);
@@ -28,7 +28,7 @@ function DashboardPage() {
         <h2 className="text-2xl font-semibold tracking-tight">Good morning, {userName}</h2>
         <div className="mt-1 flex items-baseline justify-between">
           <p className="text-muted-foreground">Here is what is on your study plan today.</p>
-          <p className="text-sm text-muted-foreground">{format(new Date(), 'EEEE, MMMM d')}</p>
+          <p className="text-sm text-muted-foreground">{format(new Date(), "EEEE, MMMM d")}</p>
         </div>
       </section>
 
@@ -36,14 +36,14 @@ function DashboardPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle>Tasks to Prioritize</CardTitle>
-            <Link to="/tasks" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+            <Link to="/tasks" className={buttonVariants({ variant: "outline", size: "sm" })}>
               View all
             </Link>
           </CardHeader>
           <CardContent className="space-y-2">
             {isLoading ? (
               <div className="space-y-2">
-                {[1, 2, 3].map((item) => (
+                {[1, 2, 3].map(item => (
                   <Skeleton className="h-16 w-full" key={item} />
                 ))}
               </div>
@@ -54,32 +54,32 @@ function DashboardPage() {
                 No upcoming tasks in the next seven days.
               </p>
             ) : (
-              upcomingTasks.map((task) => (
+              upcomingTasks.map(task => (
                 <div className="flex items-start gap-3 rounded-lg border p-3" key={task.id}>
                   <div className="min-w-0 flex-1">
                     <p className="break-words whitespace-normal text-sm font-medium">
                       {task.title}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {task.subject || 'No subject'} · {format(task.parsedDateTime, 'MMM d')}
+                      {task.subject || "No subject"} · {format(task.parsedDateTime, "MMM d")}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {task.daysUntilDue === 0
-                        ? 'Due today'
+                        ? "Due today"
                         : task.daysUntilDue === 1
-                          ? 'Due tomorrow'
+                          ? "Due tomorrow"
                           : `Due in ${task.daysUntilDue} days`}
                     </p>
                   </div>
                   <Badge
                     variant={
-                      task.priority === 'High'
-                        ? 'high'
-                        : task.priority === 'Medium'
-                          ? 'medium'
-                          : task.priority === 'Low'
-                            ? 'low'
-                            : 'secondary'
+                      task.priority === "High"
+                        ? "high"
+                        : task.priority === "Medium"
+                          ? "medium"
+                          : task.priority === "Low"
+                            ? "low"
+                            : "secondary"
                     }
                   >
                     {task.priority}
@@ -90,25 +90,25 @@ function DashboardPage() {
             {!isLoading && !error && undatedTasks.length > 0 && (
               <div className="border-t pt-3">
                 <p className="mb-2 text-xs font-medium text-muted-foreground">Without deadlines</p>
-                {undatedTasks.map((task) => (
+                {undatedTasks.map(task => (
                   <div className="flex items-start gap-3 rounded-lg border p-3" key={task.id}>
                     <div className="min-w-0 flex-1">
                       <p className="break-words whitespace-normal text-sm font-medium">
                         {task.title}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {task.subject || 'No subject'}
+                        {task.subject || "No subject"}
                       </p>
                     </div>
                     <Badge
                       variant={
-                        task.priority === 'High'
-                          ? 'high'
-                          : task.priority === 'Medium'
-                            ? 'medium'
-                            : task.priority === 'Low'
-                              ? 'low'
-                              : 'secondary'
+                        task.priority === "High"
+                          ? "high"
+                          : task.priority === "Medium"
+                            ? "medium"
+                            : task.priority === "Low"
+                              ? "low"
+                              : "secondary"
                       }
                     >
                       {task.priority}
@@ -123,7 +123,7 @@ function DashboardPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle>Weekly Schedule</CardTitle>
-            <Link to="/schedule" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+            <Link to="/schedule" className={buttonVariants({ variant: "outline", size: "sm" })}>
               View all
             </Link>
           </CardHeader>
@@ -131,14 +131,14 @@ function DashboardPage() {
             {weeklySchedule.map(({ date, label, tasks: dayTasks }) => (
               <div
                 className={`rounded-lg p-3 ${
-                  isToday(date) ? 'bg-primary/10 ring-2 ring-primary' : 'bg-muted/50'
+                  isToday(date) ? "bg-primary/10 ring-2 ring-primary" : "bg-muted/50"
                 }`}
                 key={label}
               >
                 <p className="truncate text-sm font-medium">{label}</p>
                 <div className="mt-3 space-y-2">
                   {dayTasks.length > 0 ? (
-                    dayTasks.map((task) => (
+                    dayTasks.map(task => (
                       <div key={task.id}>
                         <p
                           className="truncate text-xs font-medium leading-relaxed"
@@ -147,7 +147,7 @@ function DashboardPage() {
                           {task.title}
                         </p>
                         <p className="text-xs leading-relaxed text-muted-foreground">
-                          {task.time ? format(task.parsedDateTime, 'h:mm a') : 'No time set'}
+                          {task.time ? format(task.parsedDateTime, "h:mm a") : "No time set"}
                         </p>
                       </div>
                     ))

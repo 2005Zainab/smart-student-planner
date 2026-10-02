@@ -1,7 +1,7 @@
-import { AppSidebar } from './AppSidebar';
-import { Header } from './Header';
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { Outlet } from 'react-router';
+import { AppSidebar } from "./AppSidebar";
+import { Header } from "./Header";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { Outlet } from "react-router";
 
 function AppShell() {
   return (

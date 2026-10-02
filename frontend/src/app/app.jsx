@@ -1,6 +1,6 @@
-import { Provider } from './provider';
-import { Router } from './router';
-import { GlobalReminders } from './GlobalReminders';
+import { Provider } from "./provider";
+import { Router } from "./router";
+import { GlobalReminders } from "./GlobalReminders";
 
 function App() {
   return (

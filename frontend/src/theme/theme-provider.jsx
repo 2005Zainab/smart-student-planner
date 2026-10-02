@@ -1,12 +1,12 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { themes } from './themes';
+import { createContext, useContext, useEffect, useState } from "react";
+import { themes } from "./themes";
 
-const THEME_STORAGE_KEY = 'smart-student-planner-theme';
+const THEME_STORAGE_KEY = "smart-student-planner-theme";
 const ThemeContext = createContext(null);
 
 function getInitialTheme() {
   const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return savedTheme && themes[savedTheme] ? savedTheme : 'light';
+  return savedTheme && themes[savedTheme] ? savedTheme : "light";
 }
 
 function ThemeProvider({ children }) {
@@ -17,13 +17,13 @@ function ThemeProvider({ children }) {
     const root = document.documentElement;
 
     root.dataset.theme = theme;
-    root.classList.toggle('dark', themeDefinition.dark);
+    root.classList.toggle("dark", themeDefinition.dark);
     window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
   const value = {
     theme,
-    setTheme: (nextTheme) => {
+    setTheme: nextTheme => {
       if (themes[nextTheme]) setTheme(nextTheme);
     },
     themes,
@@ -34,7 +34,7 @@ function ThemeProvider({ children }) {
 
 function useTheme() {
   const context = useContext(ThemeContext);
-  if (!context) throw new Error('useTheme must be used within ThemeProvider.');
+  if (!context) throw new Error("useTheme must be used within ThemeProvider.");
   return context;
 }
 

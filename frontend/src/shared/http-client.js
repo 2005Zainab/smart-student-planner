@@ -1,9 +1,9 @@
-import { auth } from './auth';
+import { auth } from "./auth";
 
 export class HttpError extends Error {
   constructor(status, message, body) {
     super(message);
-    this.name = 'HttpError';
+    this.name = "HttpError";
     this.status = status;
     this.body = body;
   }
@@ -39,7 +39,7 @@ export async function httpClient(url, options = {}) {
   const response = await fetch(url, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...options.headers,
       ...(idToken && { Authorization: `Bearer ${idToken}` }),
     },

@@ -7,7 +7,7 @@ import {
   parseISO,
   startOfDay,
   startOfWeek,
-} from 'date-fns';
+} from "date-fns";
 
 /**
  * Returns a Date object representing the task's due date.
@@ -37,7 +37,7 @@ function getTaskDateAndTime(task) {
 
   if (!task.time) return startOfDay(taskDate);
 
-  const [hours, minutes] = task.time.split(':').map(Number);
+  const [hours, minutes] = task.time.split(":").map(Number);
   if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null;
 
   taskDate.setHours(hours, minutes, 0, 0);
@@ -51,7 +51,7 @@ function getTaskDateAndTime(task) {
  * @returns {boolean} - True if the task is incomplete, false otherwise.
  */
 function isIncomplete(task) {
-  return task.status !== 'Completed';
+  return task.status !== "Completed";
 }
 
 /**
@@ -90,17 +90,17 @@ function getUpcomingTasks(tasks, referenceDate = new Date()) {
   const endDate = endOfDay(addDays(startDate, 6));
 
   return tasks
-    .filter((task) => isIncomplete(task) && getTaskDate(task))
+    .filter(task => isIncomplete(task) && getTaskDate(task))
     .map(withTaskDateTime)
     .filter(
-      (task) =>
+      task =>
         task.parsedDateTime &&
         isWithinInterval(task.parsedDateTime, {
           start: startDate,
           end: endDate,
         }),
     )
-    .map((task) => ({
+    .map(task => ({
       ...task,
       daysUntilDue: differenceInCalendarDays(startOfDay(task.parsedDateTime), startDate),
     }))
@@ -121,16 +121,16 @@ function getWeeklySchedule(tasks, referenceDate = new Date()) {
 
     return {
       date,
-      label: format(date, 'EEEE, MMM d'),
+      label: format(date, "EEEE, MMM d"),
       tasks: [],
     };
   });
 
   tasks
-    .filter((task) => isIncomplete(task) && getTaskDate(task))
+    .filter(task => isIncomplete(task) && getTaskDate(task))
     .map(withTaskDateTime)
     .filter(
-      (task) =>
+      task =>
         task.parsedDateTime &&
         isWithinInterval(task.parsedDateTime, {
           start: weekStart,
@@ -138,7 +138,7 @@ function getWeeklySchedule(tasks, referenceDate = new Date()) {
         }),
     )
     .sort(sortByDateTime)
-    .forEach((task) => {
+    .forEach(task => {
       const dayIndex = differenceInCalendarDays(
         startOfDay(task.parsedDateTime),
         startOfDay(weekStart),
@@ -157,7 +157,7 @@ function getWeeklySchedule(tasks, referenceDate = new Date()) {
  * @returns {Array} - The list of undated tasks.
  */
 function getUndatedTasks(tasks) {
-  return tasks.filter((task) => isIncomplete(task) && !task.dueDate);
+  return tasks.filter(task => isIncomplete(task) && !task.dueDate);
 }
 
 export { getTaskDateAndTime, getUpcomingTasks, getUndatedTasks, getWeeklySchedule };

@@ -1,20 +1,20 @@
-import { format } from 'date-fns';
-import { CalendarDays, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useState } from 'react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from "date-fns";
+import { CalendarDays, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useState } from "react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 function TaskForm({
   draft,
@@ -27,63 +27,63 @@ function TaskForm({
   requireDateAndTime = false,
   onToggleChecklistItem,
 }) {
-  const [dateError, setDateError] = useState('');
-  const [reminderError, setReminderError] = useState('');
-  const [checklistItemInput, setChecklistItemInput] = useState('');
-  const [checklistError, setChecklistError] = useState('');
+  const [dateError, setDateError] = useState("");
+  const [reminderError, setReminderError] = useState("");
+  const [checklistItemInput, setChecklistItemInput] = useState("");
+  const [checklistError, setChecklistError] = useState("");
 
   const checklist = draft.checklist || [];
-  const completedItems = checklist.filter((item) => item.completed).length;
+  const completedItems = checklist.filter(item => item.completed).length;
   const progress = checklist.length > 0 ? Math.round((completedItems / checklist.length) * 100) : 0;
 
   const checklistHandleAddItem = () => {
     if (checklist.length >= 10) {
-      setChecklistError('10 is maximum number of checklist items');
+      setChecklistError("10 is maximum number of checklist items");
       return;
     }
 
     if (!checklistItemInput.trim()) {
-      setChecklistError('Checklist item cannot be empty');
+      setChecklistError("Checklist item cannot be empty");
       return;
     }
-    setChecklistError('');
-    setDraft((prev) => ({
+    setChecklistError("");
+    setDraft(prev => ({
       ...prev,
       checklist: [
         ...(prev.checklist || []),
         { id: `temp-${Date.now()}`, text: checklistItemInput.trim(), completed: false },
       ],
     }));
-    setChecklistItemInput('');
+    setChecklistItemInput("");
   };
 
-  const handleSave = (event) => {
+  const handleSave = event => {
     event.preventDefault();
-    setDateError('');
+    setDateError("");
 
     if (requireDateAndTime && !draft.dueDate) {
-      setDateError('Due date is required for adding task to schedule.');
+      setDateError("Due date is required for adding task to schedule.");
       return;
     }
 
-    setReminderError(''); // Reset reminder error before validation
+    setReminderError(""); // Reset reminder error before validation
     const hasReminderDate = Boolean(draft.reminderDate);
     const hasReminderTime = Boolean(draft.reminderTime);
 
     if (hasReminderDate !== hasReminderTime) {
-      setReminderError('Date and time is required to set a reminder.');
+      setReminderError("Date and time is required to set a reminder.");
       return;
     }
     // Validate that the reminder date and time is not in the past
     if (hasReminderDate && hasReminderTime) {
       const reminderDateOnly =
         draft.reminderDate instanceof Date
-          ? format(draft.reminderDate, 'yyyy-MM-dd')
+          ? format(draft.reminderDate, "yyyy-MM-dd")
           : draft.reminderDate;
       const reminderDateTime = new Date(`${reminderDateOnly}T${draft.reminderTime}:00`);
 
       if (reminderDateTime <= new Date()) {
-        setReminderError('Reminders cannot be set in the past.');
+        setReminderError("Reminders cannot be set in the past.");
         return;
       }
     }
@@ -99,15 +99,15 @@ function TaskForm({
 
         <Input
           id="task-title"
-          onChange={(event) =>
-            setDraft((prev) => ({
+          onChange={event =>
+            setDraft(prev => ({
               ...prev,
               title: event.target.value,
             }))
           }
           disabled={readOnly}
           maxLength={200}
-          value={draft.title || ''}
+          value={draft.title || ""}
         />
 
         {(draft.title?.length || 0) >= 200 && (
@@ -123,15 +123,15 @@ function TaskForm({
 
         <Textarea
           id="task-description"
-          onChange={(event) =>
-            setDraft((prev) => ({
+          onChange={event =>
+            setDraft(prev => ({
               ...prev,
               description: event.target.value,
             }))
           }
           maxLength={1000}
           disabled={readOnly}
-          value={draft.description || ''}
+          value={draft.description || ""}
         />
 
         {(draft.description?.length || 0) >= 1000 && (
@@ -147,8 +147,8 @@ function TaskForm({
 
         <Input
           id="task-subject"
-          onChange={(event) =>
-            setDraft((prev) => ({
+          onChange={event =>
+            setDraft(prev => ({
               ...prev,
               subject: event.target.value,
             }))
@@ -156,7 +156,7 @@ function TaskForm({
           maxLength={200}
           disabled={readOnly}
           required
-          value={draft.subject || ''}
+          value={draft.subject || ""}
         />
 
         {(draft.subject?.length || 0) >= 200 && (
@@ -185,7 +185,7 @@ function TaskForm({
               render={
                 <Button
                   className={`w-full justify-start font-normal ${
-                    dateError ? 'border-destructive' : ''
+                    dateError ? "border-destructive" : ""
                   }`}
                   disabled={readOnly}
                   id="task-due-date"
@@ -196,20 +196,20 @@ function TaskForm({
             >
               <CalendarDays />
 
-              {draft.dueDate ? format(draft.dueDate, 'PPP') : 'Choose a date'}
+              {draft.dueDate ? format(draft.dueDate, "PPP") : "Choose a date"}
             </PopoverTrigger>
 
             <PopoverContent className="w-auto p-0">
               <Calendar
                 mode="single"
-                onSelect={(dueDate) => {
-                  setDraft((prev) => ({
+                onSelect={dueDate => {
+                  setDraft(prev => ({
                     ...prev,
                     dueDate,
                   }));
 
                   if (dueDate) {
-                    setDateError('');
+                    setDateError("");
                   }
                 }}
                 selected={draft.dueDate}
@@ -230,14 +230,14 @@ function TaskForm({
             id="task-time"
             type="time"
             required={requireDateAndTime}
-            onChange={(event) =>
-              setDraft((prev) => ({
+            onChange={event =>
+              setDraft(prev => ({
                 ...prev,
                 time: event.target.value,
               }))
             }
             disabled={readOnly}
-            value={draft.time || ''}
+            value={draft.time || ""}
           />
         </div>
 
@@ -247,13 +247,13 @@ function TaskForm({
 
           <Select
             disabled={readOnly}
-            onValueChange={(status) =>
-              setDraft((prev) => ({
+            onValueChange={status =>
+              setDraft(prev => ({
                 ...prev,
                 status,
               }))
             }
-            value={draft.status || 'To Do'}
+            value={draft.status || "To Do"}
           >
             <SelectTrigger aria-label="Status" className="w-full" id="task-status">
               <SelectValue />
@@ -284,12 +284,12 @@ function TaskForm({
               }
             >
               <CalendarDays />
-              {draft.reminderDate ? format(draft.reminderDate, 'PPP') : 'Choose a date'}
+              {draft.reminderDate ? format(draft.reminderDate, "PPP") : "Choose a date"}
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
               <Calendar
                 mode="single"
-                onSelect={(reminderDate) => setDraft((prev) => ({ ...prev, reminderDate }))}
+                onSelect={reminderDate => setDraft(prev => ({ ...prev, reminderDate }))}
                 selected={draft.reminderDate}
               />
             </PopoverContent>
@@ -301,14 +301,12 @@ function TaskForm({
           <Input
             id="task-reminder-time"
             type="time"
-            onChange={(event) =>
-              setDraft((prev) => ({ ...prev, reminderTime: event.target.value }))
-            }
+            onChange={event => setDraft(prev => ({ ...prev, reminderTime: event.target.value }))}
             disabled={readOnly}
-            value={draft.reminderTime || ''}
+            value={draft.reminderTime || ""}
           />
         </div>
-        {typeof Notification !== 'undefined' && Notification.permission === 'denied' && (
+        {typeof Notification !== "undefined" && Notification.permission === "denied" && (
           <p className="text-sm text-muted-foreground">
             Notifications are blocked in your browser: reminders won't show a popup.
           </p>
@@ -336,7 +334,7 @@ function TaskForm({
             />
           </div>
         )}
-        {(draft.checklist || []).map((item) => (
+        {(draft.checklist || []).map(item => (
           <div
             key={item.id}
             className="flex items-center justify-between gap-2 min-w-0 p-1.5 rounded-md hover:bg-muted/50 transition-colors group"
@@ -350,9 +348,9 @@ function TaskForm({
                   if (readOnly) {
                     onToggleChecklistItem(item.id);
                   } else {
-                    setDraft((prev) => ({
+                    setDraft(prev => ({
                       ...prev,
-                      checklist: prev.checklist.map((i) =>
+                      checklist: prev.checklist.map(i =>
                         i.id === item.id ? { ...i, completed: !i.completed } : i,
                       ),
                     }));
@@ -368,9 +366,9 @@ function TaskForm({
                 size="icon-sm"
                 className="cursor-pointer group-focus-within:opacity-100 transition-opacity"
                 onClick={() =>
-                  setDraft((prev) => ({
+                  setDraft(prev => ({
                     ...prev,
-                    checklist: prev.checklist.filter((i) => i.id !== item.id),
+                    checklist: prev.checklist.filter(i => i.id !== item.id),
                   }))
                 }
               >
@@ -391,12 +389,12 @@ function TaskForm({
                 placeholder="Add a checklist item"
                 maxLength={100}
                 value={checklistItemInput}
-                onChange={(event) => {
+                onChange={event => {
                   setChecklistItemInput(event.target.value);
-                  if (checklistError) setChecklistError('');
+                  if (checklistError) setChecklistError("");
                 }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
+                onKeyDown={event => {
+                  if (event.key === "Enter") {
                     event.preventDefault();
                     checklistHandleAddItem();
                   }

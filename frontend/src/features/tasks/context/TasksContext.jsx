@@ -1,5 +1,5 @@
-import { createContext, useContext } from 'react';
-import { useTasks } from '../hooks/useTasks';
+import { createContext, useContext } from "react";
+import { useTasks } from "../hooks/useTasks";
 
 const TasksContext = createContext(null);
 
@@ -12,7 +12,7 @@ function TasksProvider({ children }) {
 function useTasksContext() {
   const context = useContext(TasksContext);
   if (!context) {
-    throw new Error('useTasksContext must be used inside a TasksProvider');
+    throw new Error("useTasksContext must be used inside a TasksProvider");
   }
   return context;
 }

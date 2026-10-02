@@ -1,12 +1,12 @@
-import { useEffect, useRef } from 'react';
-import { httpClient } from '../../../shared/http-client';
+import { useEffect, useRef } from "react";
+import { httpClient } from "../../../shared/http-client";
 
 export function useReminders(tasks, setTasks) {
   const firedRef = useRef(new Map());
   const originalTitleRef = useRef(document.title);
 
   useEffect(() => {
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
       Notification.requestPermission();
     }
   }, []);
@@ -15,9 +15,9 @@ export function useReminders(tasks, setTasks) {
     const checkReminders = () => {
       const now = new Date();
 
-      tasks.forEach((task) => {
+      tasks.forEach(task => {
         // Skip completed tasks and tasks without reminders
-        if (task.status === 'Completed') return;
+        if (task.status === "Completed") return;
         if (!task.reminderDate || !task.reminderTime) return;
 
         const reminderKey = `${task.reminderDate}T${task.reminderTime}`;
@@ -32,31 +32,31 @@ export function useReminders(tasks, setTasks) {
           firedRef.current.set(task.id, reminderKey);
 
           try {
-            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-              new Notification('Task reminder', {
-                body: task.title || 'You have a task due',
+            if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+              new Notification("Task reminder", {
+                body: task.title || "You have a task due",
               });
             }
 
-            document.title = `Reminder: ${task.title || 'Task'}`;
+            document.title = `Reminder: ${task.title || "Task"}`;
             setTimeout(() => {
               document.title = originalTitleRef.current;
             }, 5000);
 
-            setTasks((current) =>
-              current.map((t) =>
+            setTasks(current =>
+              current.map(t =>
                 t.id === task.id ? { ...t, reminderDate: null, reminderTime: null } : t,
               ),
             );
 
             httpClient(`http://localhost:3000/api/tasks/${task.id}`, {
-              method: 'PATCH',
+              method: "PATCH",
               body: JSON.stringify({ reminderDate: null, reminderTime: null }),
-            }).catch((err) => {
-              console.log('Failed to clear reminder:', err);
+            }).catch(err => {
+              console.log("Failed to clear reminder:", err);
             });
           } catch (err) {
-            console.log('Error handling reminder for task', task.id, err);
+            console.log("Error handling reminder for task", task.id, err);
           }
         }
       });

@@ -1,12 +1,12 @@
-import { Route } from 'react-router';
+import { Route } from "react-router";
 
-import { AppShell } from '@/components/layout/AppShell';
-import { RequireAuth } from '@/features/auth/components/RequireAuth';
-import { DashboardPage } from '@/features/dashboard/components/DashboardPage';
-import { SettingsPage } from '@/features/settings/components/SettingsPage';
-import { TasksPage } from '@/features/tasks/components/TasksPage';
-import { CalendarPage } from '@/features/calendar/components/CalendarPage';
-import { SchedulePage } from '@/features/schedule/components/SchedulePage';
+import { AppShell } from "@/components/layout/AppShell";
+import { RequireAuth } from "@/features/auth/components/RequireAuth";
+import { DashboardPage } from "@/features/dashboard/components/DashboardPage";
+import { SettingsPage } from "@/features/settings/components/SettingsPage";
+import { TasksPage } from "@/features/tasks/components/TasksPage";
+import { CalendarPage } from "@/features/calendar/components/CalendarPage";
+import { SchedulePage } from "@/features/schedule/components/SchedulePage";
 
 function ProtectedRoutes() {
   return (

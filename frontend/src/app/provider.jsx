@@ -1,7 +1,7 @@
-import { ThemeProvider } from '@/theme/theme-provider';
-import { AuthProvider } from '@/shared/auth-provider';
-import { TasksProvider } from '../features/tasks/context/TasksContext';
-import { Toaster } from '@/components/ui/toast';
+import { ThemeProvider } from "@/theme/theme-provider";
+import { AuthProvider } from "@/shared/auth-provider";
+import { TasksProvider } from "../features/tasks/context/TasksContext";
+import { Toaster } from "@/components/ui/toast";
 
 function Provider({ children }) {
   return (
