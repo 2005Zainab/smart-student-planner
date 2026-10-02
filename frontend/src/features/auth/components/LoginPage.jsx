@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -32,8 +32,13 @@ function LoginPage() {
   const [linkSent, setLinkSent] = useState(false);
   const [linkError, setLinkError] = useState("");
 
+  const isSigningIn = useRef(false);
+
   useEffect(() => {
     if (isSignInWithEmailLink(auth, window.location.href)) {
+      if (isSigningIn.current) return;
+      isSigningIn.current = true;
+
       let storedEmail = window.localStorage.getItem("emailForSignIn");
 
       if (!storedEmail) {
@@ -50,7 +55,10 @@ function LoginPage() {
           })
           .catch((err) => {
             setLinkError(getAuthErrorMessage(err));
+            isSigningIn.current = false;
           });
+      } else {
+        isSigningIn.current = false;
       }
     }
   }, [navigate]);
