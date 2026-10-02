@@ -20,6 +20,7 @@ import {
   signInWithEmailLink,
 } from "firebase/auth";
 import { auth } from "../../../shared/auth";
+import { httpClient, httpError } from "../../../shared/http-client";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -56,11 +57,39 @@ function LoginPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    setLinkError("");
+
     try {
+      const status = await httpClient(
+        "http://localhost:3000/api/auth/check-method",
+        {
+          method: "POST",
+          body: JSON.stringify({ email }),
+        },
+      );
+
+      if (status.passwordLessOnly) {
+        setLinkError(
+          "Password sign-in is disabled for this account. Please click 'Send me password-less sign-in link' below.",
+        );
+        return;
+      }
+
       await login({ email, password });
       navigate("/dashboard");
-    } catch {
-      /* empty */
+    } catch (err) {
+      // Catch the 429 rate limit error thrown by your httpClient
+      if (err instanceof httpError && err.status === 429) {
+        setLinkError(
+          "Too many login attempts. Please wait a few minutes and try again.",
+        );
+        return;
+      }
+
+      // Fallback for network issues or actual login failures
+      setLinkError(
+        getAuthErrorMessage(err) || "An error occurred during sign-in.",
+      );
     }
   }
 
@@ -136,7 +165,11 @@ function LoginPage() {
               </div>
 
               <div className="flex flex-col gap-2 pt-2">
-                <Button className="w-full" disabled={isPending || isLinkPending} type="submit">
+                <Button
+                  className="w-full"
+                  disabled={isPending || isLinkPending}
+                  type="submit"
+                >
                   {isPending ? (
                     <>
                       <Spinner data-icon="inline-start" /> Signing in...

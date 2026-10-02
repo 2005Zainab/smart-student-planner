@@ -1,8 +1,17 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import { db } from "../../src/firebase.js";
 import { requireAuth } from "../../middleware/auth.js";
 
 const router = express.Router();
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per windowMs
+  message: { message: "Too many requests. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 router.get("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
@@ -49,6 +58,32 @@ router.patch("/", requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Failed to update settings" });
+  }
+});
+
+router.post("/check-method", authLimiter, async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  try {
+    // 1. Find user account by email using Firebase Admin SDK
+    const userRecord = await getAuth().getUserByEmail(email);
+
+    // 2. Fetch their settings from Firestore
+    const userDoc = await db.collection("users").doc(userRecord.uid).get();
+
+    if (userDoc.exists && userDoc.data().passwordLessEnabled === true) {
+      return res.status(200).json({ passwordLessOnly: true });
+    }
+
+    return res.status(200).json({ passwordLessOnly: false });
+  } catch (err) {
+    console.error(err);
+    // If user does not exist or any error occurs, fall back safely
+    return res.status(200).json({ passwordLessOnly: false });
   }
 });
 

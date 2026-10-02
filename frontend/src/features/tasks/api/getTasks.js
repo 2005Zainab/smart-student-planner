@@ -1,4 +1,4 @@
-import { httpClient, HttpError } from "../../../shared/http-client";
+import { httpClient, httpError } from "../../../shared/http-client";
 
 // Retrieves the list of tasks from the current authenticated user.
 // Returns an array of task objects or an empty array if no tasks are found.
@@ -10,7 +10,7 @@ export async function getTasks() {
     });
     return Array.isArray(tasks) ? tasks : [];
   } catch (error) {
-    if (error instanceof HttpError) {
+    if (error instanceof httpError) {
       console.error(
         `HTTP Error: ${error.status} - ${error.message}`,
         error.body,
