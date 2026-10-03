@@ -121,7 +121,7 @@ router.post("/", requireAuth, async (req, res) => {
       virtual: true,
       ...template,
       dueDate: clean.dueDate,
-      status: "to do",
+      status: "To Do",
       priority: getPriorityFromDueDate(clean.dueDate, today),
     };
 

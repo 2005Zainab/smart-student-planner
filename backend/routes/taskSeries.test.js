@@ -93,7 +93,7 @@ describe("POST /api/task-series", () => {
       seriesId: "series-1",
       occurrenceDate: "2026-10-05",
       dueDate: "2026-10-05",
-      status: "to do",
+      status: "To Do",
       virtual: true,
       priority: "High",
     });
