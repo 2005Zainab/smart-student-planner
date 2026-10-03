@@ -1,13 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link } from "react-router";
@@ -24,17 +18,17 @@ function ForgotPasswordPage() {
     try {
       await reset({ email });
       setSubmitted(true);
-    } catch {}
+    } catch {
+      // Error is surfaced via the `error` state from useResetPassword
+    }
   }
-  
+
   return (
     <main className="flex min-h-svh items-center justify-center bg-muted/30 px-4 py-8">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Forgot password</CardTitle>
-          <CardDescription>
-            Enter your email and we'll send you a reset link.
-          </CardDescription>
+          <CardDescription>Enter your email and we'll send you a reset link.</CardDescription>
         </CardHeader>
         <CardContent>
           {submitted ? (
@@ -48,7 +42,7 @@ function ForgotPasswordPage() {
                 <Input
                   autoComplete="email"
                   id="email"
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={event => setEmail(event.target.value)}
                   placeholder="you@example.com"
                   required
                   type="email"
@@ -73,10 +67,7 @@ function ForgotPasswordPage() {
           )}
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Remembered your password?{" "}
-            <Link
-              className="font-medium text-foreground underline underline-offset-4"
-              to="/login"
-            >
+            <Link className="font-medium text-foreground underline underline-offset-4" to="/login">
               Back to login
             </Link>
           </p>

@@ -1,20 +1,11 @@
 import { useState } from "react";
-import {
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-  updateProfile,
-} from "firebase/auth";
+import { EmailAuthProvider, reauthenticateWithCredential, updateProfile } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/shared/auth-provider";
@@ -28,7 +19,7 @@ function SettingsPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const changeUsername = async (event) => {
+  const changeUsername = async event => {
     event.preventDefault();
     setError("");
 
@@ -86,9 +77,7 @@ function SettingsPage() {
       <div>
         <h2 className="text-2xl font-semibold">Settings</h2>
 
-        <p className="mt-1 text-muted-foreground">
-          Manage your account settings.
-        </p>
+        <p className="mt-1 text-muted-foreground">Manage your account settings.</p>
       </div>
 
       <div className="rounded-xl border bg-card p-6">
@@ -97,9 +86,7 @@ function SettingsPage() {
         <div className="mt-4 space-y-1">
           <p className="text-sm text-muted-foreground">Username</p>
 
-          <p className="font-medium">
-            {user?.displayName || user?.email || "Loading..."}
-          </p>
+          <p className="font-medium">{user?.displayName || user?.email || "Loading..."}</p>
         </div>
 
         <Button
@@ -119,9 +106,7 @@ function SettingsPage() {
         <DialogContent>
           <DialogTitle>Change username</DialogTitle>
 
-          <DialogDescription>
-            Enter a new username and your current password.
-          </DialogDescription>
+          <DialogDescription>Enter a new username and your current password.</DialogDescription>
 
           <form className="space-y-4" onSubmit={changeUsername}>
             <div className="space-y-2">
@@ -131,7 +116,7 @@ function SettingsPage() {
                 id="new-username"
                 autoComplete="username"
                 value={newUsername}
-                onChange={(event) => setNewUsername(event.target.value)}
+                onChange={event => setNewUsername(event.target.value)}
                 maxLength={50}
                 disabled={isLoading}
               />
@@ -145,7 +130,7 @@ function SettingsPage() {
                 autoComplete="current-password"
                 type="password"
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={event => setPassword(event.target.value)}
                 disabled={isLoading}
               />
             </div>

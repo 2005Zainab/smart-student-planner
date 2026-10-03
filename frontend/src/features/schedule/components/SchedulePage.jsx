@@ -7,12 +7,7 @@ import { useState } from "react";
 import { ScheduleList } from "./ScheduleList";
 import { TaskForm } from "../../tasks/components/TaskForm";
 import { toast } from "@/components/ui/toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   Sheet,
   SheetContent,
@@ -30,10 +25,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useTasks } from "../../tasks/hooks/useTasks";
+//import { useTasks } from '../../tasks/hooks/useTasks';
+import { useTasksContext } from "../../tasks/context/TasksContext";
 
 function SchedulePage() {
-  const { tasks, setTasks, isLoading, error } = useTasks();
+  //const { tasks, setTasks, isLoading, error } = useTasks();
+  const { tasks, setTasks, isLoading, error } = useTasksContext();
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -68,40 +65,34 @@ function SchedulePage() {
       };
 
       setEditingTaskId(newTask.id);
-      setTasks((current) => [...current, newTask]);
+      setTasks(current => [...current, newTask]);
       setDraft(newTask);
     } else {
       setEditingTaskId(task?.id ?? null);
       setDraft(
         task
           ? {
-            ...task,
-            dueDate:
-              typeof task.dueDate === "string"
-                ? parseISO(task.dueDate)
-                : task.dueDate,
-          }
+              ...task,
+              dueDate: typeof task.dueDate === "string" ? parseISO(task.dueDate) : task.dueDate,
+            }
           : {
-            title: "",
-            description: "",
-            subject: "",
-            priority: "Medium",
-            status: "To Do",
-            dueDate: undefined,
-            time: "",
-          },
+              title: "",
+              description: "",
+              subject: "",
+              priority: "Medium",
+              status: "To Do",
+              dueDate: undefined,
+              time: "",
+            },
       );
     }
-    if (window.matchMedia("(max-width: 767px)").matches)
-      setMobileEditorOpen(true);
+    if (window.matchMedia("(max-width: 767px)").matches) setMobileEditorOpen(true);
     else setEditorOpen(true);
   };
 
   const closeEditor = () => {
     if (formMode === "create" && editingTaskId !== null) {
-      setTasks((current) =>
-        current.filter((task) => task.id !== editingTaskId),
-      );
+      setTasks(current => current.filter(task => task.id !== editingTaskId));
     }
 
     setEditorOpen(false);
@@ -144,9 +135,7 @@ function SchedulePage() {
           body: JSON.stringify(taskToSave),
         });
 
-        setTasks((current) =>
-          current.map((task) => (task.id === editingTaskId ? savedTask : task)),
-        );
+        setTasks(current => current.map(task => (task.id === editingTaskId ? savedTask : task)));
 
         toast.add({
           title: "Task Added",
@@ -176,7 +165,7 @@ function SchedulePage() {
           : undefined,
       };
 
-      const original = tasks.find((task) => task.id === editingTaskId);
+      const original = tasks.find(task => task.id === editingTaskId);
       const changes = Object.keys(correctTimeZone).reduce((acc, key) => {
         if (correctTimeZone[key] !== original?.[key]) {
           acc[key] = correctTimeZone[key];
@@ -196,10 +185,8 @@ function SchedulePage() {
           method: "PATCH",
           body: JSON.stringify(changes),
         });
-        setTasks((current) =>
-          current.map((task) =>
-            task.id === editingTaskId ? { ...task, ...changes } : task,
-          ),
+        setTasks(current =>
+          current.map(task => (task.id === editingTaskId ? { ...task, ...changes } : task)),
         );
       } catch (err) {
         console.log(err);
@@ -222,39 +209,31 @@ function SchedulePage() {
   //       ),
   //     );
 
-
   //Toggles a checklists item completeion state and also saves the checklist
   const toggleChecklistItem = async (taskId, itemId) => {
-    const task = tasks.find(
-      (existingTask) => existingTask.id === taskId,
-    );
+    const task = tasks.find(existingTask => existingTask.id === taskId);
 
     if (!task || !task.checklist) {
       return;
     }
 
-    const updateChecklist = task.checklist.map((item) =>
+    const updateChecklist = task.checklist.map(item =>
       item.id === itemId ? { ...item, completed: !item.completed } : item,
     );
 
     try {
-      const updatedTask = await httpClient(
-        `http://localhost:3000/api/tasks/${taskId}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            checklist: updateChecklist,
-          }),
-        },
+      const updatedTask = await httpClient(`http://localhost:3000/api/tasks/${taskId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          checklist: updateChecklist,
+        }),
+      });
+
+      setTasks(current =>
+        current.map(existingTask => (existingTask.id === taskId ? updatedTask : existingTask)),
       );
 
-      setTasks((current) =>
-        current.map((existingTask) =>
-          existingTask.id === taskId ? updatedTask : existingTask,
-        ),
-      );
-
-      setDraft((prev) => ({
+      setDraft(prev => ({
         ...prev,
         checklist: updatedTask.checklist,
       }));
@@ -263,13 +242,12 @@ function SchedulePage() {
     }
   };
 
-
-  const deleteTask = async (id) => {
+  const deleteTask = async id => {
     try {
       await httpClient(`http://localhost:3000/api/tasks/${id}`, {
         method: "DELETE",
       });
-      setTasks((current) => current.filter((task) => task.id !== id));
+      setTasks(current => current.filter(task => task.id !== id));
       toast.add({
         title: "Task Deleted",
         type: "success",
@@ -281,7 +259,7 @@ function SchedulePage() {
     }
   };
 
-  const getTaskDateAndTime = (task) => {
+  const getTaskDateAndTime = task => {
     const dateValue = task.dueDate;
 
     if (!dateValue || !task.time) {
@@ -289,9 +267,7 @@ function SchedulePage() {
     }
 
     const taskDate = parseISO(dateValue);
-    const [hours, minutes] = task.time
-      ? task.time.split(":").map(Number)
-      : [0, 0];
+    const [hours, minutes] = task.time ? task.time.split(":").map(Number) : [0, 0];
 
     taskDate.setHours(hours, minutes);
     return taskDate;
@@ -300,12 +276,12 @@ function SchedulePage() {
   const now = new Date();
 
   const upcomingTasks = tasks
-    .map((task) => ({
+    .map(task => ({
       ...task,
       parsedDateTime: getTaskDateAndTime(task),
     }))
     .filter(
-      (task) =>
+      task =>
         task.parsedDateTime !== null &&
         task.parsedDateTime >= now &&
         task.status &&
@@ -332,9 +308,7 @@ function SchedulePage() {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Schedule</h2>
-          <p className="mt-1 text-muted-foreground">
-            View your daily priorities.
-          </p>
+          <p className="mt-1 text-muted-foreground">View your daily priorities.</p>
         </div>
         <Button onClick={() => openEditor()}>
           <Plus /> Add Event
@@ -346,10 +320,7 @@ function SchedulePage() {
           {/* Map through the grouped tasks and display them by day */}
           {Object.entries(groupedTasks).length > 0 ? (
             Object.entries(groupedTasks).map(([day, dayTasks]) => (
-              <div
-                key={day}
-                className="border-b last:border-b-0 pb-4 mb-4 last:pb-0 last:mb-0"
-              >
+              <div key={day} className="border-b last:border-b-0 pb-4 mb-4 last:pb-0 last:mb-0">
                 <h3 className="bg-muted-foreground/31 px-4 py-2 text-sm font-medium text-secondary-foreground rounded-t-md">
                   {day}
                 </h3>
@@ -357,9 +328,9 @@ function SchedulePage() {
                   tasks={dayTasks}
                   isLoading={isLoading}
                   error={error}
-                  onEdit={(task) => openEditor(task, "edit")}
+                  onEdit={task => openEditor(task, "edit")}
                   onDelete={setDeleteId}
-                  onView={(task) => openEditor(task, "view")}
+                  onView={task => openEditor(task, "view")}
                 />
               </div>
             ))
@@ -372,17 +343,10 @@ function SchedulePage() {
         </CardContent>
       </Card>
 
-      <Dialog
-        open={editorOpen}
-        onOpenChange={(open) => (open ? setEditorOpen(true) : closeEditor())}
-      >
+      <Dialog open={editorOpen} onOpenChange={open => (open ? setEditorOpen(true) : closeEditor())}>
         <DialogContent>
           <DialogTitle>
-            {formMode === "view"
-              ? "View task"
-              : formMode === "create"
-                ? "Add task"
-                : "Edit task"}
+            {formMode === "view" ? "View task" : formMode === "create" ? "Add task" : "Edit task"}
           </DialogTitle>
           <DialogDescription>
             {formMode === "view"
@@ -400,27 +364,19 @@ function SchedulePage() {
             titleError={emptyTitleCheck}
             saveError={saveError}
             requireDateAndTime={true}
-            onToggleChecklistItem={(itemId) =>
-              toggleChecklistItem(editingTaskId, itemId)
-            }
+            onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
           />
         </DialogContent>
       </Dialog>
 
       <Sheet
         open={mobileEditorOpen}
-        onOpenChange={(open) =>
-          open ? setMobileEditorOpen(true) : closeEditor()
-        }
+        onOpenChange={open => (open ? setMobileEditorOpen(true) : closeEditor())}
       >
         <SheetContent className="overflow-y-auto">
           <SheetHeader>
             <SheetTitle>
-              {formMode === "view"
-                ? "View task"
-                : formMode === "create"
-                  ? "Add task"
-                  : "Edit task"}
+              {formMode === "view" ? "View task" : formMode === "create" ? "Add task" : "Edit task"}
             </SheetTitle>
             <SheetDescription>
               {formMode === "view"
@@ -440,18 +396,13 @@ function SchedulePage() {
               titleError={emptyTitleCheck}
               saveError={saveError}
               requireDateAndTime={true}
-              onToggleChecklistItem={(itemId) =>
-                toggleChecklistItem(editingTaskId, itemId)
-              }
+              onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
             />
           </div>
         </SheetContent>
       </Sheet>
 
-      <AlertDialog
-        open={deleteId !== null}
-        onOpenChange={(open) => !open && setDeleteId(null)}
-      >
+      <AlertDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete task?</AlertDialogTitle>

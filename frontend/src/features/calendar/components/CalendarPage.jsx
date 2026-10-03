@@ -16,14 +16,10 @@ import {
 import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
-import { useTasks } from "../../tasks/hooks/useTasks";
+//import { useTasks } from '../../tasks/hooks/useTasks';
+import { useTasksContext } from "../../tasks/context/TasksContext";
 import { TaskForm } from "../../tasks/components/TaskForm";
 import { httpClient } from "../../../shared/http-client";
 
@@ -42,7 +38,8 @@ function formatTaskTime(time) {
 }
 
 function CalendarPage() {
-  const { tasks, setTasks, isLoading, error } = useTasks();
+  //const { tasks, setTasks, isLoading, error } = useTasks();
+  const { tasks, setTasks, isLoading, error } = useTasksContext();
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [editorOpen, setEditorOpen] = useState(false);
@@ -65,7 +62,7 @@ function CalendarPage() {
   const [draft, setDraft] = useState(emptyDraft);
 
   //Tasks that have a date can show on calendar
-  const calendarTasks = tasks.filter((task) => task.dueDate);
+  const calendarTasks = tasks.filter(task => task.dueDate);
 
   //Group tasks by date
   const tasksByDate = calendarTasks.reduce((groupedTasks, task) => {
@@ -110,7 +107,7 @@ function CalendarPage() {
   };
 
   //Open existing task to edit
-  const openEditForm = (task) => {
+  const openEditForm = task => {
     setFormMode("edit");
     setEditingTaskId(task.id);
     setTitleError(null);
@@ -118,10 +115,7 @@ function CalendarPage() {
 
     setDraft({
       ...task,
-      dueDate:
-        typeof task.dueDate === "string"
-          ? parseISO(task.dueDate)
-          : task.dueDate,
+      dueDate: typeof task.dueDate === "string" ? parseISO(task.dueDate) : task.dueDate,
       time: task.time || "",
     });
 
@@ -160,10 +154,7 @@ function CalendarPage() {
       priority: draft.priority || "Medium",
       status: draft.status || "To Do",
 
-      dueDate:
-        draft.dueDate instanceof Date
-          ? format(draft.dueDate, "yyyy-MM-dd")
-          : draft.dueDate,
+      dueDate: draft.dueDate instanceof Date ? format(draft.dueDate, "yyyy-MM-dd") : draft.dueDate,
 
       //Send time to backend
       time: draft.time || null,
@@ -176,15 +167,15 @@ function CalendarPage() {
           body: JSON.stringify(taskToSave),
         });
 
-        setTasks((current) => [...current, savedTask]);
+        setTasks(current => [...current, savedTask]);
       } else {
         await httpClient(`http://localhost:3000/api/tasks/${editingTaskId}`, {
           method: "PATCH",
           body: JSON.stringify(taskToSave),
         });
 
-        setTasks((current) =>
-          current.map((task) =>
+        setTasks(current =>
+          current.map(task =>
             task.id === editingTaskId
               ? {
                   ...task,
@@ -215,34 +206,21 @@ function CalendarPage() {
       <div className="rounded-xl border bg-card p-6">
         <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <h2 className="text-3xl font-bold">
-              {format(currentMonth, "MMMM yyyy")}
-            </h2>
+            <h2 className="text-3xl font-bold">{format(currentMonth, "MMMM yyyy")}</h2>
 
-            <p className="mt-1 text-sm text-muted-foreground">
-              View and edit your task deadlines.
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">View and edit your task deadlines.</p>
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-            >
+            <Button variant="outline" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
               ←
             </Button>
 
-            <Button
-              variant="outline"
-              onClick={() => setCurrentMonth(new Date())}
-            >
+            <Button variant="outline" onClick={() => setCurrentMonth(new Date())}>
               Today
             </Button>
 
-            <Button
-              variant="outline"
-              onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-            >
+            <Button variant="outline" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
               →
             </Button>
 
@@ -264,7 +242,7 @@ function CalendarPage() {
         </div>
 
         <div className="grid grid-cols-7 border-l border-t">
-          {calendarDays.map((day) => {
+          {calendarDays.map(day => {
             const dateKey = format(day, "yyyy-MM-dd");
 
             //Sort tasks by time for each day
@@ -307,11 +285,11 @@ function CalendarPage() {
                 </div>
 
                 <div className="space-y-1">
-                  {dayTasks.map((task) => (
+                  {dayTasks.map(task => (
                     <button
                       key={task.id}
                       type="button"
-                      onDoubleClick={(event) => {
+                      onDoubleClick={event => {
                         event.stopPropagation();
                         openEditForm(task);
                       }}
@@ -346,7 +324,7 @@ function CalendarPage() {
 
       <Dialog
         open={editorOpen}
-        onOpenChange={(open) => {
+        onOpenChange={open => {
           if (open) {
             setEditorOpen(true);
           } else {
@@ -355,9 +333,7 @@ function CalendarPage() {
         }}
       >
         <DialogContent>
-          <DialogTitle>
-            {formMode === "create" ? "Add task" : "Edit task"}
-          </DialogTitle>
+          <DialogTitle>{formMode === "create" ? "Add task" : "Edit task"}</DialogTitle>
 
           <DialogDescription>
             {formMode === "create"

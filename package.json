@@ -1,0 +1,36 @@
+{
+  "name": "smart-student-planner",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/2005Zainab/smart-student-planner.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/2005Zainab/smart-student-planner/issues"
+  },
+  "homepage": "https://github.com/2005Zainab/smart-student-planner#readme",
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1"
+  },
+  "lint-staged": {
+    "frontend/**/*.{js,jsx}": [
+      "npm --prefix frontend run lint:fix --",
+      "npm --prefix frontend run format --"
+    ],
+    "backend/**/*.js": [
+      "npm --prefix backend run lint:fix --",
+      "npm --prefix backend run format --"
+    ]
+  }
+}

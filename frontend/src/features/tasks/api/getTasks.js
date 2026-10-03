@@ -11,10 +11,7 @@ export async function getTasks() {
     return Array.isArray(tasks) ? tasks : [];
   } catch (error) {
     if (error instanceof HttpError) {
-      console.error(
-        `HTTP Error: ${error.status} - ${error.message}`,
-        error.body,
-      );
+      console.error(`HTTP Error: ${error.status} - ${error.message}`, error.body);
     } else {
       console.error("Unexpected error:", error);
     }
