@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/alert-dialog';
 //import { useTasks } from '../../tasks/hooks/useTasks';
 import { useTasksContext } from '../../tasks/context/TasksContext';
+import { buildCreateTaskRequest } from '../../tasks/utils/build-create-task-request';
 
 function SchedulePage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
@@ -45,6 +46,7 @@ function SchedulePage() {
     priority: 'Medium',
     status: 'To Do',
     time: '',
+    recurrence: null,
   });
 
   const openEditor = (task = null, mode = task ? 'edit' : 'create') => {
@@ -62,6 +64,7 @@ function SchedulePage() {
         status: 'To Do',
         dueDate: undefined,
         time: '',
+        recurrence: null,
       };
 
       setEditingTaskId(newTask.id);
@@ -113,27 +116,14 @@ function SchedulePage() {
     setEmptyTitleCheck(null);
     setSaveError(null);
 
-    //Add task (only local right now)
     if (formMode === 'create') {
-      const taskToSave = {
-        title: draft.title,
-        description: draft.description,
-        subject: draft.subject,
-        priority: draft.priority,
-        status: draft.status,
-        dueDate: draft.dueDate
-          ? draft.dueDate instanceof Date
-            ? format(draft.dueDate, 'yyyy-MM-dd')
-            : draft.dueDate
-          : null,
-        time: draft.time || null,
-      };
-
       try {
-        const savedTask = await httpClient('http://localhost:3000/api/tasks', {
+        const createRequest = buildCreateTaskRequest(draft);
+        const savedResponse = await httpClient(createRequest.url, {
           method: 'POST',
-          body: JSON.stringify(taskToSave),
+          body: JSON.stringify(createRequest.body),
         });
+        const savedTask = createRequest.recurring ? savedResponse.firstOccurrence : savedResponse;
 
         setTasks((current) =>
           current.map((task) => (task.id === editingTaskId ? savedTask : task)),
@@ -370,6 +360,7 @@ function SchedulePage() {
             saveError={saveError}
             requireDateAndTime={true}
             onToggleChecklistItem={(itemId) => toggleChecklistItem(editingTaskId, itemId)}
+            allowRecurrence={formMode === 'create'}
           />
         </DialogContent>
       </Dialog>
@@ -402,6 +393,7 @@ function SchedulePage() {
               saveError={saveError}
               requireDateAndTime={true}
               onToggleChecklistItem={(itemId) => toggleChecklistItem(editingTaskId, itemId)}
+              allowRecurrence={formMode === 'create'}
             />
           </div>
         </SheetContent>

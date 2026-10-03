@@ -32,6 +32,7 @@ import { TaskList } from './TaskList';
 //import { useTasks } from '../hooks/useTasks';
 import { useTasksContext } from '../context/TasksContext';
 import { httpClient } from '../../../shared/http-client';
+import { buildCreateTaskRequest } from '../utils/build-create-task-request';
 
 function TasksPage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
@@ -56,6 +57,7 @@ function TasksPage() {
     time: '',
     reminderDate: undefined,
     reminderTime: '',
+    recurrence: null,
   });
 
   //Open the task form
@@ -76,6 +78,7 @@ function TasksPage() {
         time: '',
         reminderDate: undefined,
         reminderTime: '',
+        recurrence: null,
       };
 
       setEditingTaskId(newTask.id);
@@ -142,31 +145,14 @@ function TasksPage() {
     setSaveError(null);
 
     if (formMode === 'create') {
-      const taskToSave = {
-        title: draft.title,
-        description: draft.description,
-        subject: draft.subject,
-        status: draft.status,
-        dueDate: draft.dueDate
-          ? draft.dueDate instanceof Date
-            ? format(draft.dueDate, 'yyyy-MM-dd')
-            : draft.dueDate
-          : null,
-        time: draft.time || null,
-        checklist: draft.checklist || [],
-        reminderDate: draft.reminderDate
-          ? draft.reminderDate instanceof Date
-            ? format(draft.reminderDate, 'yyyy-MM-dd')
-            : draft.reminderDate
-          : null,
-        reminderTime: draft.reminderTime || null,
-      };
+      const createRequest = buildCreateTaskRequest(draft);
 
       try {
-        const savedTask = await httpClient('http://localhost:3000/api/tasks', {
+        const savedResponse = await httpClient(createRequest.url, {
           method: 'POST',
-          body: JSON.stringify(taskToSave),
+          body: JSON.stringify(createRequest.body),
         });
+        const savedTask = createRequest.recurring ? savedResponse.firstOccurrence : savedResponse;
 
         setTasks((current) =>
           current.map((task) => (task.id === editingTaskId ? savedTask : task)),
@@ -437,7 +423,7 @@ function TasksPage() {
             titleError={emptyTitleCheck}
             saveError={saveError}
             onToggleChecklistItem={(itemId) => toggleChecklistItem(editingTaskId, itemId)}
-            isNewTask={formMode === 'create'}
+            allowRecurrence={formMode === 'create'}
           />
         </DialogContent>
       </Dialog>
@@ -471,7 +457,7 @@ function TasksPage() {
               titleError={emptyTitleCheck}
               saveError={saveError}
               onToggleChecklistItem={(itemId) => toggleChecklistItem(editingTaskId, itemId)}
-              isNewTask={formMode === 'create'}
+              allowRecurrence={formMode === 'create'}
             />
           </div>
         </SheetContent>
