@@ -33,11 +33,13 @@ describe('CalendarPage', () => {
   beforeEach(() => {
     mockTasks = [];
     vi.clearAllMocks();
+    httpClient.mockResolvedValue([]);
   });
 
   it('navigates to the next and previous month', async () => {
     render(<CalendarPage />);
-    const initialHeading = screen.getByRole('heading', { level: 2 }).textContent;
+    const heading = await screen.findByRole('heading', { level: 2 });
+    const initialHeading = heading.textContent;
 
     await userEvent.click(screen.getByRole('button', { name: '→' }));
     expect(screen.getByRole('heading', { level: 2 }).textContent).not.toBe(initialHeading);
@@ -48,11 +50,15 @@ describe('CalendarPage', () => {
 
   it('requires a due date before saving a task', async () => {
     render(<CalendarPage />);
+    await screen.findByRole('heading', { level: 2 });
     await userEvent.click(screen.getByRole('button', { name: /add task/i }));
     await userEvent.type(screen.getByLabelText('title'), 'Untitled task');
     await userEvent.click(screen.getByRole('button', { name: /save/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/choose a due date/i);
-    expect(httpClient).not.toHaveBeenCalled();
+    expect(httpClient).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 });
