@@ -177,7 +177,6 @@ function TaskForm({
           }
           maxLength={200}
           disabled={readOnly}
-          required
           value={draft.subject || ""}
         />
 
