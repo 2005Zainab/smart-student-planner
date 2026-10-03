@@ -46,7 +46,7 @@ function getVirtualOccurrence(series, date, today) {
     ...series.template,
     virtual: true,
     dueDate: date,
-    status: "to do",
+    status: "To Do",
     reminderDate:
       isFuture && reminderOffsetDays !== null && reminderOffsetDays !== undefined
         ? offsetDate(date, -reminderOffsetDays)
@@ -245,11 +245,16 @@ router.get("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
   try {
-    const today = await getUserToday(uid);
+    const today = await getUserToday(uid); // get the user's "today" date based on their timezone
     const [taskSnapshot, seriesSnapshot] = await Promise.all([
       db.collection("tasks").where("userId", "==", uid).get(),
       db.collection("task_series").where("userId", "==", uid).get(),
     ]);
+
+    // oneOffs are tasks that are not part of a series (not recurring)
+    // A virtual occurrence is an occurrence of a recurring task that hasn't been explicitly created in the database but is inferred from the recurrence rule.
+    // materialized are tasks that are part of a series and have been explicitly created for a specific occurrence date.
+    // The occurrences array will hold both one-off tasks and occurrences of recurring tasks, whether they are materialized or virtual.
     const oneOffs = [];
     const materialized = new Map();
 
@@ -272,7 +277,7 @@ router.get("/", requireAuth, async (req, res) => {
     const occurrences = [];
     for (const series of readSeries(seriesSnapshot)) {
       const missedAndToday = expandSeries(series, series.segments[0].from, today);
-      const next = getNextOccurrence(series, offsetDate(today, 1));
+      const next = getNextOccurrence(series, today);
       const candidateDates = new Set(missedAndToday);
       if (next) candidateDates.add(next);
 

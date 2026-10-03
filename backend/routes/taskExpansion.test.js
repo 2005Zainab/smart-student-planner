@@ -83,10 +83,10 @@ describe("recurring task expansion", () => {
     const res = await request(app).get("/api/tasks");
 
     expect(res.status).toBe(200);
-    expect(res.body.map(task => task.dueDate)).toEqual(["2026-10-01", "2026-10-02", "2026-10-04"]);
+    expect(res.body.map(task => task.dueDate)).toEqual(["2026-10-01", "2026-10-02", "2026-10-03"]);
     expect(res.body[0]).toMatchObject({
       virtual: true,
-      status: "to do",
+      status: "To Do",
       dueDate: "2026-10-01",
       reminderDate: null,
       reminderTime: null,
@@ -94,7 +94,7 @@ describe("recurring task expansion", () => {
     });
     expect(res.body[2]).toMatchObject({
       virtual: true,
-      reminderDate: "2026-10-03",
+      reminderDate: "2026-10-02",
       reminderTime: "08:00",
     });
   });
