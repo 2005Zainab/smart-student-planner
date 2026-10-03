@@ -9,6 +9,7 @@ import { useAuth } from '@/shared/auth-provider';
 import { useTasksContext } from '@/features/tasks/context/TasksContext';
 import {
   getUpcomingTasks,
+  getOverDueTasks,
   getUndatedTasks,
   getWeeklySchedule,
 } from '@/features/tasks/utils/task-date-utils';
@@ -19,6 +20,12 @@ function DashboardPage() {
   const { tasks, isLoading, error } = useTasksContext();
   const userName = user?.displayName ?? user?.email ?? 'Student';
   const upcomingTasks = getUpcomingTasks(tasks);
+  const overdueTasks = getOverDueTasks(tasks);
+  const dashboardTasks = [...overdueTasks, ...upcomingTasks].sort((a, b) => {
+    const dateA = a.parsedDateTime || new Date(0);
+    const dateB = b.parsedDateTime || new Date(0);
+    return dateA - dateB;
+  });
   const undatedTasks = getUndatedTasks(tasks);
   const weeklySchedule = getWeeklySchedule(tasks);
 
@@ -49,12 +56,10 @@ function DashboardPage() {
               </div>
             ) : error ? (
               <p className="text-sm text-destructive">Unable to load tasks.</p>
-            ) : upcomingTasks.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No upcoming tasks in the next seven days.
-              </p>
+            ) : dashboardTasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No tasks to prioritize.</p>
             ) : (
-              upcomingTasks.map((task) => (
+              dashboardTasks.map((task) => (
                 <div className="flex items-start gap-3 rounded-lg border p-3" key={task.id}>
                   <div className="min-w-0 flex-1">
                     <p className="break-words whitespace-normal text-sm font-medium">
@@ -68,7 +73,11 @@ function DashboardPage() {
                         ? 'Due today'
                         : task.daysUntilDue === 1
                           ? 'Due tomorrow'
-                          : `Due in ${task.daysUntilDue} days`}
+                          : task.daysUntilDue < 0
+                            ? `Overdue by ${Math.abs(task.daysUntilDue)} day${
+                                Math.abs(task.daysUntilDue) > 1 ? 's' : ''
+                              }`
+                            : `Due in ${task.daysUntilDue} day${task.daysUntilDue > 1 ? 's' : ''}`}
                     </p>
                   </div>
                   <Badge
