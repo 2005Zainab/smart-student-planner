@@ -41,9 +41,7 @@ router.patch("/", requireAuth, async (req, res) => {
 
   // Validate that the required field was actually sent
   if (typeof passwordLessEnabled !== "boolean") {
-    return res
-      .status(400)
-      .json({ message: "Invalid or missing passwordLessEnabled value" });
+    return res.status(400).json({ message: "Invalid or missing passwordLessEnabled value" });
   }
 
   try {
