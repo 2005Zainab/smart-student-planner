@@ -4,7 +4,7 @@ import { db } from "../shared/firebase.js";
 import { requireAuth } from "../middleware/auth.js";
 import { validateRule, getPriorityFromDueDate } from "../lib/recurrence.js";
 import { getUserToday } from "../lib/userTime.js";
-import { validateDate, validateTaskFields } from "../lib/taskValidation.js";
+import { normalizeStatus, validateDate, validateTaskFields } from "../lib/taskValidation.js";
 
 const router = express.Router();
 
@@ -47,7 +47,10 @@ router.post("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
   const body = req.body;
 
-  if (Object.prototype.hasOwnProperty.call(body, "status") && body.status !== "to do") {
+  if (
+    Object.prototype.hasOwnProperty.call(body, "status") &&
+    normalizeStatus(body.status) !== "To Do"
+  ) {
     return res.status(400).json({ message: "Recurring task status must be 'to do'" });
   }
 

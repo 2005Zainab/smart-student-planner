@@ -8,6 +8,11 @@ export const STATUS_DISPLAY = {
   completed: "Completed",
 };
 
+export function normalizeStatus(status) {
+  if (typeof status !== "string") return null;
+  return STATUS_DISPLAY[status.trim().toLowerCase()] ?? null;
+}
+
 export function validateDate(value, fieldName) {
   if (value === null) {
     return null;
@@ -122,9 +127,9 @@ export function validateTaskFields(fields, { partial = false } = {}) {
 
   if (!partial || Object.prototype.hasOwnProperty.call(fields, "status")) {
     if (typeof fields.status !== "string") return { message: "Status must be text" };
-    const status = fields.status.trim().toLowerCase();
-    if (!ALLOWED_STATUSES.includes(status)) return { message: "Not a valid status" };
-    clean.status = STATUS_DISPLAY[status];
+    const normalizedStatus = normalizeStatus(fields.status);
+    if (!normalizedStatus) return { message: "Not a valid status" };
+    clean.status = normalizedStatus;
   }
 
   for (const field of ["dueDate", "reminderDate"]) {

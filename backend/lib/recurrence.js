@@ -220,7 +220,7 @@ export function shouldRenderMaterialized(doc, series, todayStr) {
     return true;
   }
 
-  return doc.status === "completed";
+  return String(doc.status).toLowerCase() === "completed";
 }
 
 export function getPriorityFromDueDate(dueDateStr, todayStr) {

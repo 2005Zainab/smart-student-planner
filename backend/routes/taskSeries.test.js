@@ -121,7 +121,6 @@ describe("POST /api/task-series", () => {
   });
 
   it.each([
-    ["To Do", /status/i],
     ["in progress", /status/i],
     ["completed", /status/i],
   ])("rejects recurring status %s", async (status, message) => {
@@ -135,6 +134,18 @@ describe("POST /api/task-series", () => {
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(message);
     expect(addMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts title-case To Do input and returns title-case status", async () => {
+    const addMock = vi.fn().mockResolvedValue({ id: "series-1" });
+    mockTaskSeries(addMock);
+
+    const res = await request(app)
+      .post("/api/task-series")
+      .send({ ...validBody, status: "To Do" });
+
+    expect(res.status).toBe(201);
+    expect(res.body.firstOccurrence.status).toBe("To Do");
   });
 
   it("rejects missing due dates, invalid rules, and invalid end dates", async () => {
