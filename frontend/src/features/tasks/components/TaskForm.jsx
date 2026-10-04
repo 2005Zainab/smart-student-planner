@@ -1,20 +1,20 @@
-import { format } from 'date-fns';
-import { CalendarDays, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useState } from 'react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from "date-fns";
+import { CalendarDays, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useState } from "react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 function TaskForm({
   draft,
@@ -28,46 +28,46 @@ function TaskForm({
   onToggleChecklistItem,
   allowRecurrence = false,
 }) {
-  const [dateError, setDateError] = useState('');
-  const [reminderError, setReminderError] = useState('');
-  const [checklistItemInput, setChecklistItemInput] = useState('');
-  const [checklistError, setChecklistError] = useState('');
+  const [dateError, setDateError] = useState("");
+  const [reminderError, setReminderError] = useState("");
+  const [checklistItemInput, setChecklistItemInput] = useState("");
+  const [checklistError, setChecklistError] = useState("");
 
   const checklist = draft.checklist || [];
-  const completedItems = checklist.filter((item) => item.completed).length;
+  const completedItems = checklist.filter(item => item.completed).length;
   const progress = checklist.length > 0 ? Math.round((completedItems / checklist.length) * 100) : 0;
 
   const checklistHandleAddItem = () => {
     if (checklist.length >= 10) {
-      setChecklistError('10 is maximum number of checklist items');
+      setChecklistError("10 is maximum number of checklist items");
       return;
     }
 
     if (!checklistItemInput.trim()) {
-      setChecklistError('Checklist item cannot be empty');
+      setChecklistError("Checklist item cannot be empty");
       return;
     }
-    setChecklistError('');
-    setDraft((prev) => ({
+    setChecklistError("");
+    setDraft(prev => ({
       ...prev,
       checklist: [
         ...(prev.checklist || []),
         { id: `temp-${Date.now()}`, text: checklistItemInput.trim(), completed: false },
       ],
     }));
-    setChecklistItemInput('');
+    setChecklistItemInput("");
   };
 
-  const handleSave = (event) => {
+  const handleSave = event => {
     event.preventDefault();
-    setDateError('');
+    setDateError("");
 
     if ((requireDateAndTime || draft.recurrence) && !draft.dueDate) {
-      setDateError('Due date is required for adding task to schedule.');
+      setDateError("Due date is required for adding task to schedule.");
       return;
     }
 
-    setReminderError(''); // Reset reminder error before validation
+    setReminderError(""); // Reset reminder error before validation
     const hasReminderDate = draft.recurrence
       ? draft.recurrence.reminderOffsetDays !== null &&
         draft.recurrence.reminderOffsetDays !== undefined
@@ -77,19 +77,19 @@ function TaskForm({
       : Boolean(draft.reminderTime);
 
     if (hasReminderDate !== hasReminderTime) {
-      setReminderError('Date and time is required to set a reminder.');
+      setReminderError("Date and time is required to set a reminder.");
       return;
     }
     // Validate that the absolute reminder date and time is not in the past
     if (!draft.recurrence && hasReminderDate && hasReminderTime) {
       const reminderDateOnly =
         draft.reminderDate instanceof Date
-          ? format(draft.reminderDate, 'yyyy-MM-dd')
+          ? format(draft.reminderDate, "yyyy-MM-dd")
           : draft.reminderDate;
       const reminderDateTime = new Date(`${reminderDateOnly}T${draft.reminderTime}:00`);
 
       if (reminderDateTime <= new Date()) {
-        setReminderError('Reminders cannot be set in the past.');
+        setReminderError("Reminders cannot be set in the past.");
         return;
       }
     }
@@ -97,8 +97,8 @@ function TaskForm({
     onSave();
   };
 
-  const setRecurrenceRule = (rule) => {
-    setDraft((prev) => ({
+  const setRecurrenceRule = rule => {
+    setDraft(prev => ({
       ...prev,
       recurrence: {
         ...prev.recurrence,
@@ -113,18 +113,18 @@ function TaskForm({
 
     return {
       rule: {
-        type: 'daily',
+        type: "daily",
         interval: 1,
       },
       endDate: null,
       reminderOffsetDays: null,
-      reminderTime: '',
+      reminderTime: "",
       defaultWeekday: isoWeekday,
     };
   };
 
-  const updateRecurrence = (changes) => {
-    setDraft((prev) => ({
+  const updateRecurrence = changes => {
+    setDraft(prev => ({
       ...prev,
       recurrence: {
         ...prev.recurrence,
@@ -143,15 +143,15 @@ function TaskForm({
 
         <Input
           id="task-title"
-          onChange={(event) =>
-            setDraft((prev) => ({
+          onChange={event =>
+            setDraft(prev => ({
               ...prev,
               title: event.target.value,
             }))
           }
           disabled={readOnly}
           maxLength={200}
-          value={draft.title || ''}
+          value={draft.title || ""}
         />
 
         {(draft.title?.length || 0) >= 200 && (
@@ -167,15 +167,15 @@ function TaskForm({
 
         <Textarea
           id="task-description"
-          onChange={(event) =>
-            setDraft((prev) => ({
+          onChange={event =>
+            setDraft(prev => ({
               ...prev,
               description: event.target.value,
             }))
           }
           maxLength={1000}
           disabled={readOnly}
-          value={draft.description || ''}
+          value={draft.description || ""}
         />
 
         {(draft.description?.length || 0) >= 1000 && (
@@ -191,8 +191,8 @@ function TaskForm({
 
         <Input
           id="task-subject"
-          onChange={(event) =>
-            setDraft((prev) => ({
+          onChange={event =>
+            setDraft(prev => ({
               ...prev,
               subject: event.target.value,
             }))
@@ -200,7 +200,7 @@ function TaskForm({
           maxLength={200}
           disabled={readOnly}
           required
-          value={draft.subject || ''}
+          value={draft.subject || ""}
         />
 
         {(draft.subject?.length || 0) >= 200 && (
@@ -230,7 +230,7 @@ function TaskForm({
               render={
                 <Button
                   className={`w-full justify-start font-normal ${
-                    dateError ? 'border-destructive' : ''
+                    dateError ? "border-destructive" : ""
                   }`}
                   disabled={readOnly}
                   id="task-due-date"
@@ -241,20 +241,20 @@ function TaskForm({
             >
               <CalendarDays />
 
-              {draft.dueDate ? format(draft.dueDate, 'PPP') : 'Choose a date'}
+              {draft.dueDate ? format(draft.dueDate, "PPP") : "Choose a date"}
             </PopoverTrigger>
 
             <PopoverContent className="w-auto p-0">
               <Calendar
                 mode="single"
-                onSelect={(dueDate) => {
-                  setDraft((prev) => ({
+                onSelect={dueDate => {
+                  setDraft(prev => ({
                     ...prev,
                     dueDate,
                   }));
 
                   if (dueDate) {
-                    setDateError('');
+                    setDateError("");
                   }
                 }}
                 selected={draft.dueDate}
@@ -275,14 +275,14 @@ function TaskForm({
             id="task-time"
             type="time"
             required={requireDateAndTime}
-            onChange={(event) =>
-              setDraft((prev) => ({
+            onChange={event =>
+              setDraft(prev => ({
                 ...prev,
                 time: event.target.value,
               }))
             }
             disabled={readOnly}
-            value={draft.time || ''}
+            value={draft.time || ""}
           />
         </div>
 
@@ -292,13 +292,13 @@ function TaskForm({
 
           <Select
             disabled={readOnly}
-            onValueChange={(status) =>
-              setDraft((prev) => ({
+            onValueChange={status =>
+              setDraft(prev => ({
                 ...prev,
                 status,
               }))
             }
-            value={draft.status || 'To Do'}
+            value={draft.status || "To Do"}
           >
             <SelectTrigger aria-label="Status" className="w-full" id="task-status">
               <SelectValue />
@@ -331,12 +331,12 @@ function TaskForm({
                   }
                 >
                   <CalendarDays />
-                  {draft.reminderDate ? format(draft.reminderDate, 'PPP') : 'Choose a date'}
+                  {draft.reminderDate ? format(draft.reminderDate, "PPP") : "Choose a date"}
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
                   <Calendar
                     mode="single"
-                    onSelect={(reminderDate) => setDraft((prev) => ({ ...prev, reminderDate }))}
+                    onSelect={reminderDate => setDraft(prev => ({ ...prev, reminderDate }))}
                     selected={draft.reminderDate}
                   />
                 </PopoverContent>
@@ -348,16 +348,16 @@ function TaskForm({
               <Input
                 id="task-reminder-time"
                 type="time"
-                onChange={(event) =>
-                  setDraft((prev) => ({ ...prev, reminderTime: event.target.value }))
+                onChange={event =>
+                  setDraft(prev => ({ ...prev, reminderTime: event.target.value }))
                 }
                 disabled={readOnly}
-                value={draft.reminderTime || ''}
+                value={draft.reminderTime || ""}
               />
             </div>
           </>
         )}
-        {typeof Notification !== 'undefined' && Notification.permission === 'denied' && (
+        {typeof Notification !== "undefined" && Notification.permission === "denied" && (
           <p className="text-sm text-muted-foreground">
             Notifications are blocked in your browser: reminders won't show a popup.
           </p>
@@ -372,8 +372,8 @@ function TaskForm({
               checked={Boolean(recurrence)}
               disabled={readOnly}
               id="task-repeat"
-              onCheckedChange={(checked) =>
-                setDraft((prev) => ({
+              onCheckedChange={checked =>
+                setDraft(prev => ({
                   ...prev,
                   recurrence: checked ? createRecurrence() : null,
                 }))
@@ -389,10 +389,10 @@ function TaskForm({
                   <Label htmlFor="recurrence-type">Repeat type</Label>
                   <Select
                     value={recurrence.rule.type}
-                    onValueChange={(type) => {
-                      if (type === 'daily') {
+                    onValueChange={type => {
+                      if (type === "daily") {
                         setRecurrenceRule({ type, interval: 1 });
-                      } else if (type === 'weekly') {
+                      } else if (type === "weekly") {
                         setRecurrenceRule({
                           type,
                           interval: 1,
@@ -424,7 +424,7 @@ function TaskForm({
                     id="recurrence-interval"
                     min="1"
                     max="30"
-                    onChange={(event) =>
+                    onChange={event =>
                       setRecurrenceRule({
                         ...recurrence.rule,
                         interval: Number(event.target.value),
@@ -436,18 +436,18 @@ function TaskForm({
                 </div>
               </div>
 
-              {recurrence.rule.type === 'weekly' && (
+              {recurrence.rule.type === "weekly" && (
                 <div className="space-y-2">
                   <Label>Weekdays</Label>
                   <div className="flex flex-wrap gap-2">
                     {[
-                      [1, 'Mon'],
-                      [2, 'Tue'],
-                      [3, 'Wed'],
-                      [4, 'Thu'],
-                      [5, 'Fri'],
-                      [6, 'Sat'],
-                      [7, 'Sun'],
+                      [1, "Mon"],
+                      [2, "Tue"],
+                      [3, "Wed"],
+                      [4, "Thu"],
+                      [5, "Fri"],
+                      [6, "Sat"],
+                      [7, "Sun"],
                     ].map(([day, label]) => {
                       const selected = recurrence.rule.weekdays.includes(day);
                       return (
@@ -458,12 +458,12 @@ function TaskForm({
                             setRecurrenceRule({
                               ...recurrence.rule,
                               weekdays: selected
-                                ? recurrence.rule.weekdays.filter((value) => value !== day)
+                                ? recurrence.rule.weekdays.filter(value => value !== day)
                                 : [...recurrence.rule.weekdays, day].sort((a, b) => a - b),
                             });
                           }}
                           type="button"
-                          variant={selected ? 'default' : 'outline'}
+                          variant={selected ? "default" : "outline"}
                         >
                           {label}
                         </Button>
@@ -473,7 +473,7 @@ function TaskForm({
                 </div>
               )}
 
-              {recurrence.rule.type === 'monthly' && (
+              {recurrence.rule.type === "monthly" && (
                 <div className="space-y-3">
                   <div className="space-y-2">
                     <Label htmlFor="recurrence-month-day">Day of month</Label>
@@ -482,31 +482,31 @@ function TaskForm({
                       id="recurrence-month-day"
                       max="31"
                       min="1"
-                      onChange={(event) =>
+                      onChange={event =>
                         setRecurrenceRule({
-                          type: 'monthly',
+                          type: "monthly",
                           interval: recurrence.rule.interval,
                           monthDay: Number(event.target.value),
                         })
                       }
                       type="number"
-                      value={recurrence.rule.monthDay || ''}
+                      value={recurrence.rule.monthDay || ""}
                     />
                   </div>
                   <div className="flex items-center gap-2">
                     <Checkbox
                       checked={recurrence.rule.useLastDayOfMonth === true}
                       id="recurrence-last-day"
-                      onCheckedChange={(checked) =>
+                      onCheckedChange={checked =>
                         setRecurrenceRule(
                           checked
                             ? {
-                                type: 'monthly',
+                                type: "monthly",
                                 interval: recurrence.rule.interval,
                                 useLastDayOfMonth: true,
                               }
                             : {
-                                type: 'monthly',
+                                type: "monthly",
                                 interval: recurrence.rule.interval,
                                 monthDay:
                                   draft.dueDate instanceof Date ? draft.dueDate.getDate() : 1,
@@ -534,12 +534,12 @@ function TaskForm({
                       }
                     >
                       <CalendarDays />
-                      {recurrence.endDate ? format(recurrence.endDate, 'PPP') : 'Never'}
+                      {recurrence.endDate ? format(recurrence.endDate, "PPP") : "Never"}
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
                       <Calendar
                         mode="single"
-                        onSelect={(endDate) => updateRecurrence({ endDate })}
+                        onSelect={endDate => updateRecurrence({ endDate })}
                         selected={recurrence.endDate || undefined}
                       />
                     </PopoverContent>
@@ -562,23 +562,23 @@ function TaskForm({
                   <Input
                     id="recurrence-reminder-offset"
                     min="0"
-                    onChange={(event) =>
+                    onChange={event =>
                       updateRecurrence({
                         reminderOffsetDays:
-                          event.target.value === '' ? null : Number(event.target.value),
+                          event.target.value === "" ? null : Number(event.target.value),
                       })
                     }
                     type="number"
-                    value={recurrence.reminderOffsetDays ?? ''}
+                    value={recurrence.reminderOffsetDays ?? ""}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="recurrence-reminder-time">At</Label>
                   <Input
                     id="recurrence-reminder-time"
-                    onChange={(event) => updateRecurrence({ reminderTime: event.target.value })}
+                    onChange={event => updateRecurrence({ reminderTime: event.target.value })}
                     type="time"
-                    value={recurrence.reminderTime || ''}
+                    value={recurrence.reminderTime || ""}
                   />
                 </div>
               </div>
@@ -608,7 +608,7 @@ function TaskForm({
             />
           </div>
         )}
-        {(draft.checklist || []).map((item) => (
+        {(draft.checklist || []).map(item => (
           <div
             key={item.id}
             className="flex items-center justify-between gap-2 min-w-0 p-1.5 rounded-md hover:bg-muted/50 transition-colors group"
@@ -622,9 +622,9 @@ function TaskForm({
                   if (readOnly) {
                     onToggleChecklistItem(item.id);
                   } else {
-                    setDraft((prev) => ({
+                    setDraft(prev => ({
                       ...prev,
-                      checklist: prev.checklist.map((i) =>
+                      checklist: prev.checklist.map(i =>
                         i.id === item.id ? { ...i, completed: !i.completed } : i,
                       ),
                     }));
@@ -640,9 +640,9 @@ function TaskForm({
                 size="icon-sm"
                 className="cursor-pointer group-focus-within:opacity-100 transition-opacity"
                 onClick={() =>
-                  setDraft((prev) => ({
+                  setDraft(prev => ({
                     ...prev,
-                    checklist: prev.checklist.filter((i) => i.id !== item.id),
+                    checklist: prev.checklist.filter(i => i.id !== item.id),
                   }))
                 }
               >
@@ -663,12 +663,12 @@ function TaskForm({
                 placeholder="Add a checklist item"
                 maxLength={100}
                 value={checklistItemInput}
-                onChange={(event) => {
+                onChange={event => {
                   setChecklistItemInput(event.target.value);
-                  if (checklistError) setChecklistError('');
+                  if (checklistError) setChecklistError("");
                 }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
+                onKeyDown={event => {
+                  if (event.key === "Enter") {
                     event.preventDefault();
                     checklistHandleAddItem();
                   }

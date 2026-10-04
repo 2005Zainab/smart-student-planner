@@ -1,6 +1,6 @@
 const themes = {
-  light: { label: 'Light', dark: false },
-  dark: { label: 'Dark', dark: true },
+  light: { label: "Light", dark: false },
+  dark: { label: "Dark", dark: true },
 };
 
 const themeNames = Object.keys(themes);

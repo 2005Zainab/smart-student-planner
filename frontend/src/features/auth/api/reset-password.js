@@ -1,5 +1,5 @@
-import { auth } from '../../../shared/auth';
-import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from "../../../shared/auth";
+import { sendPasswordResetEmail } from "firebase/auth";
 
 export const resetPassword = async ({ email }) => {
   const actionCodeSettings = {

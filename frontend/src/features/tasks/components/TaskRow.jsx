@@ -1,15 +1,15 @@
-import { MoreHorizontal, CheckSquare } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
+import { MoreHorizontal, CheckSquare } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Skeleton } from '@/components/ui/skeleton';
-import { differenceInCalendarDays } from 'date-fns';
+} from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import { differenceInCalendarDays } from "date-fns";
 
 function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
   //Show loading layout while tasks are loading
@@ -37,8 +37,8 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
     <div
       className="flex cursor-pointer items-start gap-3 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={onView}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
+      onKeyDown={event => {
+        if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onView();
         }
@@ -49,8 +49,8 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
       {/* Complete task checkbox */}
       <Checkbox
         aria-label={`Mark ${task.title} complete`}
-        checked={task.status === 'Completed'}
-        onClick={(event) => event.stopPropagation()}
+        checked={task.status === "Completed"}
+        onClick={event => event.stopPropagation()}
         onCheckedChange={onToggle}
       />
 
@@ -58,9 +58,9 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
       <div className="min-w-0 flex-1">
         <p
           className={
-            task.status === 'Completed'
-              ? 'font-medium line-through text-muted-foreground'
-              : 'font-medium'
+            task.status === "Completed"
+              ? "font-medium line-through text-muted-foreground"
+              : "font-medium"
           }
         >
           {task.title}
@@ -77,13 +77,13 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
       {/* Priority colour changes depending on priority */}
       <Badge
         variant={
-          task.priority === 'High'
-            ? 'high'
-            : task.priority === 'Medium'
-              ? 'medium'
-              : task.priority === 'Low'
-                ? 'low'
-                : 'secondary'
+          task.priority === "High"
+            ? "high"
+            : task.priority === "Medium"
+              ? "medium"
+              : task.priority === "Low"
+                ? "low"
+                : "secondary"
         }
       >
         {task.priority}
@@ -94,19 +94,19 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
         <Badge variant="outline" className="flex items-center gap-1 text-muted-foreground">
           <CheckSquare className="h-3.5 w-3.5" />
           <span>
-            {task.checklist.filter((i) => i.completed).length}/{task.checklist.length}
+            {task.checklist.filter(i => i.completed).length}/{task.checklist.length}
           </span>
         </Badge>
       )}
 
       <Badge variant="outline">{task.status}</Badge>
 
-      <Badge variant="outline">{task.dueDate || 'No due date'}</Badge>
+      <Badge variant="outline">{task.dueDate || "No due date"}</Badge>
 
       {/* Edit and delete menu */}
       <DropdownMenu>
         <DropdownMenuTrigger
-          onClick={(event) => event.stopPropagation()}
+          onClick={event => event.stopPropagation()}
           render={
             <Button aria-label={`Actions for ${task.title}`} size="icon-sm" variant="ghost" />
           }
@@ -116,8 +116,8 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
 
         <DropdownMenuContent
           align="end"
-          onClick={(event) => event.stopPropagation()}
-          onKeyDown={(event) => event.stopPropagation()}
+          onClick={event => event.stopPropagation()}
+          onKeyDown={event => event.stopPropagation()}
         >
           <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
 

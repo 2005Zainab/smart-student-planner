@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { logout as logoutRequest } from '../api/logout';
+import { useState, useCallback } from "react";
+import { logout as logoutRequest } from "../api/logout";
 
 export const useLogout = () => {
   const [isPending, setIsPending] = useState(false);

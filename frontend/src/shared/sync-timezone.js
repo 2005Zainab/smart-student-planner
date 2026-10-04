@@ -1,4 +1,4 @@
-import { httpClient } from './http-client';
+import { httpClient } from "./http-client";
 
 export async function syncTimezone(uid) {
   try {
@@ -6,8 +6,8 @@ export async function syncTimezone(uid) {
     const key = `tzSent:${uid}`;
     if (!tz || localStorage.getItem(key) === tz) return;
 
-    await httpClient('http://localhost:3000/api/me/timezone', {
-      method: 'PATCH',
+    await httpClient("http://localhost:3000/api/me/timezone", {
+      method: "PATCH",
       body: JSON.stringify({ timezone: tz }),
     });
     localStorage.setItem(key, tz);

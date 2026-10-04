@@ -1,5 +1,5 @@
-import { cn } from 'cn';
-import { Loader2Icon } from 'lucide-react';
+import { cn } from "cn";
+import { Loader2Icon } from "lucide-react";
 
 function Spinner({ className, ...props }) {
   return (
@@ -7,7 +7,7 @@ function Spinner({ className, ...props }) {
       data-slot="spinner"
       role="status"
       aria-label="Loading"
-      className={cn('size-4 animate-spin', className)}
+      className={cn("size-4 animate-spin", className)}
       {...props}
     />
   );

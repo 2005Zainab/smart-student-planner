@@ -1,16 +1,16 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Link } from 'react-router';
-import { useResetPassword } from '../hooks/use-reset-password';
-import { getAuthErrorMessage } from '../utils/get-auth-error-message';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Link } from "react-router";
+import { useResetPassword } from "../hooks/use-reset-password";
+import { getAuthErrorMessage } from "../utils/get-auth-error-message";
 
 function ForgotPasswordPage() {
   const { error, isPending, reset } = useResetPassword();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   async function handleSubmit(event) {
@@ -42,7 +42,7 @@ function ForgotPasswordPage() {
                 <Input
                   autoComplete="email"
                   id="email"
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={event => setEmail(event.target.value)}
                   placeholder="you@example.com"
                   required
                   type="email"
@@ -55,7 +55,7 @@ function ForgotPasswordPage() {
                     <Spinner data-icon="inline-start" /> Sending...
                   </>
                 ) : (
-                  'Send reset link'
+                  "Send reset link"
                 )}
               </Button>
             </form>
@@ -66,7 +66,7 @@ function ForgotPasswordPage() {
             </p>
           )}
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Remembered your password?{' '}
+            Remembered your password?{" "}
             <Link className="font-medium text-foreground underline underline-offset-4" to="/login">
               Back to login
             </Link>

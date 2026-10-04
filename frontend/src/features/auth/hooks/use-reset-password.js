@@ -1,11 +1,11 @@
-import { useState, useCallback } from 'react';
-import { resetPassword } from '../api/reset-password';
+import { useState, useCallback } from "react";
+import { resetPassword } from "../api/reset-password";
 
 export const useResetPassword = () => {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState(null);
 
-  const reset = useCallback(async (credentials) => {
+  const reset = useCallback(async credentials => {
     setIsPending(true);
     setError(null);
     try {

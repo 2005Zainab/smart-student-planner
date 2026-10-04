@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './auth';
-import { syncTimezone } from './sync-timezone';
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./auth";
+import { syncTimezone } from "./sync-timezone";
 
 const AuthContext = createContext(undefined);
 
@@ -10,7 +10,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async firebaseUser => {
       if (firebaseUser) await syncTimezone(firebaseUser.uid);
       // Ignore a stale result if auth changed while we were awaiting.
       if (auth.currentUser?.uid !== firebaseUser?.uid) return;
@@ -37,6 +37,6 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 };

@@ -1,31 +1,31 @@
-import { useState } from 'react';
-import { useRegister } from '../hooks/use-register';
-import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Link, useNavigate } from 'react-router';
-import { getAuthErrorMessage } from '../utils/get-auth-error-message';
+import { useState } from "react";
+import { useRegister } from "../hooks/use-register";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Link, useNavigate } from "react-router";
+import { getAuthErrorMessage } from "../utils/get-auth-error-message";
 
 function RegisterPage() {
   const navigate = useNavigate();
   const { register, isPending, error } = useRegister();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [formError, setFormError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [formError, setFormError] = useState("");
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setFormError('');
+    setFormError("");
     if (password !== confirmPassword) {
-      setFormError('Passwords do not match.');
+      setFormError("Passwords do not match.");
       return;
     }
     try {
       await register({ email, password });
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch {
       // Error is surfaced via the `error` state from useRegister
     }
@@ -47,7 +47,7 @@ function RegisterPage() {
               <Input
                 autoComplete="email"
                 id="email"
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={event => setEmail(event.target.value)}
                 placeholder="you@example.com"
                 required
                 type="email"
@@ -59,7 +59,7 @@ function RegisterPage() {
               <Input
                 autoComplete="new-password"
                 id="password"
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={event => setPassword(event.target.value)}
                 required
                 type="password"
                 value={password}
@@ -70,7 +70,7 @@ function RegisterPage() {
               <Input
                 autoComplete="new-password"
                 id="confirmPassword"
-                onChange={(event) => setConfirmPassword(event.target.value)}
+                onChange={event => setConfirmPassword(event.target.value)}
                 required
                 type="password"
                 value={confirmPassword}
@@ -82,7 +82,7 @@ function RegisterPage() {
                   <Spinner data-icon="inline-start" /> Creating account...
                 </>
               ) : (
-                'Create account'
+                "Create account"
               )}
             </Button>
           </form>
@@ -95,12 +95,12 @@ function RegisterPage() {
             <p className="mt-2 text-sm text-destructive" role="alert">
               {getAuthErrorMessage(
                 error,
-                'We could not create your account. Check your details and try again.',
+                "We could not create your account. Check your details and try again.",
               )}
             </p>
           )}
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Already have an account?{' '}
+            Already have an account?{" "}
             <Link className="font-medium text-foreground underline underline-offset-4" to="/login">
               Sign in
             </Link>

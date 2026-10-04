@@ -1,4 +1,4 @@
-import { httpClient, HttpError } from '../../../shared/http-client';
+import { httpClient, HttpError } from "../../../shared/http-client";
 
 export async function getCalendarTasks(from, to) {
   try {
@@ -9,7 +9,7 @@ export async function getCalendarTasks(from, to) {
     if (error instanceof HttpError) {
       console.error(`HTTP Error: ${error.status} - ${error.message}`, error.body);
     } else {
-      console.error('Unexpected error:', error);
+      console.error("Unexpected error:", error);
     }
     throw error;
   }
