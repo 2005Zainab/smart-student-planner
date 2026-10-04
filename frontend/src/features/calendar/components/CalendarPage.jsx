@@ -11,6 +11,7 @@ import {
   parseISO,
   isSameMonth,
   isToday,
+  isBefore,
 } from "date-fns";
 
 import { Plus } from "lucide-react";
@@ -22,6 +23,24 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { useTasksContext } from "../../tasks/context/TasksContext";
 import { TaskForm } from "../../tasks/components/TaskForm";
 import { httpClient } from "../../../shared/http-client";
+
+function isTaskOverdue(task) {
+  if (!task.dueDate || task.status === "Completed") {
+    return false;
+  }
+
+  const now = new Date();
+  let taskDate = typeof task.dueDate === "string" ? parseISO(task.dueDate) : new Date(task.dueDate);
+
+  if (task.time) {
+    const [hours, minutes] = task.time.split(":").map(Number);
+    taskDate.setHours(hours, minutes, 0, 0);
+  } else {
+    taskDate.setHours(23, 59, 59, 999);
+  }
+
+  return isBefore(taskDate, now);
+}
 
 //Change task time from 24 hour to 12 hour format
 function formatTaskTime(time) {
@@ -285,36 +304,47 @@ function CalendarPage() {
                 </div>
 
                 <div className="space-y-1">
-                  {dayTasks.map(task => (
-                    <button
-                      key={task.id}
-                      type="button"
-                      onDoubleClick={event => {
-                        event.stopPropagation();
-                        openEditForm(task);
-                      }}
-                      className={`flex w-full items-center rounded-md bg-secondary px-2 py-1.5 text-left text-xs hover:bg-secondary/80 ${
-                        task.status === "Completed" ? "opacity-60" : ""
-                      }`}
-                    >
-                      {task.time && (
-                        <span className="shrink-0 mr-1 text-muted-foreground">
-                          {formatTaskTime(task.time)}
-                        </span>
-                      )}
-
-                      <span
-                        className={`truncate ${
+                  {dayTasks.map(task => {
+                    const isOverdue = isTaskOverdue(task);
+                    return (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onDoubleClick={event => {
+                          event.stopPropagation();
+                          openEditForm(task);
+                        }}
+                        className={`flex w-full items-center rounded-md  px-2 py-1.5 text-left text-xs  ${
                           task.status === "Completed"
-                            ? "line-through text-muted-foreground"
-                            : "font-medium text-secondary-foreground"
+                            ? "bg-secondary opacity-60 hover:bg-secondary/80"
+                            : isOverdue
+                              ? "bg-destructive text-destructive-foreground hover:bg-destructive/80"
+                              : "bg-secondary hover:bg-secondary/80"
                         }`}
-                        title={task.title}
                       >
-                        {task.title}
-                      </span>
-                    </button>
-                  ))}
+                        {task.time && (
+                          <span
+                            className={`shrink-0 mr-1 ${isOverdue ? "text-destructive-foreground/85" : "text-muted-foreground"}`}
+                          >
+                            {formatTaskTime(task.time)}
+                          </span>
+                        )}
+
+                        <span
+                          className={`truncate ${
+                            task.status === "Completed"
+                              ? "line-through text-muted-foreground"
+                              : isOverdue
+                                ? "font-semibold text-destructive-foreground"
+                                : "font-medium text-secondary-foreground"
+                          }`}
+                          title={task.title}
+                        >
+                          {task.title}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             );
