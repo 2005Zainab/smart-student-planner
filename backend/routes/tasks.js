@@ -1,5 +1,5 @@
 import express from "express";
-import { db } from "../src/firebase.js";
+import { db } from "../shared/firebase.js";
 import { requireAuth } from "../middleware/auth.js";
 import { randomUUID } from "crypto";
 
@@ -137,10 +137,7 @@ router.post("/", requireAuth, async (req, res) => {
     reminderTime: rawReminderTime = "",
   } = req.body;
 
-  const time =
-    typeof rawTime === "string" && rawTime.trim() !== ""
-      ? rawTime.trim()
-      : null;
+  const time = typeof rawTime === "string" && rawTime.trim() !== "" ? rawTime.trim() : null;
 
   // safely trim the time input
   const reminderTime =
@@ -422,8 +419,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
   if ("dueDate" in updates) {
     if (
       updates.dueDate !== null &&
-      (typeof updates.dueDate !== "string" ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(updates.dueDate))
+      (typeof updates.dueDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(updates.dueDate))
     ) {
       return res.status(400).json({
         message: "Due date must use YYYY-MM-DD format",
@@ -504,21 +500,11 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
   // Reminder time validation
   if ("reminderTime" in updates && updates.reminderTime !== null) {
-    if (
-      typeof updates.reminderTime !== "string" ||
-      !/^\d{2}:\d{2}$/.test(updates.reminderTime)
-    ) {
+    if (typeof updates.reminderTime !== "string" || !/^\d{2}:\d{2}$/.test(updates.reminderTime)) {
       return res.status(400).json({ message: "Time must use HH:MM format" });
     }
     const [hours, minutes] = updates.reminderTime.split(":").map(Number);
-    if (
-      isNaN(hours) ||
-      isNaN(minutes) ||
-      hours < 0 ||
-      hours > 23 ||
-      minutes < 0 ||
-      minutes > 59
-    ) {
+    if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
       return res.status(400).json({ message: "Not a valid time" });
     }
   }
@@ -542,13 +528,9 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     const existingData = taskSnap.data();
     const finalReminderDate =
-      "reminderDate" in updates
-        ? updates.reminderDate
-        : existingData.reminderDate;
+      "reminderDate" in updates ? updates.reminderDate : existingData.reminderDate;
     const finalReminderTime =
-      "reminderTime" in updates
-        ? updates.reminderTime
-        : existingData.reminderTime;
+      "reminderTime" in updates ? updates.reminderTime : existingData.reminderTime;
 
     if (Boolean(finalReminderDate) !== Boolean(finalReminderTime)) {
       return res.status(400).json({
@@ -589,7 +571,7 @@ router.get("/", requireAuth, async (req, res) => {
 
     const tasks = [];
 
-    snapshot.forEach((doc) => {
+    snapshot.forEach(doc => {
       const task = {
         id: doc.id,
         ...doc.data(),

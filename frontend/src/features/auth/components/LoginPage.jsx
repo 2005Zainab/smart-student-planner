@@ -1,24 +1,14 @@
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link, useNavigate } from "react-router";
 import { useLogin } from "../hooks/use-login";
 import { getAuthErrorMessage } from "../utils/get-auth-error-message";
 
-import {
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
-} from "firebase/auth";
+import { sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth";
 import { auth } from "../../../shared/auth";
 import { httpClient, httpError } from "../../../shared/http-client";
 
@@ -42,9 +32,7 @@ function LoginPage() {
       let storedEmail = window.localStorage.getItem("emailForSignIn");
 
       if (!storedEmail) {
-        storedEmail = window.prompt(
-          "Please confirm your email address to sign in:",
-        );
+        storedEmail = window.prompt("Please confirm your email address to sign in:");
       }
 
       if (storedEmail) {
@@ -53,7 +41,7 @@ function LoginPage() {
             window.localStorage.removeItem("emailForSignIn");
             navigate("/dashboard");
           })
-          .catch((err) => {
+          .catch(err => {
             setLinkError(getAuthErrorMessage(err));
             isSigningIn.current = false;
           });
@@ -68,13 +56,10 @@ function LoginPage() {
     setLinkError("");
 
     try {
-      const status = await httpClient(
-        "http://localhost:3000/api/auth/check-method",
-        {
-          method: "POST",
-          body: JSON.stringify({ email }),
-        },
-      );
+      const status = await httpClient("http://localhost:3000/api/auth/check-method", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
 
       if (status.passwordLessOnly) {
         setLinkError(
@@ -88,16 +73,12 @@ function LoginPage() {
     } catch (err) {
       // Catch the 429 rate limit error thrown by your httpClient
       if (err instanceof httpError && err.status === 429) {
-        setLinkError(
-          "Too many login attempts. Please wait a few minutes and try again.",
-        );
+        setLinkError("Too many login attempts. Please wait a few minutes and try again.");
         return;
       }
 
       // Fallback for network issues or actual login failures
-      setLinkError(
-        getAuthErrorMessage(err) || "An error occurred during sign-in.",
-      );
+      setLinkError(getAuthErrorMessage(err) || "An error occurred during sign-in.");
     }
   }
 
@@ -131,9 +112,7 @@ function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Welcome back</CardTitle>
-          <CardDescription>
-            Sign in to continue planning your studies.
-          </CardDescription>
+          <CardDescription>Sign in to continue planning your studies.</CardDescription>
         </CardHeader>
         <CardContent>
           {linkSent ? (
@@ -152,7 +131,7 @@ function LoginPage() {
                 <Input
                   autoComplete="email"
                   id="email"
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={event => setEmail(event.target.value)}
                   placeholder="you@example.com"
                   required
                   type="email"
@@ -160,24 +139,18 @@ function LoginPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">
-                  Password (Optional for password-less sign-in)
-                </Label>
+                <Label htmlFor="password">Password (Optional for password-less sign-in)</Label>
                 <Input
                   autoComplete="current-password"
                   id="password"
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={event => setPassword(event.target.value)}
                   type="password"
                   value={password}
                 />
               </div>
 
               <div className="flex flex-col gap-2 pt-2">
-                <Button
-                  className="w-full"
-                  disabled={isPending || isLinkPending}
-                  type="submit"
-                >
+                <Button className="w-full" disabled={isPending || isLinkPending} type="submit">
                   {isPending ? (
                     <>
                       <Spinner data-icon="inline-start" /> Signing in...
@@ -193,9 +166,7 @@ function LoginPage() {
                   disabled={isPending || isLinkPending}
                   onClick={handlePasswordLess}
                 >
-                  {isLinkPending
-                    ? "Sending link..."
-                    : "Send me password-less sign-in link"}
+                  {isLinkPending ? "Sending link..." : "Send me password-less sign-in link"}
                 </Button>
               </div>
 

@@ -11,12 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/shared/auth-provider";
@@ -42,10 +37,9 @@ function SettingsPage() {
       if (!user) return;
 
       try {
-        const data = await httpClient(
-          "http://localhost:3000/api/users/settings",
-          { method: "GET" },
-        );
+        const data = await httpClient("http://localhost:3000/api/users/settings", {
+          method: "GET",
+        });
         setIsPasswordLessEnabled(data.passwordLessEnabled || false);
       } catch (err) {
         console.error("Failed to fetch user settings", err);
@@ -56,7 +50,7 @@ function SettingsPage() {
     fetchSettings();
   }, [user]);
 
-  const changeUsername = async (event) => {
+  const changeUsername = async event => {
     event.preventDefault();
     setError("");
 
@@ -135,7 +129,7 @@ function SettingsPage() {
     setIsVerifying(false);
   };
 
-  const togglePasswordLess = async (checked) => {
+  const togglePasswordLess = async checked => {
     setIsPasswordLessEnabled(checked);
     try {
       await httpClient("http://localhost:3000/api/users/settings", {
@@ -161,9 +155,7 @@ function SettingsPage() {
       <div>
         <h2 className="text-2xl font-semibold">Settings</h2>
 
-        <p className="mt-1 text-muted-foreground">
-          Manage your account settings.
-        </p>
+        <p className="mt-1 text-muted-foreground">Manage your account settings.</p>
       </div>
 
       <div className="rounded-xl border bg-card p-6">
@@ -172,9 +164,7 @@ function SettingsPage() {
         <div className="mt-4 space-y-1">
           <p className="text-sm text-muted-foreground">Username</p>
 
-          <p className="font-medium">
-            {user?.displayName || user?.email || "Loading..."}
-          </p>
+          <p className="font-medium">{user?.displayName || user?.email || "Loading..."}</p>
         </div>
 
         <Button
@@ -197,32 +187,20 @@ function SettingsPage() {
           <div className="space-y-1">
             <p className="font-medium">Password-less Sign-in</p>
             <p className="text-sm text-muted-foreground">
-              Sign-in via a secure link sent to your email address instead of a
-              password.
+              Sign-in via a secure link sent to your email address instead of a password.
             </p>
           </div>
 
           {settingsLoading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
           ) : user?.emailVerified ? (
-            <Switch
-              checked={isPasswordLessEnabled}
-              onCheckedChange={togglePasswordLess}
-            />
+            <Switch checked={isPasswordLessEnabled} onCheckedChange={togglePasswordLess} />
           ) : emailSent ? (
-            <Button
-              variant="outline"
-              onClick={checkVerificationStatus}
-              disabled={isVerifying}
-            >
+            <Button variant="outline" onClick={checkVerificationStatus} disabled={isVerifying}>
               {isVerifying ? "Checking..." : "I've verified my email"}
             </Button>
           ) : (
-            <Button
-              variant="secondary"
-              onClick={handelVerifyEmail}
-              disabled={isVerifying}
-            >
+            <Button variant="secondary" onClick={handelVerifyEmail} disabled={isVerifying}>
               {isVerifying ? "Sending..." : "Verify Email to Enable"}
             </Button>
           )}
@@ -233,9 +211,7 @@ function SettingsPage() {
         <DialogContent>
           <DialogTitle>Change username</DialogTitle>
 
-          <DialogDescription>
-            Enter a new username and your current password.
-          </DialogDescription>
+          <DialogDescription>Enter a new username and your current password.</DialogDescription>
 
           <form className="space-y-4" onSubmit={changeUsername}>
             <div className="space-y-2">
@@ -245,7 +221,7 @@ function SettingsPage() {
                 id="new-username"
                 autoComplete="username"
                 value={newUsername}
-                onChange={(event) => setNewUsername(event.target.value)}
+                onChange={event => setNewUsername(event.target.value)}
                 maxLength={50}
                 disabled={isLoading}
               />
@@ -259,7 +235,7 @@ function SettingsPage() {
                 autoComplete="current-password"
                 type="password"
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={event => setPassword(event.target.value)}
                 disabled={isLoading}
               />
             </div>

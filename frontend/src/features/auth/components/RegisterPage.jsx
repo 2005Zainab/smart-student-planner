@@ -2,13 +2,7 @@ import { useState } from "react";
 import { useRegister } from "../hooks/use-register";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link, useNavigate } from "react-router";
@@ -32,7 +26,9 @@ function RegisterPage() {
     try {
       await register({ email, password });
       navigate("/dashboard");
-    } catch {}
+    } catch {
+      // Error is surfaced via the `error` state from useRegister
+    }
   }
 
   return (
@@ -51,7 +47,7 @@ function RegisterPage() {
               <Input
                 autoComplete="email"
                 id="email"
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={event => setEmail(event.target.value)}
                 placeholder="you@example.com"
                 required
                 type="email"
@@ -63,7 +59,7 @@ function RegisterPage() {
               <Input
                 autoComplete="new-password"
                 id="password"
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={event => setPassword(event.target.value)}
                 required
                 type="password"
                 value={password}
@@ -74,7 +70,7 @@ function RegisterPage() {
               <Input
                 autoComplete="new-password"
                 id="confirmPassword"
-                onChange={(event) => setConfirmPassword(event.target.value)}
+                onChange={event => setConfirmPassword(event.target.value)}
                 required
                 type="password"
                 value={confirmPassword}
@@ -105,10 +101,7 @@ function RegisterPage() {
           )}
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link
-              className="font-medium text-foreground underline underline-offset-4"
-              to="/login"
-            >
+            <Link className="font-medium text-foreground underline underline-offset-4" to="/login">
               Sign in
             </Link>
           </p>

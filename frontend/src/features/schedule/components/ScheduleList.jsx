@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 
-function ScheduleRow({ task, onEdit, onDelete, onView, onToggle, isLoading }) {
+function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
   if (isLoading) {
     return (
       <div className="flex items-start gap-4 p-4 border-l-4 border-l-transparent">
@@ -44,13 +44,19 @@ function ScheduleRow({ task, onEdit, onDelete, onView, onToggle, isLoading }) {
 
   // Determine the accent color based on priority
   const borderAccent =
-    task.priority === "High" ? "border-l-high-priority" : task.priority === "Medium" ? "border-l-medium-priority" : task.priority === "Low" ? "border-l-low-priority" : "border-l-primary/40";
+    task.priority === "High"
+      ? "border-l-high-priority"
+      : task.priority === "Medium"
+        ? "border-l-medium-priority"
+        : task.priority === "Low"
+          ? "border-l-low-priority"
+          : "border-l-primary/40";
 
   return (
     <div
       className={`group flex cursor-pointer items-start gap-4 p-4 border-l-4 ${borderAccent} hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
       onClick={() => onView(task)}
-      onKeyDown={(event) => {
+      onKeyDown={event => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onView(task);
@@ -76,9 +82,7 @@ function ScheduleRow({ task, onEdit, onDelete, onView, onToggle, isLoading }) {
         >
           {task.title}
         </p>
-        <p className="mt-1 text-sm text-muted-foreground line-clamp-1">
-          {task.subject}
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground line-clamp-1">{task.subject}</p>
       </div>
 
       {/* Badges and Actions */}
@@ -88,12 +92,20 @@ function ScheduleRow({ task, onEdit, onDelete, onView, onToggle, isLoading }) {
           <Badge variant="outline" className="flex items-center gap-1 text-muted-foreground">
             <CheckSquare className="h-3.5 w-3.5" />
             <span>
-              {task.checklist.filter((i) => i.completed).length}/{task.checklist.length}
+              {task.checklist.filter(i => i.completed).length}/{task.checklist.length}
             </span>
           </Badge>
         )}
         <Badge
-          variant={task.priority === "High" ? "high" : task.priority === "Medium" ? "medium" : task.priority === "Low" ? "low" : "secondary"}
+          variant={
+            task.priority === "High"
+              ? "high"
+              : task.priority === "Medium"
+                ? "medium"
+                : task.priority === "Low"
+                  ? "low"
+                  : "secondary"
+          }
           className="hidden sm:inline-flex"
         >
           {task.priority}
@@ -104,28 +116,20 @@ function ScheduleRow({ task, onEdit, onDelete, onView, onToggle, isLoading }) {
 
         <DropdownMenu>
           <DropdownMenuTrigger
-            onClick={(event) => event.stopPropagation()}
+            onClick={event => event.stopPropagation()}
             render={
-              <Button
-                aria-label={`Actions for ${task.title}`}
-                size="icon-sm"
-                variant="ghost"
-              />
+              <Button aria-label={`Actions for ${task.title}`} size="icon-sm" variant="ghost" />
             }
           >
             <MoreHorizontal />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
+            onClick={event => event.stopPropagation()}
+            onKeyDown={event => event.stopPropagation()}
           >
-            <DropdownMenuItem onClick={() => onEdit(task)}>
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onDelete(task.id)}>
-              Delete
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onEdit(task)}>Edit</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onDelete(task.id)}>Delete</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -152,7 +156,7 @@ function ScheduleList({ tasks, isLoading, onEdit, onDelete, onView }) {
 
   return (
     <div className="divide-y">
-      {tasks.map((task) => (
+      {tasks.map(task => (
         <ScheduleRow
           key={task.id}
           task={task}

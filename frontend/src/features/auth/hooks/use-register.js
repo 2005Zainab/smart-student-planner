@@ -5,7 +5,7 @@ export const useRegister = () => {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState(null);
 
-  const register = useCallback(async (credentials) => {
+  const register = useCallback(async credentials => {
     setIsPending(true);
     setError(null);
     try {

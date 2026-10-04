@@ -1,11 +1,5 @@
 import { Link } from "react-router";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 function ResetPasswordPage() {
   return (
@@ -13,15 +7,10 @@ function ResetPasswordPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Password changed</CardTitle>
-          <CardDescription>
-            Your password has successfully been changed.
-          </CardDescription>
+          <CardDescription>Your password has successfully been changed.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Link
-            className="font-medium text-foreground underline underline-offset-4"
-            to="/login"
-          >
+          <Link className="font-medium text-foreground underline underline-offset-4" to="/login">
             Back to login
           </Link>
         </CardContent>

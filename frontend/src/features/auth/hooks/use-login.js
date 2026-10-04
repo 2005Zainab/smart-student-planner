@@ -5,7 +5,7 @@ export const useLogin = () => {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState(null);
 
-  const login = useCallback(async (credentials) => {
+  const login = useCallback(async credentials => {
     setIsPending(true);
     setError(null);
     try {
