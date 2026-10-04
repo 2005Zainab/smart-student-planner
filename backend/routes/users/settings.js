@@ -1,11 +1,11 @@
 import express from "express";
-import rateLimit from "express-rate-limit";
-import { db } from "../../src/firebase.js";
+import rateLimitPackage from "express-rate-limit";
+import { db } from "../../shared/firebase.js";
 import { requireAuth } from "../../middleware/auth.js";
 
 const router = express.Router();
 
-const authLimiter = rateLimit({
+const authLimiter = rateLimitPackage({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Limit each IP to 5 requests per windowMs
   message: { message: "Too many requests. Please try again later." },
