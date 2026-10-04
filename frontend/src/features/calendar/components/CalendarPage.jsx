@@ -324,7 +324,7 @@ function CalendarPage() {
                       >
                         {task.time && (
                           <span
-                            className={`shrink-0 mr-1 ${isOverdue ? "text-secondary/85" : "text-muted-foreground"}`}
+                            className={`shrink-0 mr-1 ${isOverdue ? "text-destructive-foreground/85" : "text-muted-foreground"}`}
                           >
                             {formatTaskTime(task.time)}
                           </span>
@@ -335,7 +335,7 @@ function CalendarPage() {
                             task.status === "Completed"
                               ? "line-through text-muted-foreground"
                               : isOverdue
-                                ? "font-semibold text-primary-foreground"
+                                ? "font-semibold text-destructive-foreground"
                                 : "font-medium text-secondary-foreground"
                           }`}
                           title={task.title}
