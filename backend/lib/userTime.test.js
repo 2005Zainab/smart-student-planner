@@ -34,4 +34,17 @@ describe("getUserToday", () => {
 
     await expect(getUserToday("user-1")).resolves.toBe("2026-10-01");
   });
+
+  it("defaults an invalid stored timezone to UTC", async () => {
+    db.collection.mockReturnValue({
+      doc: vi.fn().mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({ timezone: "Not/A_Timezone" }),
+        }),
+      }),
+    });
+
+    await expect(getUserToday("user-1")).resolves.toBe("2026-10-01");
+  });
 });
