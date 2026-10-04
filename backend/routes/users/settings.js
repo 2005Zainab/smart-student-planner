@@ -1,5 +1,6 @@
 import express from "express";
 import rateLimitPackage from "express-rate-limit";
+import { getAuth } from "firebase-admin/auth";
 import { db } from "../../shared/firebase.js";
 import { requireAuth } from "../../middleware/auth.js";
 
