@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { differenceInCalendarDays } from "date-fns";
 
 function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
   //Show loading layout while tasks are loading
@@ -28,6 +29,9 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
       </div>
     );
   }
+
+  const taskDueDate = task.dueDate ? new Date(task.dueDate) : null;
+  const today = new Date();
 
   return (
     <div
@@ -64,6 +68,11 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
 
         <p className="mt-1 text-sm text-muted-foreground">{task.subject}</p>
       </div>
+
+      {/* Overdue indicator */}
+      {taskDueDate && differenceInCalendarDays(taskDueDate, today) < 0 && (
+        <Badge variant="high">Overdue</Badge>
+      )}
 
       {/* Priority colour changes depending on priority */}
       <Badge

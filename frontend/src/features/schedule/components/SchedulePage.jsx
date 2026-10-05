@@ -1,5 +1,5 @@
 import { httpClient } from "../../../shared/http-client";
-import { format, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
@@ -27,10 +27,13 @@ import {
 } from "@/components/ui/alert-dialog";
 //import { useTasks } from '../../tasks/hooks/useTasks';
 import { useTasksContext } from "../../tasks/context/TasksContext";
+import { buildCreateTaskRequest } from "../../tasks/utils/build-create-task-request";
+import { useTaskUpdates } from "../../tasks/hooks/useTaskUpdates";
 
 function SchedulePage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error } = useTasksContext();
+  const { patchTask, saveEdit } = useTaskUpdates(setTasks);
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -45,6 +48,7 @@ function SchedulePage() {
     priority: "Medium",
     status: "To Do",
     time: "",
+    recurrence: null,
   });
 
   const openEditor = (task = null, mode = task ? "edit" : "create") => {
@@ -62,6 +66,7 @@ function SchedulePage() {
         status: "To Do",
         dueDate: undefined,
         time: "",
+        recurrence: null,
       };
 
       setEditingTaskId(newTask.id);
@@ -113,27 +118,14 @@ function SchedulePage() {
     setEmptyTitleCheck(null);
     setSaveError(null);
 
-    //Add task (only local right now)
     if (formMode === "create") {
-      const taskToSave = {
-        title: draft.title,
-        description: draft.description,
-        subject: draft.subject,
-        priority: draft.priority,
-        status: draft.status,
-        dueDate: draft.dueDate
-          ? draft.dueDate instanceof Date
-            ? format(draft.dueDate, "yyyy-MM-dd")
-            : draft.dueDate
-          : null,
-        time: draft.time || null,
-      };
-
       try {
-        const savedTask = await httpClient("http://localhost:3000/api/tasks", {
+        const createRequest = buildCreateTaskRequest(draft);
+        const savedResponse = await httpClient(createRequest.url, {
           method: "POST",
-          body: JSON.stringify(taskToSave),
+          body: JSON.stringify(createRequest.body),
         });
+        const savedTask = createRequest.recurring ? savedResponse.firstOccurrence : savedResponse;
 
         setTasks(current => current.map(task => (task.id === editingTaskId ? savedTask : task)));
 
@@ -154,60 +146,28 @@ function SchedulePage() {
       }
     } else {
       //edit task sends to backend to check and save to firestore via PATCH route
-
-      // Convert the editor Date back to the API's local YYYY-MM-DD format.
-      const correctTimeZone = {
-        ...draft,
-        dueDate: draft.dueDate
-          ? draft.dueDate instanceof Date
-            ? format(draft.dueDate, "yyyy-MM-dd")
-            : draft.dueDate
-          : undefined,
-      };
-
-      const original = tasks.find(task => task.id === editingTaskId);
-      const changes = Object.keys(correctTimeZone).reduce((acc, key) => {
-        if (correctTimeZone[key] !== original?.[key]) {
-          acc[key] = correctTimeZone[key];
-        }
-        return acc;
-      }, {});
-
-      if (Object.keys(changes).length === 0) {
-        setEditorOpen(false);
-        setMobileEditorOpen(false);
-        setEditingTaskId(null);
-        return;
-      }
+      const original = tasks.find(task => task.id === editingTaskId) ?? { id: editingTaskId };
 
       try {
-        await httpClient(`http://localhost:3000/api/tasks/${editingTaskId}`, {
-          method: "PATCH",
-          body: JSON.stringify(changes),
-        });
-        setTasks(current =>
-          current.map(task => (task.id === editingTaskId ? { ...task, ...changes } : task)),
-        );
+        //Sends only the changed fields to the one-off task or recurring occurrence endpoint
+        const didSave = await saveEdit(original, draft);
+
+        if (!didSave) {
+          setEditorOpen(false);
+          setMobileEditorOpen(false);
+          setEditingTaskId(null);
+          return;
+        }
       } catch (err) {
         console.log(err);
+
         setSaveError(err.message || "Failed to save task");
+
         return;
       }
     }
     closeEditor();
   };
-
-  //   const toggleTask = (id) =>
-  //     setTasks((current) =>
-  //       current.map((task) =>
-  //         task.id === id
-  //           ? {
-  //               ...task,
-  //               status: task.status === "Completed" ? "To Do" : "Completed",
-  //             }
-  //           : task,
-  //       ),
-  //     );
 
   //Toggles a checklists item completeion state and also saves the checklist
   const toggleChecklistItem = async (taskId, itemId) => {
@@ -222,20 +182,11 @@ function SchedulePage() {
     );
 
     try {
-      const updatedTask = await httpClient(`http://localhost:3000/api/tasks/${taskId}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          checklist: updateChecklist,
-        }),
-      });
-
-      setTasks(current =>
-        current.map(existingTask => (existingTask.id === taskId ? updatedTask : existingTask)),
-      );
+      const saved = await patchTask(task, { checklist: updateChecklist });
 
       setDraft(prev => ({
         ...prev,
-        checklist: updatedTask.checklist,
+        checklist: saved?.checklist ?? updateChecklist,
       }));
     } catch (err) {
       console.log(err);
@@ -365,6 +316,7 @@ function SchedulePage() {
             saveError={saveError}
             requireDateAndTime={true}
             onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
+            allowRecurrence={formMode === "create"}
           />
         </DialogContent>
       </Dialog>
@@ -397,6 +349,7 @@ function SchedulePage() {
               saveError={saveError}
               requireDateAndTime={true}
               onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
+              allowRecurrence={formMode === "create"}
             />
           </div>
         </SheetContent>

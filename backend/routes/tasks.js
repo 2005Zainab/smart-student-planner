@@ -1,7 +1,15 @@
 import express from "express";
 import { db } from "../shared/firebase.js";
 import { requireAuth } from "../middleware/auth.js";
-import { randomUUID } from "crypto";
+import {
+  expandSeries,
+  getNextOccurrence,
+  getPriorityFromDueDate,
+  shouldRenderMaterialized,
+  buildOccurrenceChecklist,
+} from "../lib/recurrence.js";
+import { getUserToday } from "../lib/userTime.js";
+import { validateDate, validateTaskFields } from "../lib/taskValidation.js";
 
 const router = express.Router();
 
@@ -17,258 +25,98 @@ const ALLOWED_FIELDS = [
   "reminderTime",
 ];
 
-const ALLOWED_STATUSES = ["to do", "in progress", "completed"];
-
-const STATUS_DISPLAY = {
-  "to do": "To Do",
-  "in progress": "In Progress",
-  completed: "Completed",
-};
-
-//Validates the checklist and ensures checklist items added are the proper type
-function validateChecklist(checklist) {
-  if (!Array.isArray(checklist)) {
-    return { message: "Checklist must be an Array" };
-  }
-
-  if (checklist.length > 10) {
-    return { message: "Too many subtasks added. Max is 10" };
-  }
-
-  const cleanChecklist = [];
-  const seenIds = new Set();
-
-  for (const item of checklist) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) {
-      return { message: "Each checklist item has to be an Object" };
-    }
-
-    //check entered item is correct type and not blank
-    if (typeof item.text !== "string" || item.text.trim() === "") {
-      return { message: "Checklist item must be text and not empty/blank" };
-    }
-
-    //check length of checklist item
-    if (item.text.trim().length > 100) {
-      return { message: "Checklist item cannot be more than 100 characters" };
-    }
-
-    //validate id: must be a non-empty string under 100 chars if client supplied one
-    let id;
-    if (item.id === undefined || item.id === null || item.id === "") {
-      id = randomUUID();
-    } else if (typeof item.id !== "string" || item.id.length > 100) {
-      return {
-        message: "Checklist item id must be a string under 100 characters",
-      };
-    } else {
-      id = item.id;
-    }
-
-    if (seenIds.has(id)) {
-      return { message: "Checklist item ids must be unique" };
-    }
-    seenIds.add(id);
-
-    //completed must be an actual boolean, not a truthy/falsy coercion
-    if (item.completed !== undefined && typeof item.completed !== "boolean") {
-      return { message: "Checklist item 'completed' must be a boolean" };
-    }
-
-    cleanChecklist.push({
-      id,
-      text: item.text.trim(),
-      completed: item.completed === true,
-    });
-  }
-
-  return { cleanChecklist };
+function offsetDate(dateStr, days) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
-//Work out priority from the due date
-function getPriorityFromDueDate(dueDate) {
-  //No due date means low priority
-  if (!dueDate) {
-    return "Low";
-  }
+function isDateInRange(dateStr, fromStr, toStr) {
+  return dateStr >= fromStr && dateStr <= toStr;
+}
 
-  const today = new Date();
-  const due = new Date(dueDate + "T00:00:00");
+function getVirtualOccurrence(series, date, today) {
+  const isFuture = date >= today;
+  const reminderOffsetDays = series.template.reminderOffsetDays;
 
-  today.setHours(0, 0, 0, 0);
-  due.setHours(0, 0, 0, 0);
+  const occcurrenceId = `${series.id}_${date}`;
+  return {
+    id: occcurrenceId,
+    seriesId: series.id,
+    occurrenceDate: date,
+    ...series.template,
+    checklist: buildOccurrenceChecklist(series.template.checklist, occcurrenceId),
+    virtual: true,
+    dueDate: date,
+    status: "To Do",
+    reminderDate:
+      isFuture && reminderOffsetDays !== null && reminderOffsetDays !== undefined
+        ? offsetDate(date, -reminderOffsetDays)
+        : null,
+    reminderTime: isFuture ? (series.template.reminderTime ?? null) : null,
+    priority: getPriorityFromDueDate(date, today),
+  };
+}
 
-  const differenceInTime = due.getTime() - today.getTime();
+function getMaterializedOccurrence(doc, today) {
+  return {
+    id: doc.id,
+    ...doc.data,
+    virtual: false,
+    priority: getPriorityFromDueDate(doc.data.dueDate ?? doc.data.occurrenceDate, today),
+  };
+}
 
-  const daysUntilDue = Math.ceil(differenceInTime / (1000 * 60 * 60 * 24));
+function readSeries(snapshot) {
+  const series = [];
+  if (typeof snapshot.forEach !== "function") return series;
 
-  //Overdue tasks are high priority
-  if (daysUntilDue < 0) {
-    return "High";
-  }
+  snapshot.forEach(doc => {
+    const data = doc.data();
+    if (Array.isArray(data.segments) && data.segments.length > 0) {
+      series.push({ id: doc.id, ...data });
+    }
+  });
+  return series;
+}
 
-  //Due today or within 3 days
-  if (daysUntilDue <= 3) {
-    return "High";
-  }
-
-  //Due in 4 to 7 days
-  if (daysUntilDue <= 7) {
-    return "Medium";
-  }
-
-  //More than 7 days away
-  return "Low";
+function forEachSnapshot(snapshot, callback) {
+  if (typeof snapshot.forEach === "function") snapshot.forEach(callback);
 }
 
 //Add task
 router.post("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
-  const {
-    title,
-    description = "",
-    subject = "",
-    status = "To Do",
-    dueDate = null,
-    time: rawTime = "",
-    checklist = [],
-    reminderDate = null,
-    reminderTime: rawReminderTime = "",
-  } = req.body;
+  const fields = {
+    title: req.body.title,
+    description: req.body.description ?? "",
+    subject: req.body.subject ?? "",
+    status: req.body.status ?? "To Do",
+    dueDate: req.body.dueDate ?? null,
+    time: typeof req.body.time === "string" && req.body.time.trim() ? req.body.time.trim() : null,
+    checklist: req.body.checklist ?? [],
+    reminderDate: req.body.reminderDate ?? null,
+    reminderTime:
+      typeof req.body.reminderTime === "string" && req.body.reminderTime.trim()
+        ? req.body.reminderTime.trim()
+        : null,
+  };
+  const validation = validateTaskFields(fields);
+  if (validation.message) return res.status(400).json({ message: validation.message });
 
-  const time = typeof rawTime === "string" && rawTime.trim() !== "" ? rawTime.trim() : null;
-
-  // safely trim the time input
-  const reminderTime =
-    typeof rawReminderTime === "string" && rawReminderTime.trim() !== ""
-      ? rawReminderTime.trim()
-      : null;
-
-  // validate time
-  if (time && !/^\d{2}:\d{2}$/.test(time)) {
-    return res.status(400).json({
-      message: "Time must use HH:MM format",
-    });
-  }
-
-  // validate reminder time
-  if (reminderTime && !/^\d{2}:\d{2}$/.test(reminderTime)) {
-    return res.status(400).json({
-      message: "Reminder time must use HH:MM format",
-    });
-  }
-
-  // reminder date and time must be set together
-  if (Boolean(reminderDate) !== Boolean(reminderTime)) {
-    return res.status(400).json({
-      message: "Date and time is required to set a reminder.",
-    });
-  }
-
-  // Title must be text
-  if (typeof title !== "string") {
-    return res.status(400).json({
-      message: "Title has to be a string",
-    });
-  }
-
-  if (title.trim() === "") {
-    return res.status(400).json({
-      message: "Title cannot be empty or blank",
-    });
-  }
-
-  const cleanTitle = title.trim();
-
-  if (cleanTitle.length > 200) {
-    return res.status(400).json({
-      message: "Title cannot be more than 200 characters",
-    });
-  }
-
-  //Check description
-  if (typeof description !== "string") {
-    return res.status(400).json({
-      message: "Description must be text",
-    });
-  }
-
-  const cleanDescription = description.trim();
-
-  if (cleanDescription.length > 1000) {
-    return res.status(400).json({
-      message: "Description cannot be more than 1000 characters",
-    });
-  }
-
-  //Check subject
-  if (typeof subject !== "string") {
-    return res.status(400).json({
-      message: "Subject must be text",
-    });
-  }
-
-  const cleanSubject = subject.trim();
-
-  if (cleanSubject.length > 200) {
-    return res.status(400).json({
-      message: "Subject cannot be more than 200 characters",
-    });
-  }
-
-  //Check status
-  if (typeof status !== "string") {
-    return res.status(400).json({
-      message: "Status must be text",
-    });
-  }
-
-  const statusLower = status.trim().toLowerCase();
-
-  if (!ALLOWED_STATUSES.includes(statusLower)) {
-    return res.status(400).json({
-      message: "Not a valid status",
-    });
-  }
-
-  //Check due date
-  if (dueDate !== null) {
-    if (typeof dueDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
-      return res.status(400).json({
-        message: "Due date must use YYYY-MM-DD format",
-      });
-    }
-
-    const dateParsed = new Date(dueDate + "T00:00:00");
-
-    if (isNaN(dateParsed.getTime())) {
-      return res.status(400).json({
-        message: "Not a valid due date",
-      });
-    }
-  }
-
-  //if checklist returns a message an error has occurred
-  const checklistResult = validateChecklist(checklist);
-  if (checklistResult.message) {
-    return res.status(400).json({ message: checklistResult.message });
+  if (Boolean(fields.reminderDate) !== Boolean(fields.reminderTime)) {
+    return res.status(400).json({ message: "Date and time is required to set a reminder." });
   }
 
   try {
-    const priority = getPriorityFromDueDate(dueDate);
+    const today = await getUserToday(uid);
+    const { clean } = validation;
 
     const newTask = {
-      title: cleanTitle,
-      description: cleanDescription,
-      subject: cleanSubject,
-      priority,
-      status: STATUS_DISPLAY[statusLower],
-      dueDate,
-      time,
-      checklist: checklistResult.cleanChecklist,
-      reminderDate,
-      reminderTime,
+      ...clean,
+      priority: getPriorityFromDueDate(clean.dueDate, today),
       userId: uid,
     };
 
@@ -339,175 +187,9 @@ router.patch("/:id", requireAuth, async (req, res) => {
     });
   }
 
-  //Check title
-  if ("title" in updates) {
-    if (typeof updates.title !== "string") {
-      return res.status(400).json({
-        message: "Title has to be a string",
-      });
-    }
-
-    if (updates.title.trim() === "") {
-      return res.status(400).json({
-        message: "Title cannot be empty or blank",
-      });
-    }
-
-    updates.title = updates.title.trim();
-
-    if (updates.title.length > 200) {
-      return res.status(400).json({
-        message: "Title cannot be more than 200 characters",
-      });
-    }
-  }
-
-  //Check description
-  if ("description" in updates) {
-    if (typeof updates.description !== "string") {
-      return res.status(400).json({
-        message: "Description must be text",
-      });
-    }
-
-    updates.description = updates.description.trim();
-
-    if (updates.description.length > 1000) {
-      return res.status(400).json({
-        message: "Description cannot be more than 1000 characters",
-      });
-    }
-  }
-
-  //Check subject
-  if ("subject" in updates) {
-    if (typeof updates.subject !== "string") {
-      return res.status(400).json({
-        message: "Subject must be text",
-      });
-    }
-
-    updates.subject = updates.subject.trim();
-
-    if (updates.subject.length > 200) {
-      return res.status(400).json({
-        message: "Subject cannot be more than 200 characters",
-      });
-    }
-  }
-
-  //Check status
-  if ("status" in updates) {
-    if (typeof updates.status !== "string") {
-      return res.status(400).json({
-        message: "Status must be text",
-      });
-    }
-
-    const statusLower = updates.status.trim().toLowerCase();
-
-    if (!ALLOWED_STATUSES.includes(statusLower)) {
-      return res.status(400).json({
-        message: "Not a valid status",
-      });
-    }
-
-    updates.status = STATUS_DISPLAY[statusLower];
-  }
-
-  //Check due date
-  if ("dueDate" in updates) {
-    if (
-      updates.dueDate !== null &&
-      (typeof updates.dueDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(updates.dueDate))
-    ) {
-      return res.status(400).json({
-        message: "Due date must use YYYY-MM-DD format",
-      });
-    }
-
-    if (updates.dueDate !== null) {
-      const dateParsed = new Date(updates.dueDate + "T00:00:00");
-
-      if (isNaN(dateParsed.getTime())) {
-        return res.status(400).json({
-          message: "Not a valid due date",
-        });
-      }
-    }
-
-    //Update priority when due date changes
-    updates.priority = getPriorityFromDueDate(updates.dueDate);
-  }
-
-  //Check time
-  if ("time" in updates) {
-    if (
-      updates.time !== null &&
-      (typeof updates.time !== "string" || !/^\d{2}:\d{2}$/.test(updates.time))
-    ) {
-      return res.status(400).json({
-        message: "Time must use HH:MM format",
-      });
-    }
-
-    if (updates.time !== null) {
-      const [hours, minutes] = updates.time.split(":").map(Number);
-
-      if (
-        isNaN(hours) ||
-        isNaN(minutes) ||
-        hours < 0 ||
-        hours > 23 ||
-        minutes < 0 ||
-        minutes > 59
-      ) {
-        return res.status(400).json({
-          message: "Not a valid time",
-        });
-      }
-    }
-  }
-
-  //If message is returned then an error has occured in the checklist
-  //Otherwise no message returned, checklist is updated
-  if ("checklist" in updates) {
-    const checklistResult = validateChecklist(updates.checklist);
-    if (checklistResult.message) {
-      return res.status(400).json({ message: checklistResult.message });
-    }
-    updates.checklist = checklistResult.cleanChecklist;
-  }
-  // Reminder date validation
-  if ("reminderDate" in updates && updates.reminderDate !== null) {
-    if (
-      typeof updates.reminderDate !== "string" ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(updates.reminderDate)
-    ) {
-      return res.status(400).json({
-        message: "Reminder date must use YYYY-MM-DD format Please",
-      });
-    }
-
-    const dateParsed = new Date(updates.reminderDate + "T00:00:00Z");
-
-    if (isNaN(dateParsed.getTime())) {
-      return res.status(400).json({
-        message: "Not a valid reminder date",
-      });
-    }
-  }
-
-  // Reminder time validation
-  if ("reminderTime" in updates && updates.reminderTime !== null) {
-    if (typeof updates.reminderTime !== "string" || !/^\d{2}:\d{2}$/.test(updates.reminderTime)) {
-      return res.status(400).json({ message: "Time must use HH:MM format" });
-    }
-    const [hours, minutes] = updates.reminderTime.split(":").map(Number);
-    if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-      return res.status(400).json({ message: "Not a valid time" });
-    }
-  }
+  const validation = validateTaskFields(updates, { partial: true });
+  if (validation.message) return res.status(400).json({ message: validation.message });
+  Object.assign(updates, validation.clean);
 
   try {
     const taskDoc = db.collection("tasks").doc(req.params.id);
@@ -527,6 +209,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
 
     const existingData = taskSnap.data();
+    const today = await getUserToday(uid);
     const finalReminderDate =
       "reminderDate" in updates ? updates.reminderDate : existingData.reminderDate;
     const finalReminderTime =
@@ -536,6 +219,10 @@ router.patch("/:id", requireAuth, async (req, res) => {
       return res.status(400).json({
         message: "Date and time is required to set a reminder.",
       });
+    }
+
+    if ("dueDate" in updates) {
+      updates.priority = getPriorityFromDueDate(updates.dueDate, today);
     }
 
     await taskDoc.update(updates);
@@ -561,35 +248,141 @@ router.get("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
   try {
-    const tasksRef = db.collection("tasks");
+    const today = await getUserToday(uid); // get the user's "today" date based on their timezone
+    const [taskSnapshot, seriesSnapshot] = await Promise.all([
+      db.collection("tasks").where("userId", "==", uid).get(),
+      db.collection("task_series").where("userId", "==", uid).get(),
+    ]);
 
-    const snapshot = await tasksRef.where("userId", "==", uid).get();
+    // oneOffs are tasks that are not part of a series (not recurring)
+    // A virtual occurrence is an occurrence of a recurring task that hasn't been explicitly created in the database but is inferred from the recurrence rule.
+    // materialized are tasks that are part of a series and have been explicitly created for a specific occurrence date.
+    // The occurrences array will hold both one-off tasks and occurrences of recurring tasks, whether they are materialized or virtual.
+    const oneOffs = [];
+    const materialized = new Map();
 
-    if (snapshot.empty) {
-      return res.status(200).json([]);
-    }
-
-    const tasks = [];
-
-    snapshot.forEach(doc => {
-      const task = {
-        id: doc.id,
-        ...doc.data(),
-      };
-
-      //Recalculate priority when tasks load
-      task.priority = getPriorityFromDueDate(task.dueDate);
-
-      tasks.push(task);
+    forEachSnapshot(taskSnapshot, doc => {
+      const data = doc.data();
+      if (data.seriesId && data.occurrenceDate) {
+        materialized.set(`${data.seriesId}_${data.occurrenceDate}`, {
+          id: doc.id,
+          data,
+        });
+      } else {
+        oneOffs.push({
+          id: doc.id,
+          ...data,
+          priority: getPriorityFromDueDate(data.dueDate, today),
+        });
+      }
     });
 
-    return res.status(200).json(tasks);
+    const occurrences = [];
+    for (const series of readSeries(seriesSnapshot)) {
+      const missedAndToday = expandSeries(series, series.segments[0].from, today);
+      const next = getNextOccurrence(series, today);
+      const candidateDates = new Set(missedAndToday);
+      if (next) candidateDates.add(next);
+
+      for (const doc of materialized.values()) {
+        if (doc.data.seriesId === series.id && shouldRenderMaterialized(doc.data, series, today)) {
+          candidateDates.add(doc.data.occurrenceDate);
+        }
+        if (
+          doc.data.seriesId === series.id &&
+          expandSeries(series, doc.data.occurrenceDate, doc.data.occurrenceDate).length
+        ) {
+          candidateDates.add(doc.data.occurrenceDate);
+        }
+      }
+
+      for (const date of [...candidateDates].sort()) {
+        const materializedDoc = materialized.get(`${series.id}_${date}`);
+        occurrences.push(
+          materializedDoc
+            ? getMaterializedOccurrence(materializedDoc, today)
+            : getVirtualOccurrence(series, date, today),
+        );
+      }
+    }
+
+    return res.status(200).json([...oneOffs, ...occurrences]);
   } catch (err) {
     console.log(err);
 
     return res.status(500).json({
       message: "Failed to fetch tasks",
     });
+  }
+});
+
+router.get("/calendar", requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  const { from, to } = req.query;
+
+  if (!from || !to) {
+    return res.status(400).json({ message: "from and to are required" });
+  }
+
+  const fromError = validateDate(from, "From date");
+  const toError = validateDate(to, "To date");
+  if (fromError || toError) {
+    return res.status(400).json({ message: fromError || toError });
+  }
+  if (from > to) {
+    return res.status(400).json({ message: "From date cannot be after to date" });
+  }
+
+  try {
+    const today = await getUserToday(uid);
+    const [taskSnapshot, seriesSnapshot] = await Promise.all([
+      db.collection("tasks").where("userId", "==", uid).get(),
+      db.collection("task_series").where("userId", "==", uid).get(),
+    ]);
+    const oneOffs = [];
+    const materialized = new Map();
+
+    forEachSnapshot(taskSnapshot, doc => {
+      const data = doc.data();
+      if (data.seriesId && data.occurrenceDate) {
+        materialized.set(`${data.seriesId}_${data.occurrenceDate}`, { id: doc.id, data });
+      } else if (data.dueDate && isDateInRange(data.dueDate, from, to)) {
+        oneOffs.push({
+          id: doc.id,
+          ...data,
+          priority: getPriorityFromDueDate(data.dueDate, today),
+        });
+      }
+    });
+
+    const occurrences = [];
+    for (const series of readSeries(seriesSnapshot)) {
+      const scheduledDates = new Set(expandSeries(series, from, to));
+      for (const date of scheduledDates) {
+        const materializedDoc = materialized.get(`${series.id}_${date}`);
+        occurrences.push(
+          materializedDoc
+            ? getMaterializedOccurrence(materializedDoc, today)
+            : getVirtualOccurrence(series, date, today),
+        );
+      }
+
+      for (const materializedDoc of materialized.values()) {
+        if (
+          materializedDoc.data.seriesId === series.id &&
+          isDateInRange(materializedDoc.data.occurrenceDate, from, to) &&
+          !scheduledDates.has(materializedDoc.data.occurrenceDate) &&
+          shouldRenderMaterialized(materializedDoc.data, series, today)
+        ) {
+          occurrences.push(getMaterializedOccurrence(materializedDoc, today));
+        }
+      }
+    }
+
+    return res.status(200).json([...oneOffs, ...occurrences]);
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Failed to fetch calendar tasks" });
   }
 });
 

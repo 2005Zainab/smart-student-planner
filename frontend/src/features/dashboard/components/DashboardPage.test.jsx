@@ -13,6 +13,7 @@ vi.mock("@/features/tasks/context/TasksContext", () => ({
 
 vi.mock("@/features/tasks/utils/task-date-utils", () => ({
   getUpcomingTasks: vi.fn(),
+  getOverDueTasks: vi.fn(),
   getUndatedTasks: vi.fn(),
   getWeeklySchedule: vi.fn(),
 }));
@@ -20,6 +21,7 @@ vi.mock("@/features/tasks/utils/task-date-utils", () => ({
 import { useTasksContext } from "@/features/tasks/context/TasksContext";
 import {
   getUpcomingTasks,
+  getOverDueTasks,
   getUndatedTasks,
   getWeeklySchedule,
 } from "@/features/tasks/utils/task-date-utils";
@@ -36,6 +38,7 @@ describe("DashboardPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getUpcomingTasks.mockReturnValue([]);
+    getOverDueTasks.mockReturnValue([]);
     getUndatedTasks.mockReturnValue([]);
     getWeeklySchedule.mockReturnValue([]);
   });
@@ -62,6 +65,30 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Finish essay")).toBeInTheDocument();
     expect(screen.getByText("High")).toBeInTheDocument();
     expect(screen.getByText(/due tomorrow/i)).toBeInTheDocument();
+  });
+
+  it("shows an overdue task with the days overdue", () => {
+    const rawTask = { id: "2", title: "Submit report", dueDate: "2026-09-30", status: "To Do" };
+    useTasksContext.mockReturnValue({ tasks: [rawTask], isLoading: false, error: null });
+    getOverDueTasks.mockReturnValue([
+      {
+        ...rawTask,
+        subject: "Science",
+        priority: "Medium",
+        daysUntilDue: -2,
+        parsedDateTime: new Date(),
+      },
+    ]);
+    renderDashboard();
+    expect(screen.getByText("Submit report")).toBeInTheDocument();
+    expect(screen.getByText("Medium")).toBeInTheDocument();
+    expect(screen.getByText(/overdue by 2 days/i)).toBeInTheDocument();
+  });
+
+  it("shows a message when there are no upcoming or overdue tasks", () => {
+    useTasksContext.mockReturnValue({ tasks: [], isLoading: false, error: null });
+    renderDashboard();
+    expect(screen.getByText(/no tasks to prioritize/i)).toBeInTheDocument();
   });
 
   it("shows an error message when tasks fail to load", () => {

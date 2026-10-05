@@ -14,6 +14,19 @@ vi.mock("../shared/firebase.js", () => ({
   db: { collection: vi.fn() },
 }));
 
+function mockCollections(taskCollection, userData = null) {
+  const userDoc = {
+    get: vi.fn().mockResolvedValue({
+      exists: Boolean(userData),
+      data: () => userData,
+    }),
+  };
+
+  db.collection.mockImplementation(collectionName =>
+    collectionName === "users" ? { doc: vi.fn().mockReturnValue(userDoc) } : taskCollection,
+  );
+}
+
 describe("POST /api/tasks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -44,9 +57,22 @@ describe("POST /api/tasks", () => {
     expect(res.body.message).toMatch(/YYYY-MM-DD/);
   });
 
+  it.each([
+    [{ time: "24:00" }, /valid time/i],
+    [{ reminderDate: "2026-10-01", reminderTime: "09:60" }, /valid reminder time/i],
+    [{ reminderDate: "10-01-2026", reminderTime: "09:00" }, /YYYY-MM-DD/i],
+  ])("rejects invalid POST date/time values", async (fields, message) => {
+    const res = await request(app)
+      .post("/api/tasks")
+      .send({ title: "Essay", ...fields });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(message);
+  });
+
   it("creates a task and computes High priority when due within 3 days", async () => {
     const addMock = vi.fn().mockResolvedValue({ id: "task-123" });
-    db.collection.mockReturnValue({ add: addMock });
+    mockCollections({ add: addMock });
 
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 2);
@@ -72,7 +98,7 @@ describe("GET /api/tasks", () => {
 
   it("returns an empty array when the user has no tasks", async () => {
     const getMock = vi.fn().mockResolvedValue({ empty: true });
-    db.collection.mockReturnValue({
+    mockCollections({
       where: vi.fn().mockReturnValue({ get: getMock }),
     });
 
@@ -98,7 +124,7 @@ describe("GET /api/tasks", () => {
       empty: false,
       forEach: cb => docs.forEach(cb),
     });
-    db.collection.mockReturnValue({
+    mockCollections({
       where: vi.fn().mockReturnValue({ get: getMock }),
     });
 
@@ -267,7 +293,7 @@ describe("PATCH /api/tasks/:id", () => {
 
     const getMock = vi.fn().mockResolvedValueOnce(beforeState).mockResolvedValueOnce(afterState);
 
-    db.collection.mockReturnValue({
+    mockCollections({
       doc: vi.fn().mockReturnValue({ get: getMock, update: updateMock }),
     });
 
