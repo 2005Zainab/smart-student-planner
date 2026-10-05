@@ -134,6 +134,8 @@ function TaskForm({
   };
 
   const recurrence = draft.recurrence;
+  // A recurring occurrence's due date is its occurrence date; the server rejects any other
+  const isOccurrenceDraft = Boolean(draft.seriesId);
 
   return (
     <form className="space-y-4" onSubmit={handleSave}>
@@ -232,7 +234,7 @@ function TaskForm({
                   className={`w-full justify-start font-normal ${
                     dateError ? "border-destructive" : ""
                   }`}
-                  disabled={readOnly}
+                  disabled={readOnly || isOccurrenceDraft}
                   id="task-due-date"
                   type="button"
                   variant="outline"
@@ -263,6 +265,12 @@ function TaskForm({
           </Popover>
 
           {dateError && <p className="text-sm text-destructive">{dateError}</p>}
+
+          {isOccurrenceDraft && !readOnly && (
+            <p className="text-sm text-muted-foreground">
+              A recurring occurrence can't be moved to another date.
+            </p>
+          )}
         </div>
 
         {/* Time */}

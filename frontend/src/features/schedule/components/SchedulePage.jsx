@@ -28,6 +28,12 @@ import {
 //import { useTasks } from '../../tasks/hooks/useTasks';
 import { useTasksContext } from "../../tasks/context/TasksContext";
 import { buildCreateTaskRequest } from "../../tasks/utils/build-create-task-request";
+import {
+  getOccurrenceChanges,
+  getTaskUrl,
+  isOccurrence,
+  mergeSavedTask,
+} from "../../tasks/utils/task-endpoints";
 
 function SchedulePage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
@@ -156,12 +162,30 @@ function SchedulePage() {
       };
 
       const original = tasks.find(task => task.id === editingTaskId);
-      const changes = Object.keys(correctTimeZone).reduce((acc, key) => {
-        if (correctTimeZone[key] !== original?.[key]) {
-          acc[key] = correctTimeZone[key];
-        }
-        return acc;
-      }, {});
+      const occurrence = isOccurrence(original);
+
+      //A recurring occurrence is diffed against the fields its endpoint accepts (no dueDate,
+      //seriesId, priority, ...), with empty values normalized so an untouched form never
+      //sends an empty PATCH.
+      const changes = occurrence
+        ? getOccurrenceChanges(
+            {
+              ...draft,
+              time: draft.time || null,
+              checklist: draft.checklist || [],
+              reminderDate:
+                draft.reminderDate instanceof Date
+                  ? format(draft.reminderDate, "yyyy-MM-dd")
+                  : draft.reminderDate,
+            },
+            original,
+          )
+        : Object.keys(correctTimeZone).reduce((acc, key) => {
+            if (correctTimeZone[key] !== original?.[key]) {
+              acc[key] = correctTimeZone[key];
+            }
+            return acc;
+          }, {});
 
       if (Object.keys(changes).length === 0) {
         setEditorOpen(false);
@@ -171,12 +195,18 @@ function SchedulePage() {
       }
 
       try {
-        await httpClient(`http://localhost:3000/api/tasks/${editingTaskId}`, {
+        const updatedTask = await httpClient(getTaskUrl(original ?? { id: editingTaskId }), {
           method: "PATCH",
           body: JSON.stringify(changes),
         });
         setTasks(current =>
-          current.map(task => (task.id === editingTaskId ? { ...task, ...changes } : task)),
+          current.map(task =>
+            task.id === editingTaskId
+              ? occurrence
+                ? mergeSavedTask(task, updatedTask)
+                : { ...task, ...changes }
+              : task,
+          ),
         );
       } catch (err) {
         console.log(err);
@@ -186,18 +216,6 @@ function SchedulePage() {
     }
     closeEditor();
   };
-
-  //   const toggleTask = (id) =>
-  //     setTasks((current) =>
-  //       current.map((task) =>
-  //         task.id === id
-  //           ? {
-  //               ...task,
-  //               status: task.status === "Completed" ? "To Do" : "Completed",
-  //             }
-  //           : task,
-  //       ),
-  //     );
 
   //Toggles a checklists item completeion state and also saves the checklist
   const toggleChecklistItem = async (taskId, itemId) => {
@@ -212,7 +230,7 @@ function SchedulePage() {
     );
 
     try {
-      const updatedTask = await httpClient(`http://localhost:3000/api/tasks/${taskId}`, {
+      const updatedTask = await httpClient(getTaskUrl(task), {
         method: "PATCH",
         body: JSON.stringify({
           checklist: updateChecklist,
@@ -220,7 +238,9 @@ function SchedulePage() {
       });
 
       setTasks(current =>
-        current.map(existingTask => (existingTask.id === taskId ? updatedTask : existingTask)),
+        current.map(existingTask =>
+          existingTask.id === taskId ? mergeSavedTask(existingTask, updatedTask) : existingTask,
+        ),
       );
 
       setDraft(prev => ({

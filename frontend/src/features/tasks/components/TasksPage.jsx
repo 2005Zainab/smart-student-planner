@@ -1,13 +1,10 @@
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
-
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-
 import {
   Sheet,
   SheetContent,
@@ -15,7 +12,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,13 +22,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
 import { TaskForm } from "./TaskForm";
 import { TaskList } from "./TaskList";
 //import { useTasks } from '../hooks/useTasks';
 import { useTasksContext } from "../context/TasksContext";
 import { httpClient } from "../../../shared/http-client";
 import { buildCreateTaskRequest } from "../utils/build-create-task-request";
+import {
+  applyTaskUpdate,
+  getOccurrenceChanges,
+  getTaskUrl,
+  isOccurrence,
+  mergeSavedTask,
+} from "../utils/task-endpoints";
 
 function TasksPage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
@@ -194,14 +196,18 @@ function TasksPage() {
 
       const original = tasks.find(task => task.id === editingTaskId);
 
-      //Only send fields that were changed
-      const changes = Object.keys(taskToEdit).reduce((updatedFields, key) => {
-        if (taskToEdit[key] !== original?.[key]) {
-          updatedFields[key] = taskToEdit[key];
-        }
+      //Only send fields that were changed. A recurring occurrence is diffed against the
+      //fields its endpoint accepts (no dueDate, seriesId, priority, ...), with empty values
+      //normalized so an untouched form never sends an empty PATCH.
+      const changes = isOccurrence(original)
+        ? getOccurrenceChanges(taskToEdit, original)
+        : Object.keys(taskToEdit).reduce((updatedFields, key) => {
+            if (taskToEdit[key] !== original?.[key]) {
+              updatedFields[key] = taskToEdit[key];
+            }
 
-        return updatedFields;
-      }, {});
+            return updatedFields;
+          }, {});
 
       if (Object.keys(changes).length === 0) {
         setEditorOpen(false);
@@ -212,12 +218,16 @@ function TasksPage() {
 
       try {
         //Backend returns the updated task with new priority
-        const updatedTask = await httpClient(`http://localhost:3000/api/tasks/${editingTaskId}`, {
+        const updatedTask = await httpClient(getTaskUrl(original ?? { id: editingTaskId }), {
           method: "PATCH",
           body: JSON.stringify(changes),
         });
 
-        setTasks(current => current.map(task => (task.id === editingTaskId ? updatedTask : task)));
+        setTasks(current =>
+          current.map(task =>
+            task.id === editingTaskId ? mergeSavedTask(task, updatedTask) : task,
+          ),
+        );
       } catch (err) {
         console.log(err);
 
@@ -252,13 +262,13 @@ function TasksPage() {
         : { status: newStatus };
     // Update the task status in the backend and update the local state
     try {
-      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
+      const saved = await httpClient(getTaskUrl(task), {
         method: "PATCH",
         body: JSON.stringify(patchBody),
       });
       setTasks(current =>
         current.map(existingTask =>
-          existingTask.id === id ? { ...existingTask, ...patchBody } : existingTask,
+          existingTask.id === id ? applyTaskUpdate(existingTask, patchBody, saved) : existingTask,
         ),
       );
 
@@ -288,22 +298,23 @@ function TasksPage() {
 
   //Change completed task back to previous status
   const undoCompleted = async (id, originalStatus) => {
+    const task = tasks.find(existingTask => existingTask.id === id);
+
+    if (!task) {
+      return;
+    }
+
     try {
-      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
+      const patchBody = { status: originalStatus };
+
+      const saved = await httpClient(getTaskUrl(task), {
         method: "PATCH",
-        body: JSON.stringify({
-          status: originalStatus,
-        }),
+        body: JSON.stringify(patchBody),
       });
 
       setTasks(current =>
         current.map(existingTask =>
-          existingTask.id === id
-            ? {
-                ...existingTask,
-                status: originalStatus,
-              }
-            : existingTask,
+          existingTask.id === id ? applyTaskUpdate(existingTask, patchBody, saved) : existingTask,
         ),
       );
     } catch (err) {
@@ -324,7 +335,7 @@ function TasksPage() {
     );
 
     try {
-      const updatedTask = await httpClient(`http://localhost:3000/api/tasks/${taskId}`, {
+      const updatedTask = await httpClient(getTaskUrl(task), {
         method: "PATCH",
         body: JSON.stringify({
           checklist: updateChecklist,
@@ -332,7 +343,9 @@ function TasksPage() {
       });
 
       setTasks(current =>
-        current.map(existingTask => (existingTask.id === taskId ? updatedTask : existingTask)),
+        current.map(existingTask =>
+          existingTask.id === taskId ? mergeSavedTask(existingTask, updatedTask) : existingTask,
+        ),
       );
 
       setDraft(prev => ({
