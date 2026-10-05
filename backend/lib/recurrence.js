@@ -240,3 +240,11 @@ export function getPriorityFromDueDate(dueDateStr, todayStr) {
 
   return "Low";
 }
+
+export function buildOccurrenceChecklist(templateChecklist, occurrenceId) {
+  return (templateChecklist ?? []).map((item, index) => ({
+    id: `${occurrenceId}_${index}`,
+    text: item.text,
+    completed: false,
+  }));
+}

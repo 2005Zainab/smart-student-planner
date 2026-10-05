@@ -6,6 +6,7 @@ import {
   getNextOccurrence,
   getPriorityFromDueDate,
   shouldRenderMaterialized,
+  buildOccurrenceChecklist,
 } from "../lib/recurrence.js";
 import { getUserToday } from "../lib/userTime.js";
 import { validateDate, validateTaskFields } from "../lib/taskValidation.js";
@@ -39,11 +40,13 @@ function getVirtualOccurrence(series, date, today) {
   const isFuture = date >= today;
   const reminderOffsetDays = series.template.reminderOffsetDays;
 
+  const occcurrenceId = `${series.id}_${date}`;
   return {
-    id: `${series.id}_${date}`,
+    id: occcurrenceId,
     seriesId: series.id,
     occurrenceDate: date,
     ...series.template,
+    checklist: buildOccurrenceChecklist(series.template.checklist, occcurrenceId),
     virtual: true,
     dueDate: date,
     status: "To Do",
