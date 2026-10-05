@@ -54,19 +54,3 @@ export function getOccurrenceChanges(edited, original) {
 
   return changes;
 }
-
-/**
- * Replace a task in local state with the server's response after a PATCH.
- * A materialized occurrence doc has no `id` field of its own, so merge onto the existing
- * task and keep its id; the client-side id is what keys the list and the next lookup.
- * One-off tasks keep the existing "response replaces task" behavior.
- */
-export const mergeSavedTask = (task, saved) =>
-  isOccurrence(task) ? { ...task, ...saved, id: task.id } : saved;
-
-/**
- * Same idea for quick updates (status toggle, undo) where the local patch is applied
- * immediately and the response, if any, is layered on top for occurrences.
- */
-export const applyTaskUpdate = (task, patch, saved) =>
-  isOccurrence(task) ? { ...task, ...patch, ...saved, id: task.id } : { ...task, ...patch };

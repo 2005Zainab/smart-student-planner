@@ -12,21 +12,13 @@ import {
   isSameMonth,
   isToday,
 } from "date-fns";
-
 import { Plus } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-
 import { TaskForm } from "../../tasks/components/TaskForm";
 import { httpClient } from "../../../shared/http-client";
 import { buildCreateTaskRequest } from "../../tasks/utils/build-create-task-request";
-import {
-  getOccurrenceChanges,
-  getTaskUrl,
-  isOccurrence,
-  mergeSavedTask,
-} from "../../tasks/utils/task-endpoints";
+import { useTaskUpdates } from "../../tasks/hooks/useTaskUpdates";
 import { getCalendarTasks } from "../api/get-calendar-tasks";
 
 //Change task time from 24 hour to 12 hour format
@@ -52,7 +44,6 @@ function CalendarPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
   const [editingTaskId, setEditingTaskId] = useState(null);
-
   const [titleError, setTitleError] = useState(null);
   const [saveError, setSaveError] = useState(null);
 
@@ -68,6 +59,7 @@ function CalendarPage() {
   };
 
   const [draft, setDraft] = useState(emptyDraft);
+  const { saveEdit } = useTaskUpdates(setCalendarTasks);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -174,19 +166,6 @@ function CalendarPage() {
     setTitleError(null);
     setSaveError(null);
 
-    const taskToSave = {
-      title: draft.title.trim(),
-      description: draft.description || "",
-      subject: draft.subject || "",
-      priority: draft.priority || "Medium",
-      status: draft.status || "To Do",
-
-      dueDate: draft.dueDate instanceof Date ? format(draft.dueDate, "yyyy-MM-dd") : draft.dueDate,
-
-      //Send time to backend
-      time: draft.time || null,
-    };
-
     try {
       if (formMode === "create") {
         const createRequest = buildCreateTaskRequest(draft);
@@ -199,56 +178,12 @@ function CalendarPage() {
         setCalendarTasks(current => [...current, savedTask]);
         setRefreshKey(current => current + 1);
       } else {
-        const original = calendarTasks.find(task => task.id === editingTaskId);
+        const original = calendarTasks.find(task => task.id === editingTaskId) ?? {
+          id: editingTaskId,
+        };
 
-        if (isOccurrence(original)) {
-          //Recurring occurrence: PATCH /task-series/:seriesId/occurrences/:date with only the
-          //fields that changed. dueDate (an occurrence can't be moved) and priority (computed
-          //by the server) are never sent.
-          const changes = getOccurrenceChanges(
-            {
-              ...draft,
-              title: taskToSave.title,
-              time: taskToSave.time,
-              checklist: draft.checklist || [],
-              reminderDate:
-                draft.reminderDate instanceof Date
-                  ? format(draft.reminderDate, "yyyy-MM-dd")
-                  : draft.reminderDate,
-            },
-            original,
-          );
-
-          //Nothing changed: don't send an empty PATCH (it would materialize the occurrence)
-          if (Object.keys(changes).length > 0) {
-            const updatedTask = await httpClient(getTaskUrl(original), {
-              method: "PATCH",
-              body: JSON.stringify(changes),
-            });
-
-            setCalendarTasks(current =>
-              current.map(task =>
-                task.id === editingTaskId ? mergeSavedTask(task, updatedTask) : task,
-              ),
-            );
-          }
-        } else {
-          await httpClient(getTaskUrl(original ?? { id: editingTaskId }), {
-            method: "PATCH",
-            body: JSON.stringify(taskToSave),
-          });
-
-          setCalendarTasks(current =>
-            current.map(task =>
-              task.id === editingTaskId
-                ? {
-                    ...task,
-                    ...taskToSave,
-                  }
-                : task,
-            ),
-          );
-        }
+        //Sends only the changed fields to the one-off task or recurring occurrence endpoint
+        await saveEdit(original, { ...draft, title: draft.title.trim() });
       }
 
       closeEditor();

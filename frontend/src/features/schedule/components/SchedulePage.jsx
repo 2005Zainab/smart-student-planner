@@ -1,5 +1,5 @@
 import { httpClient } from "../../../shared/http-client";
-import { format, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
@@ -28,16 +28,12 @@ import {
 //import { useTasks } from '../../tasks/hooks/useTasks';
 import { useTasksContext } from "../../tasks/context/TasksContext";
 import { buildCreateTaskRequest } from "../../tasks/utils/build-create-task-request";
-import {
-  getOccurrenceChanges,
-  getTaskUrl,
-  isOccurrence,
-  mergeSavedTask,
-} from "../../tasks/utils/task-endpoints";
+import { useTaskUpdates } from "../../tasks/hooks/useTaskUpdates";
 
 function SchedulePage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error } = useTasksContext();
+  const { patchTask, saveEdit } = useTaskUpdates(setTasks);
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -150,67 +146,23 @@ function SchedulePage() {
       }
     } else {
       //edit task sends to backend to check and save to firestore via PATCH route
-
-      // Convert the editor Date back to the API's local YYYY-MM-DD format.
-      const correctTimeZone = {
-        ...draft,
-        dueDate: draft.dueDate
-          ? draft.dueDate instanceof Date
-            ? format(draft.dueDate, "yyyy-MM-dd")
-            : draft.dueDate
-          : undefined,
-      };
-
-      const original = tasks.find(task => task.id === editingTaskId);
-      const occurrence = isOccurrence(original);
-
-      //A recurring occurrence is diffed against the fields its endpoint accepts (no dueDate,
-      //seriesId, priority, ...), with empty values normalized so an untouched form never
-      //sends an empty PATCH.
-      const changes = occurrence
-        ? getOccurrenceChanges(
-            {
-              ...draft,
-              time: draft.time || null,
-              checklist: draft.checklist || [],
-              reminderDate:
-                draft.reminderDate instanceof Date
-                  ? format(draft.reminderDate, "yyyy-MM-dd")
-                  : draft.reminderDate,
-            },
-            original,
-          )
-        : Object.keys(correctTimeZone).reduce((acc, key) => {
-            if (correctTimeZone[key] !== original?.[key]) {
-              acc[key] = correctTimeZone[key];
-            }
-            return acc;
-          }, {});
-
-      if (Object.keys(changes).length === 0) {
-        setEditorOpen(false);
-        setMobileEditorOpen(false);
-        setEditingTaskId(null);
-        return;
-      }
+      const original = tasks.find(task => task.id === editingTaskId) ?? { id: editingTaskId };
 
       try {
-        const updatedTask = await httpClient(getTaskUrl(original ?? { id: editingTaskId }), {
-          method: "PATCH",
-          body: JSON.stringify(changes),
-        });
-        setTasks(current =>
-          current.map(task =>
-            task.id === editingTaskId
-              ? occurrence
-                ? mergeSavedTask(task, updatedTask)
-                : { ...task, ...changes }
-              : task,
-          ),
-        );
+        //Sends only the changed fields to the one-off task or recurring occurrence endpoint
+        const didSave = await saveEdit(original, draft);
+
+        if (!didSave) {
+          setEditorOpen(false);
+          setMobileEditorOpen(false);
+          setEditingTaskId(null);
+          return;
+        }
       } catch (err) {
         console.log(err);
+
         setSaveError(err.message || "Failed to save task");
+
         return;
       }
     }
@@ -230,22 +182,11 @@ function SchedulePage() {
     );
 
     try {
-      const updatedTask = await httpClient(getTaskUrl(task), {
-        method: "PATCH",
-        body: JSON.stringify({
-          checklist: updateChecklist,
-        }),
-      });
-
-      setTasks(current =>
-        current.map(existingTask =>
-          existingTask.id === taskId ? mergeSavedTask(existingTask, updatedTask) : existingTask,
-        ),
-      );
+      const saved = await patchTask(task, { checklist: updateChecklist });
 
       setDraft(prev => ({
         ...prev,
-        checklist: updatedTask.checklist,
+        checklist: saved?.checklist ?? updateChecklist,
       }));
     } catch (err) {
       console.log(err);
