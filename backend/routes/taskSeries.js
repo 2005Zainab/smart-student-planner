@@ -106,6 +106,59 @@ function withOccurrenceResponse(data, id, today) {
   };
 }
 
+// Series-level fields that belong to other PATCH branches (template edit, pattern change,
+// end date) or are occurrence-level. They must not be silently ignored next to `enabled`.
+const NON_PAUSE_SERIES_FIELDS = [
+  "rule",
+  "endDate",
+  "title",
+  "description",
+  "subject",
+  "time",
+  "checklist",
+  "reminderOffsetDays",
+  "reminderTime",
+  "status",
+  "dueDate",
+];
+
+function comparePausesByFrom(first, second) {
+  return first.from < second.from ? -1 : first.from > second.from ? 1 : 0;
+}
+
+/**
+ * Pause: effective TOMORROW (the only "tomorrow" operation).
+ * Returns the new { pauses, enabled } or null when already paused (no-op).
+ */
+function applyPause(series, today) {
+  const pauses = series.pauses ?? [];
+  if (pauses.some(pause => pause.until === null)) return null;
+
+  return {
+    pauses: [...pauses, { from: offsetDate(today, 1), until: null }].sort(comparePausesByFrom),
+    enabled: false,
+  };
+}
+
+/**
+ * Resume: effective TODAY. The open pause is closed at dayBefore(today). If that would
+ * leave until < from (the pause never took effect), the entry is deleted instead of being
+ * stored inverted. Returns null when no pause is open (no-op).
+ */
+function applyResume(series, today) {
+  const pauses = series.pauses ?? [];
+  const open = pauses.find(pause => pause.until === null);
+  if (!open) return null;
+
+  const closeAt = offsetDate(today, -1);
+  const nextPauses =
+    closeAt < open.from
+      ? pauses.filter(pause => pause !== open)
+      : pauses.map(pause => (pause === open ? { ...pause, until: closeAt } : pause));
+
+  return { pauses: nextPauses, enabled: true };
+}
+
 router.post("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
   const body = req.body;
@@ -192,6 +245,7 @@ router.post("/", requireAuth, async (req, res) => {
       dueDate: clean.dueDate,
       status: "To Do",
       priority: getPriorityFromDueDate(clean.dueDate, today),
+      series: { enabled: true },
     };
 
     return res.status(201).json({
@@ -205,6 +259,78 @@ router.post("/", requireAuth, async (req, res) => {
   }
 });
 
+// Series-level edits
+router.patch("/:seriesId", requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  const { seriesId } = req.params;
+  const body = req.body ?? {};
+
+  if (!Object.prototype.hasOwnProperty.call(body, "enabled")) {
+    return res.status(400).json({ message: "No supported fields to update" });
+  }
+  if (typeof body.enabled !== "boolean") {
+    return res.status(400).json({ message: "enabled must be a boolean" });
+  }
+  if (NON_PAUSE_SERIES_FIELDS.some(field => Object.prototype.hasOwnProperty.call(body, field))) {
+    return res.status(400).json({ message: "enabled cannot be combined with other series fields" });
+  }
+
+  try {
+    // "Today" is always server-derived, once per request; any client value is ignored.
+    const today = await getUserToday(uid);
+    const seriesRef = db.collection("task_series").doc(seriesId);
+
+    // All reads, checks and writes happen in one transaction so concurrent pause/resume
+    // requests can't both act on the same stale `pauses` array.
+    const outcome = await db.runTransaction(async transaction => {
+      const seriesSnap = await transaction.get(seriesRef);
+      if (!seriesSnap.exists) {
+        return { status: 404, message: "Task series not found" };
+      }
+
+      const series = seriesSnap.data();
+      if (series.userId !== uid) {
+        return { status: 403, message: "Unauthorized" };
+      }
+
+      if (body.enabled && series.endDate && today > series.endDate) {
+        return { status: 400, message: "This series has already ended" };
+      }
+
+      // A pause starts tomorrow, so only occurrences on or before today stay visible. If there
+      // are none, pausing would leave the series with no row to open, and so no way to resume
+      // or delete it from the UI. Already-paused series fall through to the no-op below.
+      if (!body.enabled) {
+        const alreadyPaused = (series.pauses ?? []).some(pause => pause.until === null);
+        if (!alreadyPaused && expandSeries(series, series.segments[0].from, today).length === 0) {
+          return {
+            status: 400,
+            message: "A series can't be paused until it has an occurrence on or before today",
+          };
+        }
+      }
+
+      const change = body.enabled ? applyResume(series, today) : applyPause(series, today);
+      if (!change) {
+        return { status: 200, series }; // already in the requested state: no write
+      }
+
+      transaction.update(seriesRef, { ...change, updatedAt: FieldValue.serverTimestamp() });
+      return { status: 200, series: { ...series, ...change } };
+    });
+
+    if (outcome.status !== 200) {
+      return res.status(outcome.status).json({ message: outcome.message });
+    }
+
+    return res.status(200).json({ id: seriesId, ...outcome.series });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Failed to update task series" });
+  }
+});
+
+// Occurrence-level edits
 router.patch("/:seriesId/occurrences/:date", requireAuth, async (req, res) => {
   const uid = req.user.uid;
   const { seriesId, date } = req.params;
