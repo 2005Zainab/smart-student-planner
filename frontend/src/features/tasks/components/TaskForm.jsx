@@ -31,6 +31,7 @@ function TaskForm({
   const [reminderError, setReminderError] = useState("");
   const [checklistItemInput, setChecklistItemInput] = useState("");
   const [checklistError, setChecklistError] = useState("");
+  const [taskSaving, setTaskSaving] = useState(false);
 
   const checklist = draft.checklist || [];
   const completedItems = checklist.filter(item => item.completed).length;
@@ -57,9 +58,14 @@ function TaskForm({
     setChecklistItemInput("");
   };
 
-  const handleSave = event => {
+  const handleSave = async event => {
     event.preventDefault();
     setDateError("");
+
+    //Ignores task submit requests if the current task is being saved
+    if (taskSaving) {
+      return;
+    }
 
     if (requireDateAndTime && !draft.dueDate) {
       setDateError("Due date is required for adding task to schedule.");
@@ -88,7 +94,13 @@ function TaskForm({
       }
     }
 
-    onSave();
+    //Disables submit when saving, re-enables after waiting for save to finish, re-enables if save fails
+    setTaskSaving(true);
+    try {
+      await onSave();
+    } finally {
+      setTaskSaving(false);
+    }
   };
 
   return (
@@ -421,7 +433,9 @@ function TaskForm({
             Cancel
           </Button>
 
-          <Button type="submit">Save task</Button>
+          <Button type="submit" disabled={taskSaving}>
+            Save task
+          </Button>
         </div>
       )}
     </form>
