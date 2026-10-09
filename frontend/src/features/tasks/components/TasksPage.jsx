@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { parseISO } from "date-fns";
+import { useRef, useState } from "react";
+import { format, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,11 +29,12 @@ import { useTasksContext } from "../context/TasksContext";
 import { httpClient } from "../../../shared/http-client";
 import { buildCreateTaskRequest } from "../utils/build-create-task-request";
 import { useTaskUpdates } from "../hooks/useTaskUpdates";
+import { isOccurrence } from "../utils/task-endpoints";
 
 function TasksPage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
-  const { tasks, setTasks, isLoading, error } = useTasksContext();
-  const { patchTask, saveEdit } = useTaskUpdates(setTasks);
+  const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
+  const { patchTask, saveEdit, setSeriesEnabled } = useTaskUpdates(setTasks);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
@@ -43,6 +44,7 @@ function TasksPage() {
   const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [previousStatusLookup, setPreviousStatusLookup] = useState({});
+  const seriesChangedRef = useRef(false);
 
   const [draft, setDraft] = useState({
     title: "",
@@ -94,6 +96,8 @@ function TasksPage() {
                 typeof task.reminderDate === "string"
                   ? parseISO(task.reminderDate)
                   : task.reminderDate,
+              recurrence: null,
+              repeatEnabled: task.series?.enabled,
             }
           : {
               title: "",
@@ -118,6 +122,9 @@ function TasksPage() {
 
   //Close the task form
   const closeEditor = () => {
+    const shouldRefetch = seriesChangedRef.current;
+    seriesChangedRef.current = false;
+
     if (formMode === "create" && editingTaskId !== null) {
       setTasks(current => current.filter(task => task.id !== editingTaskId));
     }
@@ -128,6 +135,10 @@ function TasksPage() {
     setEditingTaskId(null);
     setEmptyTitleCheck(null);
     setSaveError(null);
+
+    if (shouldRefetch) {
+      refetch();
+    }
   };
 
   //Save a new task or edit an existing task
@@ -175,11 +186,30 @@ function TasksPage() {
       try {
         //Sends only the changed fields to the one-off task or recurring occurrence endpoint
         const didSave = await saveEdit(original, draft);
+        let toggled = false;
 
-        if (!didSave) {
-          setEditorOpen(false);
-          setMobileEditorOpen(false);
-          setEditingTaskId(null);
+        if (
+          isOccurrence(original) &&
+          typeof draft.repeatEnabled === "boolean" &&
+          draft.repeatEnabled !== original.series?.enabled
+        ) {
+          seriesChangedRef.current = true;
+          const saved = await setSeriesEnabled(original.seriesId, draft.repeatEnabled);
+          const openPause = saved?.pauses?.find(pause => pause.until === null);
+          const pausedFrom =
+            !draft.repeatEnabled && openPause?.from
+              ? format(parseISO(openPause.from), "d MMM")
+              : null;
+          toggled = true;
+          toast.add({
+            title: draft.repeatEnabled ? "Repeat resumed" : "Repeat paused",
+            ...(pausedFrom ? { description: `From ${pausedFrom}` } : {}),
+            type: "success",
+          });
+        }
+
+        if (!didSave && !toggled) {
+          closeEditor();
           return;
         }
       } catch (err) {
@@ -193,6 +223,8 @@ function TasksPage() {
 
     closeEditor();
   };
+
+  const editingTask = tasks.find(task => task.id === editingTaskId);
 
   //Save task status when checkbox is clicked
   const toggleTask = async id => {
@@ -354,6 +386,7 @@ function TasksPage() {
             saveError={saveError}
             onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
             allowRecurrence={formMode === "create"}
+            seriesEnabled={editingTask?.series?.enabled}
           />
         </DialogContent>
       </Dialog>
@@ -388,6 +421,7 @@ function TasksPage() {
               saveError={saveError}
               onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
               allowRecurrence={formMode === "create"}
+              seriesEnabled={editingTask?.series?.enabled}
             />
           </div>
         </SheetContent>
