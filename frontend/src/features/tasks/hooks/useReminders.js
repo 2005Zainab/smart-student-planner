@@ -55,6 +55,14 @@ export function useReminders(tasks, setTasks) {
             }).catch(err => {
               console.log("Failed to clear reminder:", err);
             });
+
+            // Email the reminder too (the server only sends it if the user turned emails on)
+            httpClient("http://localhost:3000/api/reminders/email", {
+              method: "POST",
+              body: JSON.stringify({ taskId: task.id }),
+            }).catch(err => {
+              console.log("Failed to send reminder email:", err);
+            });
           } catch (err) {
             console.log("Error handling reminder for task", task.id, err);
           }
