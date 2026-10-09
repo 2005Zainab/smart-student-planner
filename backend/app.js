@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import tasksRoute from "./routes/tasks.js";
 import settingsRoute from "./routes/settings.js";
+import remindersRoute from "./routes/reminders.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -22,6 +23,7 @@ app.use((req, res, next) => {
 
 app.use("/api/tasks", tasksRoute);
 app.use("/api/settings", settingsRoute);
+app.use("/api/reminders", remindersRoute);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
