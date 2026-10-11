@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   addMonths,
   subMonths,
@@ -12,16 +12,14 @@ import {
   isSameMonth,
   isToday,
 } from "date-fns";
-
 import { Plus } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-
-//import { useTasks } from '../../tasks/hooks/useTasks';
-import { useTasksContext } from "../../tasks/context/TasksContext";
 import { TaskForm } from "../../tasks/components/TaskForm";
 import { httpClient } from "../../../shared/http-client";
+import { buildCreateTaskRequest } from "../../tasks/utils/build-create-task-request";
+import { useTaskUpdates } from "../../tasks/hooks/useTaskUpdates";
+import { getCalendarTasks } from "../api/get-calendar-tasks";
 
 //Change task time from 24 hour to 12 hour format
 function formatTaskTime(time) {
@@ -38,14 +36,14 @@ function formatTaskTime(time) {
 }
 
 function CalendarPage() {
-  //const { tasks, setTasks, isLoading, error } = useTasks();
-  const { tasks, setTasks, isLoading, error } = useTasksContext();
-
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [calendarTasks, setCalendarTasks] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [editorOpen, setEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
   const [editingTaskId, setEditingTaskId] = useState(null);
-
   const [titleError, setTitleError] = useState(null);
   const [saveError, setSaveError] = useState(null);
 
@@ -57,23 +55,11 @@ function CalendarPage() {
     status: "To Do",
     dueDate: undefined,
     time: "",
+    recurrence: null,
   };
 
   const [draft, setDraft] = useState(emptyDraft);
-
-  //Tasks that have a date can show on calendar
-  const calendarTasks = tasks.filter(task => task.dueDate);
-
-  //Group tasks by date
-  const tasksByDate = calendarTasks.reduce((groupedTasks, task) => {
-    if (!groupedTasks[task.dueDate]) {
-      groupedTasks[task.dueDate] = [];
-    }
-
-    groupedTasks[task.dueDate].push(task);
-
-    return groupedTasks;
-  }, {});
+  const { saveEdit } = useTaskUpdates(setCalendarTasks);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -90,6 +76,39 @@ function CalendarPage() {
     start: calendarStart,
     end: calendarEnd,
   });
+  const rangeFrom = format(calendarStart, "yyyy-MM-dd");
+  const rangeTo = format(calendarEnd, "yyyy-MM-dd");
+
+  useEffect(() => {
+    let active = true;
+
+    async function fetchCalendarTasks() {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const tasks = await getCalendarTasks(rangeFrom, rangeTo);
+        if (active) setCalendarTasks(tasks);
+      } catch (loadError) {
+        if (active) setError(loadError);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    }
+
+    fetchCalendarTasks();
+    return () => {
+      active = false;
+    };
+  }, [rangeFrom, rangeTo, refreshKey]);
+
+  //Group the bounded calendar response by date.
+  const tasksByDate = calendarTasks.reduce((groupedTasks, task) => {
+    if (!task.dueDate) return groupedTasks;
+    if (!groupedTasks[task.dueDate]) groupedTasks[task.dueDate] = [];
+    groupedTasks[task.dueDate].push(task);
+    return groupedTasks;
+  }, {});
 
   //Open form for a new task
   const openAddForm = (date = undefined) => {
@@ -147,43 +166,24 @@ function CalendarPage() {
     setTitleError(null);
     setSaveError(null);
 
-    const taskToSave = {
-      title: draft.title.trim(),
-      description: draft.description || "",
-      subject: draft.subject || "",
-      priority: draft.priority || "Medium",
-      status: draft.status || "To Do",
-
-      dueDate: draft.dueDate instanceof Date ? format(draft.dueDate, "yyyy-MM-dd") : draft.dueDate,
-
-      //Send time to backend
-      time: draft.time || null,
-    };
-
     try {
       if (formMode === "create") {
-        const savedTask = await httpClient("http://localhost:3000/api/tasks", {
+        const createRequest = buildCreateTaskRequest(draft);
+        const savedResponse = await httpClient(createRequest.url, {
           method: "POST",
-          body: JSON.stringify(taskToSave),
+          body: JSON.stringify(createRequest.body),
         });
+        const savedTask = createRequest.recurring ? savedResponse.firstOccurrence : savedResponse;
 
-        setTasks(current => [...current, savedTask]);
+        setCalendarTasks(current => [...current, savedTask]);
+        setRefreshKey(current => current + 1);
       } else {
-        await httpClient(`http://localhost:3000/api/tasks/${editingTaskId}`, {
-          method: "PATCH",
-          body: JSON.stringify(taskToSave),
-        });
+        const original = calendarTasks.find(task => task.id === editingTaskId) ?? {
+          id: editingTaskId,
+        };
 
-        setTasks(current =>
-          current.map(task =>
-            task.id === editingTaskId
-              ? {
-                  ...task,
-                  ...taskToSave,
-                }
-              : task,
-          ),
-        );
+        //Sends only the changed fields to the one-off task or recurring occurrence endpoint
+        await saveEdit(original, { ...draft, title: draft.title.trim() });
       }
 
       closeEditor();
@@ -348,6 +348,7 @@ function CalendarPage() {
             onCancel={closeEditor}
             titleError={titleError}
             saveError={saveError}
+            allowRecurrence={formMode === "create"}
           />
         </DialogContent>
       </Dialog>
