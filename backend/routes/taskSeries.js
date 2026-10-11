@@ -188,6 +188,7 @@ router.post("/", requireAuth, async (req, res) => {
       occurrenceDate: clean.dueDate,
       virtual: true,
       ...template,
+      ...getReminderFields(template, clean.dueDate, today),
       checklist: buildOccurrenceChecklist(template.checklist, occurrenceId),
       dueDate: clean.dueDate,
       status: "To Do",

@@ -180,4 +180,69 @@ describe("POST /api/task-series", () => {
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/together/i);
   });
+
+  it("computes reminderDate and reminderTime on the first occurrence", async () => {
+    const addMock = vi.fn().mockResolvedValue({ id: "series-1" });
+    mockTaskSeries(addMock);
+
+    const res = await request(app).post("/api/task-series").send(validBody);
+
+    expect(res.status).toBe(201);
+    expect(res.body.firstOccurrence).toMatchObject({
+      reminderDate: "2026-10-04", // due 2026-10-05 minus 1 day
+      reminderTime: "08:00",
+    });
+  });
+
+  it("does not store reminderDate on the series template", async () => {
+    const addMock = vi.fn().mockResolvedValue({ id: "series-1" });
+    mockTaskSeries(addMock);
+
+    await request(app).post("/api/task-series").send(validBody);
+
+    expect(addMock.mock.calls[0][0].template).not.toHaveProperty("reminderDate");
+  });
+
+  it("nulls both reminder fields when the first occurrence is already past", async () => {
+    const addMock = vi.fn().mockResolvedValue({ id: "series-1" });
+    mockTaskSeries(addMock);
+
+    const res = await request(app)
+      .post("/api/task-series")
+      .send({ ...validBody, dueDate: "2026-10-01" }); // today is 2026-10-02 (UTC)
+
+    expect(res.status).toBe(201);
+    expect(res.body.firstOccurrence.reminderDate).toBeNull();
+    expect(res.body.firstOccurrence.reminderTime).toBeNull();
+  });
+
+  it("returns null reminder fields when the series has no reminder", async () => {
+    const addMock = vi.fn().mockResolvedValue({ id: "series-1" });
+    mockTaskSeries(addMock);
+
+    const res = await request(app)
+      .post("/api/task-series")
+      .send({ ...validBody, reminderOffsetDays: null, reminderTime: null });
+
+    expect(res.status).toBe(201);
+    expect(res.body.firstOccurrence.reminderDate).toBeNull();
+    expect(res.body.firstOccurrence.reminderTime).toBeNull();
+  });
+
+  it("uses the user's timezone to decide whether the first occurrence is past", async () => {
+    const body = { ...validBody, dueDate: "2026-10-02" };
+
+    mockTaskSeries(vi.fn().mockResolvedValue({ id: "series-1" }), "UTC");
+    const utc = await request(app).post("/api/task-series").send(body);
+
+    mockTaskSeries(vi.fn().mockResolvedValue({ id: "series-1" }), "Pacific/Auckland");
+    const auckland = await request(app).post("/api/task-series").send(body);
+
+    expect(utc.body.firstOccurrence).toMatchObject({
+      reminderDate: "2026-10-01",
+      reminderTime: "08:00",
+    });
+    expect(auckland.body.firstOccurrence.reminderDate).toBeNull();
+    expect(auckland.body.firstOccurrence.reminderTime).toBeNull();
+  });
 });
