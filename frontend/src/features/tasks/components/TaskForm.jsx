@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format, differenceInCalendarDays, parseISO } from "date-fns";
 import { CalendarDays, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -35,6 +35,13 @@ function TaskForm({
   const [reminderError, setReminderError] = useState("");
   const [checklistItemInput, setChecklistItemInput] = useState("");
   const [checklistError, setChecklistError] = useState("");
+
+  const reminderDaysAway = draft.reminderDate
+    ? differenceInCalendarDays(
+        draft.reminderDate instanceof Date ? draft.reminderDate : parseISO(draft.reminderDate),
+        new Date(),
+      )
+    : null;
 
   const checklist = draft.checklist || [];
   const completedItems = checklist.filter(item => item.completed).length;
@@ -312,6 +319,7 @@ function TaskForm({
           <>
             <div className="space-y-2">
               <Label htmlFor="task-reminder-date">Reminder date</Label>
+
               <Popover>
                 <PopoverTrigger
                   render={
@@ -335,6 +343,17 @@ function TaskForm({
                   />
                 </PopoverContent>
               </Popover>
+              {reminderDaysAway !== null && (
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  (
+                  {reminderDaysAway > 0
+                    ? `${reminderDaysAway} day${reminderDaysAway !== 1 ? "s" : ""} away`
+                    : reminderDaysAway === 0
+                      ? "today"
+                      : `${Math.abs(reminderDaysAway)} day${reminderDaysAway !== -1 ? "s" : ""} ago`}
+                  )
+                </span>
+              )}
             </div>
 
             <div className="space-y-2">
