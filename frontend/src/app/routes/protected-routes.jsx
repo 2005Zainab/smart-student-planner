@@ -7,6 +7,7 @@ import { SettingsPage } from "@/features/settings/components/SettingsPage";
 import { TasksPage } from "@/features/tasks/components/TasksPage";
 import { CalendarPage } from "@/features/calendar/components/CalendarPage";
 import { SchedulePage } from "@/features/schedule/components/SchedulePage";
+import { TimelinePage } from "@/features/timeline/components/TimelinePage";
 
 function ProtectedRoutes() {
   return (
@@ -16,6 +17,7 @@ function ProtectedRoutes() {
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/schedule" element={<SchedulePage />} />
+        <Route path="/timeline" element={<TimelinePage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
     </Route>

@@ -1,4 +1,12 @@
-import { CalendarDays, CheckSquare, LayoutDashboard, List, Settings, User } from "lucide-react";
+import {
+  CalendarDays,
+  CheckSquare,
+  Clock3,
+  LayoutDashboard,
+  List,
+  Settings,
+  User,
+} from "lucide-react";
 
 import {
   Sidebar,
@@ -45,6 +53,11 @@ const navigation = [
     label: "Schedule",
     href: "/schedule",
     icon: List,
+  },
+  {
+    label: "Timeline",
+    href: "/timeline",
+    icon: Clock3,
   },
 ];
 
