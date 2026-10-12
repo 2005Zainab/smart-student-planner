@@ -21,6 +21,7 @@ import { httpClient } from "../../../shared/http-client";
 import { buildCreateTaskRequest } from "../../tasks/utils/build-create-task-request";
 import { useTaskUpdates } from "../../tasks/hooks/useTaskUpdates";
 import { getCalendarTasks } from "../api/get-calendar-tasks";
+import { useTaskContext } from "../../tasks/context/TasksContext";
 
 function isTaskOverdue(task) {
   if (!task.dueDate || task.status === "Completed") {
@@ -54,7 +55,25 @@ function formatTaskTime(time) {
   return format(date, "h:mm a");
 }
 
+function getPriority(priority) {
+  if (!priority) {
+    return "border-l-4 border-transparent";
+  }
+
+  switch (priority) {
+    case "High":
+      return "border-l-4 border-high-priority";
+    case "Medium":
+      return "border-l-4 border-medium-priority";
+    case "Low":
+      return "border-l-4 border-low-priority";
+    default:
+      return "border-l-4 border-transparent";
+  }
+}
+
 function CalendarPage() {
+  const { setTasks: setGlobalTasks } = useTaskContext();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [calendarTasks, setCalendarTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -194,6 +213,9 @@ function CalendarPage() {
 
         setCalendarTasks(current => [...current, savedTask]);
         setRefreshKey(current => current + 1);
+        if (setGlobalTasks) {
+          setGlobalTasks(current => [...current, savedTask]);
+        }
       } else {
         const original = calendarTasks.find(task => task.id === editingTaskId) ?? {
           id: editingTaskId,
@@ -201,6 +223,14 @@ function CalendarPage() {
 
         //Sends only the changed fields to the one-off task or recurring occurrence endpoint
         await saveEdit(original, { ...draft, title: draft.title.trim() });
+
+        if (setGlobalTasks) {
+          setGlobalTasks(current =>
+            current.map(task =>
+              task.id === editingTaskId ? { ...task, ...draft, title: draft.title.trim() } : task,
+            ),
+          );
+        }
       }
 
       closeEditor();
@@ -304,6 +334,7 @@ function CalendarPage() {
                 <div className="space-y-1">
                   {dayTasks.map(task => {
                     const isOverdue = isTaskOverdue(task);
+                    const priorityBorder = getPriority(task.priority);
                     return (
                       <button
                         key={task.id}
@@ -312,7 +343,7 @@ function CalendarPage() {
                           event.stopPropagation();
                           openEditForm(task);
                         }}
-                        className={`flex w-full items-center rounded-md  px-2 py-1.5 text-left text-xs  ${
+                        className={`flex w-full items-center rounded-md  px-2 py-1.5 text-left text-xs ${priorityBorder} ${
                           task.status === "Completed"
                             ? "bg-secondary opacity-60 hover:bg-secondary/80"
                             : isOverdue
