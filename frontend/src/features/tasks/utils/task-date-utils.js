@@ -108,6 +108,35 @@ function getUpcomingTasks(tasks, referenceDate = new Date()) {
 }
 
 /**
+ * Returns a list of overdue tasks.
+ * @param {Array} tasks - The list of tasks to filter.
+ * @param {Date} referenceDate - The reference date to determine the overdue tasks (default is today).
+ * @returns {Array} - The list of overdue tasks with days past due.
+ */
+function getOverDueTasks(tasks, referenceDate = new Date()) {
+  const startDate = startOfDay(referenceDate);
+
+  return tasks
+    .filter(
+      task => isIncomplete(task) && differenceInCalendarDays(getTaskDate(task), startDate) < 0,
+    )
+    .map(withTaskDateTime)
+    .filter(
+      task =>
+        task.parsedDateTime &&
+        isWithinInterval(task.parsedDateTime, {
+          start: new Date(0),
+          end: startDate,
+        }),
+    )
+    .map(task => ({
+      ...task,
+      daysUntilDue: differenceInCalendarDays(startOfDay(task.parsedDateTime), startDate),
+    }))
+    .sort(sortByDateTime);
+}
+
+/**
  * Returns a weekly schedule of tasks, grouped by day.
  * @param {Array} tasks - The list of tasks to schedule.
  * @param {Date} referenceDate - The reference date to determine the week (default is today).
@@ -160,4 +189,10 @@ function getUndatedTasks(tasks) {
   return tasks.filter(task => isIncomplete(task) && !task.dueDate);
 }
 
-export { getTaskDateAndTime, getUpcomingTasks, getUndatedTasks, getWeeklySchedule };
+export {
+  getTaskDateAndTime,
+  getUpcomingTasks,
+  getOverDueTasks,
+  getUndatedTasks,
+  getWeeklySchedule,
+};
