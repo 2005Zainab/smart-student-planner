@@ -102,7 +102,6 @@ function SchedulePage() {
 
     setEditorOpen(false);
     setMobileEditorOpen(false);
-    setFormMode("create");
     setEditingTaskId(null);
     setEmptyTitleCheck(null);
     setSaveError(null);

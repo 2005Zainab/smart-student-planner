@@ -143,11 +143,9 @@ function CalendarPage() {
 
   const closeEditor = () => {
     setEditorOpen(false);
-    setFormMode("create");
     setEditingTaskId(null);
     setTitleError(null);
     setSaveError(null);
-    setDraft(emptyDraft);
   };
 
   //Save new task or edited task
