@@ -42,17 +42,12 @@ function TimelinePage() {
           {error && <p>Unable to load tasks.</p>}
 
           {!isLoading && timelineTasks.length === 0 && (
-            <p className="text-muted-foreground">
-              No assessments or deadlines found.
-            </p>
+            <p className="text-muted-foreground">No assessments or deadlines found.</p>
           )}
 
           <div className="space-y-4">
             {timelineTasks.map(task => (
-              <div
-                key={task.id}
-                className="flex items-center gap-4"
-              >
+              <div key={task.id} className="flex items-center gap-4">
                 <div className="flex flex-col items-center">
                   <div className="size-3 rounded-full bg-primary" />
 
@@ -72,9 +67,7 @@ function TimelinePage() {
                     </p>
 
                     {task.subject && (
-                      <p className="text-sm text-muted-foreground">
-                        {task.subject}
-                      </p>
+                      <p className="text-sm text-muted-foreground">{task.subject}</p>
                     )}
                   </div>
                 </Button>
@@ -84,17 +77,11 @@ function TimelinePage() {
 
           {selectedTask && (
             <div className="mt-6 rounded-md border p-4">
-              <h3 className="font-semibold">
-                Selected task
-              </h3>
+              <h3 className="font-semibold">Selected task</h3>
 
-              <p className="mt-2">
-                {selectedTask.title}
-              </p>
+              <p className="mt-2">{selectedTask.title}</p>
 
-              <p className="text-sm text-muted-foreground">
-                Click editing will be added next.
-              </p>
+              <p className="text-sm text-muted-foreground">Click editing will be added next.</p>
             </div>
           )}
         </CardContent>

@@ -20,9 +20,7 @@ function Header() {
       <div className="flex items-center gap-2">
         <SidebarTrigger />
 
-        <h1 className="text-sm font-semibold">
-          {title}
-        </h1>
+        <h1 className="text-sm font-semibold">{title}</h1>
       </div>
 
       <ThemeToggle />
