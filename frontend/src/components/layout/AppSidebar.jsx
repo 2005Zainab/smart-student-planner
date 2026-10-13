@@ -1,4 +1,12 @@
-import { CalendarDays, CheckSquare, LayoutDashboard, List, Settings, User } from "lucide-react";
+import {
+  CalendarDays,
+  CheckSquare,
+  LayoutDashboard,
+  List,
+  Settings,
+  User,
+  PanelLeft,
+} from "lucide-react";
 
 import {
   Sidebar,
@@ -10,6 +18,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
 import {
@@ -53,6 +62,7 @@ function AppSidebar() {
   const { user } = useAuth();
   const { error, isPending, logout } = useLogout();
   const navigate = useNavigate();
+  const { toggleSidebar } = useSidebar();
 
   const userName = user?.displayName ?? user?.email ?? "Student";
 
@@ -71,9 +81,8 @@ function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" tooltip="Smart Student Planner">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
-                S
-              </span>
+              {/* Smart Student Planner logo */}
+              <img src="/favicon.svg" alt="Smart Student Planner" className="size-8 rounded-md" />
 
               <span className="truncate font-semibold">Smart Student Planner</span>
             </SidebarMenuButton>
@@ -83,6 +92,21 @@ function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
+          {/* Sidebar toggle inside sidebar to prevent moving when collapsed */}
+          <div className="hidden md:block">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  className="cursor-pointer"
+                  onClick={toggleSidebar}
+                  tooltip="Expand Sidebar"
+                >
+                  <PanelLeft />
+                  <span>Minimize</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </div>
           <SidebarMenu>
             {navigation.map(({ label, href, icon: Icon }) => (
               <SidebarMenuItem key={href}>
