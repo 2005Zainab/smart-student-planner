@@ -38,7 +38,7 @@ vi.mock("./TaskList", () => ({
   TaskList: ({ tasks, onEdit, onDelete, onToggle }) => (
     <div data-testid="task-list">
       {tasks.map(task => (
-        <div key={task.id}>
+        <div key={task.id} data-testid={`task-${task.id}`}>
           <span>{task.title}</span>
           <button onClick={() => onToggle(task.id)}>toggle</button>
           <button onClick={() => onDelete(task.id)}>delete</button>
@@ -135,6 +135,109 @@ describe("TasksPage", () => {
       status: "Completed",
       reminderDate: null,
       reminderTime: null,
+    });
+  });
+
+  it("edits a one-off task through /api/tasks/:id", async () => {
+    httpClient.mockResolvedValue({ id: "task-1", title: "Finish essay now", status: "To Do" });
+
+    render(<TasksPage />);
+    await userEvent.click(screen.getByRole("button", { name: "edit" }));
+    await userEvent.type(screen.getByLabelText("title"), " now");
+    await userEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(httpClient).toHaveBeenCalled());
+
+    const [url, options] = httpClient.mock.calls[0];
+    expect(url).toBe("http://localhost:3000/api/tasks/task-1");
+    expect(options.method).toBe("PATCH");
+    expect(JSON.parse(options.body)).toMatchObject({ title: "Finish essay now" });
+  });
+
+  describe("recurring occurrences", () => {
+    const occurrenceUrl = "http://localhost:3000/api/task-series/s1/occurrences/2026-10-03";
+
+    beforeEach(() => {
+      // Shaped like a server occurrence: explicit seriesId/occurrenceDate, null (not
+      // undefined) for empty reminder/time fields.
+      mockTasks = [
+        {
+          id: "s1_2026-10-03",
+          seriesId: "s1",
+          occurrenceDate: "2026-10-03",
+          title: "Study",
+          description: "",
+          subject: "Math",
+          status: "To Do",
+          dueDate: "2026-10-03",
+          time: null,
+          checklist: [],
+          reminderDate: null,
+          reminderTime: null,
+          virtual: true,
+        },
+      ];
+    });
+
+    it("toggles status through the occurrence endpoint", async () => {
+      httpClient.mockResolvedValue({});
+
+      render(<TasksPage />);
+      await userEvent.click(screen.getByRole("button", { name: "toggle" }));
+
+      await waitFor(() => expect(httpClient).toHaveBeenCalled());
+
+      const [url, options] = httpClient.mock.calls[0];
+      expect(url).toBe(occurrenceUrl);
+      expect(options.method).toBe("PATCH");
+      expect(JSON.parse(options.body)).toEqual({
+        status: "Completed",
+        reminderDate: null,
+        reminderTime: null,
+      });
+    });
+
+    it("sends only the changed field when editing", async () => {
+      httpClient.mockResolvedValue({ title: "Study hard" });
+
+      render(<TasksPage />);
+      await userEvent.click(screen.getByRole("button", { name: "edit" }));
+      await userEvent.type(screen.getByLabelText("title"), " hard");
+      await userEvent.click(screen.getByRole("button", { name: /save/i }));
+
+      await waitFor(() => expect(httpClient).toHaveBeenCalled());
+
+      const [url, options] = httpClient.mock.calls[0];
+      expect(url).toBe(occurrenceUrl);
+      // No dueDate (occurrences can't move), seriesId, priority or other untouched fields.
+      expect(JSON.parse(options.body)).toEqual({ title: "Study hard" });
+    });
+
+    it("sends no request when an untouched occurrence is saved", async () => {
+      render(<TasksPage />);
+      await userEvent.click(screen.getByRole("button", { name: "edit" }));
+      await userEvent.click(screen.getByRole("button", { name: /save/i }));
+
+      expect(httpClient).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByTestId("task-form")).not.toBeInTheDocument());
+    });
+
+    it("keeps the task's id when the response does not include one", async () => {
+      // The materialized occurrence doc has no id field of its own.
+      httpClient.mockResolvedValue({
+        seriesId: "s1",
+        occurrenceDate: "2026-10-03",
+        title: "Study hard",
+        virtual: false,
+      });
+
+      render(<TasksPage />);
+      await userEvent.click(screen.getByRole("button", { name: "edit" }));
+      await userEvent.type(screen.getByLabelText("title"), " hard");
+      await userEvent.click(screen.getByRole("button", { name: /save/i }));
+
+      expect(await screen.findByText("Study hard")).toBeInTheDocument();
+      expect(screen.getByTestId("task-s1_2026-10-03")).toBeInTheDocument();
     });
   });
 });
