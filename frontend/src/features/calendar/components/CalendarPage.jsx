@@ -202,6 +202,9 @@ function CalendarPage() {
     setTitleError(null);
     setSaveError(null);
 
+    const formattedDueDate =
+      draft.dueDate instanceof Date ? format(draft.dueDate, "yyyy-MM-dd") : draft.dueDate;
+
     try {
       if (formMode === "create") {
         const createRequest = buildCreateTaskRequest(draft);
@@ -213,8 +216,11 @@ function CalendarPage() {
 
         setCalendarTasks(current => [...current, savedTask]);
         setRefreshKey(current => current + 1);
+
         if (setGlobalTasks) {
-          setGlobalTasks(current => [...current, savedTask]);
+          setGlobalTasks(current =>
+            Array.isArray(current) ? [...current, savedTask] : [savedTask],
+          );
         }
       } else {
         const original = calendarTasks.find(task => task.id === editingTaskId) ?? {
@@ -225,11 +231,17 @@ function CalendarPage() {
         await saveEdit(original, { ...draft, title: draft.title.trim() });
 
         if (setGlobalTasks) {
-          setGlobalTasks(current =>
-            current.map(task =>
-              task.id === editingTaskId ? { ...task, ...draft, title: draft.title.trim() } : task,
-            ),
-          );
+          setGlobalTasks(current => {
+            if (!Array.isArray(current)) {
+              return current;
+            }
+
+            return current.map(task =>
+              task.id === editingTaskId
+                ? { ...task, ...draft, title: draft.title.trim(), dueDate: formattedDueDate }
+                : task,
+            );
+          });
         }
       }
 
