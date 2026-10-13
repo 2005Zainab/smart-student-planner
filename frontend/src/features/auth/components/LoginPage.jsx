@@ -10,7 +10,7 @@ import { getAuthErrorMessage } from "../utils/get-auth-error-message";
 
 import { sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth";
 import { auth } from "../../../shared/auth";
-import { httpClient, httpError } from "../../../shared/http-client";
+import { httpError } from "../../../shared/http-client";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -56,18 +56,6 @@ function LoginPage() {
     setLinkError("");
 
     try {
-      const status = await httpClient("http://localhost:3000/api/auth/check-method", {
-        method: "POST",
-        body: JSON.stringify({ email }),
-      });
-
-      if (status.passwordLessOnly) {
-        setLinkError(
-          "Password sign-in is disabled for this account. Please click 'Send me password-less sign-in link' below.",
-        );
-        return;
-      }
-
       await login({ email, password });
       navigate("/dashboard");
     } catch (err) {
