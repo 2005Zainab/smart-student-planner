@@ -71,9 +71,8 @@ function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" tooltip="Smart Student Planner">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
-                S
-              </span>
+              {/* Smart Student Planner logo */}
+              <img src="/favicon.svg" alt="Smart Student Planner" className="size-8 rounded-md" />
 
               <span className="truncate font-semibold">Smart Student Planner</span>
             </SidebarMenuButton>
