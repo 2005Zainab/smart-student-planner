@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EmailAuthProvider, reauthenticateWithCredential, updateProfile } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -9,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/shared/auth-provider";
+import { getSettings, saveEmailReminders } from "../api/settings-api";
 
 function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -18,6 +20,16 @@ function SettingsPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [emailReminders, setEmailReminders] = useState(false);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
+  // Load the saved email reminders setting
+  useEffect(() => {
+    getSettings()
+      .then(settings => setEmailReminders(settings.emailReminders === true))
+      .catch(err => console.log(err))
+      .finally(() => setIsLoadingSettings(false));
+  }, []);
 
   const changeUsername = async event => {
     event.preventDefault();
@@ -72,6 +84,25 @@ function SettingsPage() {
     }
   };
 
+  // Save the email reminders setting as soon as the checkbox is clicked
+  const changeEmailReminders = async checked => {
+    setEmailReminders(checked);
+
+    try {
+      await saveEmailReminders(checked);
+    } catch (err) {
+      console.log(err);
+
+      // Put the checkbox back if saving failed
+      setEmailReminders(!checked);
+
+      toast.add({
+        title: "Could not save your notification setting",
+        type: "error",
+      });
+    }
+  };
+
   return (
     <main className="flex-1 space-y-6 p-4 md:p-6">
       <div>
@@ -100,6 +131,25 @@ function SettingsPage() {
         >
           Change username
         </Button>
+      </div>
+
+      <div className="rounded-xl border bg-card p-6">
+        <h3 className="text-lg font-semibold">Notifications</h3>
+
+        <div className="mt-4 flex items-center gap-3">
+          <Checkbox
+            id="email-reminders"
+            checked={emailReminders}
+            disabled={isLoadingSettings}
+            onCheckedChange={changeEmailReminders}
+          />
+
+          <Label htmlFor="email-reminders">Email me my reminders</Label>
+        </div>
+
+        <p className="mt-2 text-sm text-muted-foreground">
+          Reminders will be sent to {user?.email}.
+        </p>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
