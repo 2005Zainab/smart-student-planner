@@ -10,6 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 
 import {
@@ -83,6 +84,9 @@ function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
+          <div className="hidden md:flex">
+            <SidebarTrigger />
+          </div>
           <SidebarMenu>
             {navigation.map(({ label, href, icon: Icon }) => (
               <SidebarMenuItem key={href}>
