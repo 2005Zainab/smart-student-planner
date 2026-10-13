@@ -21,7 +21,7 @@ import { httpClient } from "../../../shared/http-client";
 import { buildCreateTaskRequest } from "../../tasks/utils/build-create-task-request";
 import { useTaskUpdates } from "../../tasks/hooks/useTaskUpdates";
 import { getCalendarTasks } from "../api/get-calendar-tasks";
-import { useTaskContext } from "../../tasks/context/TasksContext";
+import { useTasksContext } from "../../tasks/context/TasksContext";
 
 function isTaskOverdue(task) {
   if (!task.dueDate || task.status === "Completed") {
@@ -73,7 +73,7 @@ function getPriority(priority) {
 }
 
 function CalendarPage() {
-  const { setTasks: setGlobalTasks } = useTaskContext();
+  const { setTasks: setGlobalTasks } = useTasksContext();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [calendarTasks, setCalendarTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
