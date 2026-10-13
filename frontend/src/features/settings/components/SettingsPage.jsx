@@ -103,7 +103,7 @@ function SettingsPage() {
     }
   };
 
-  const handelVerifyEmail = async () => {
+  const handleVerifyEmail = async () => {
     setIsVerifying(true);
     try {
       await sendEmailVerification(user);
@@ -118,15 +118,20 @@ function SettingsPage() {
         type: "error",
       });
     } finally {
-      setIsVerifying(true);
+      setIsVerifying(false);
     }
   };
 
   const checkVerificationStatus = async () => {
     setIsVerifying(true);
-    await user.reload();
-    refreshUser();
-    setIsVerifying(false);
+    try {
+      await user.reload();
+      refreshUser();
+    } catch (err) {
+      console.error("Failed to reload user", err);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const togglePasswordLess = async checked => {
@@ -200,7 +205,7 @@ function SettingsPage() {
               {isVerifying ? "Checking..." : "I've verified my email"}
             </Button>
           ) : (
-            <Button variant="secondary" onClick={handelVerifyEmail} disabled={isVerifying}>
+            <Button variant="secondary" onClick={handleVerifyEmail} disabled={isVerifying}>
               {isVerifying ? "Sending..." : "Verify Email to Enable"}
             </Button>
           )}
