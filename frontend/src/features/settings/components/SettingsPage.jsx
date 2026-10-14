@@ -49,7 +49,7 @@ function SettingsPage() {
       if (!user) return;
 
       try {
-        const data = await httpClient("http://localhost:3000/api/users/settings", {
+        const data = await httpClient("http://localhost:3000/api/settings", {
           method: "GET",
         });
         setIsPasswordLessEnabled(data.passwordLessEnabled || false);
@@ -149,7 +149,7 @@ function SettingsPage() {
   const togglePasswordLess = async checked => {
     setIsPasswordLessEnabled(checked);
     try {
-      await httpClient("http://localhost:3000/api/users/settings", {
+      await httpClient("http://localhost:3000/api/settings", {
         method: "PATCH",
         body: JSON.stringify({ passwordLessEnabled: checked }),
       });
