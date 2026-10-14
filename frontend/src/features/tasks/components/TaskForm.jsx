@@ -132,7 +132,8 @@ function TaskForm({
   const isOccurrenceDraft = Boolean(draft.seriesId);
 
   return (
-    <form className="space-y-4" onSubmit={handleSave}>
+        <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={handleSave}>
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1">
       {/* Task name */}
       <div className="space-y-2">
         <Label htmlFor="task-title">Task name</Label>
@@ -548,6 +549,7 @@ function TaskForm({
             )}
           </div>
         )}
+      </div>
       </div>
 
       {saveError && <p className="text-sm text-destructive">{saveError}</p>}
