@@ -7,7 +7,6 @@ import {
 } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -173,6 +172,11 @@ function SettingsPage() {
 
     try {
       await saveEmailReminders(checked);
+
+      toast.add({
+        title: `Email reminders: ${checked ? "enabled" : "disabled"}`,
+        type: "success",
+      });
     } catch (err) {
       console.log(err);
 
