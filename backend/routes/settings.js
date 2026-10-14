@@ -94,14 +94,14 @@ router.post("/check-method", authLimiter, async (req, res) => {
     const userRecord = await getAuth().getUserByEmail(email);
 
     // 2. Fetch their settings from Firestore
-    const userDoc = await db
+    const settingsSnap = await db
       .collection("users")
       .doc(userRecord.uid)
       .collection("settings")
       .doc("preferences")
       .get();
 
-    if (userDoc.exists && userDoc.data().passwordLessEnabled === true) {
+    if (settingsSnap.exists && settingsSnap.data().passwordLessEnabled === true) {
       return res.status(200).json({ passwordLessOnly: true });
     }
 
