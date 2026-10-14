@@ -362,7 +362,7 @@ function TasksPage() {
       </Card>
 
       <Dialog open={editorOpen} onOpenChange={open => (open ? setEditorOpen(true) : closeEditor())}>
-        <DialogContent>
+        <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-2xl">
           <DialogTitle>
             {formMode === "view" ? "View task" : formMode === "create" ? "Add task" : "Edit task"}
           </DialogTitle>
