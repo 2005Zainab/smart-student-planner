@@ -18,6 +18,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { RecurrenceFields } from "./RecurrenceFields";
 import { isAfter, startOfDay, startOfToday } from "date-fns";
 
+// TaskForm component is used for creating and editing tasks. 
+// It includes fields for task name, subject, description, priority, 
+// status, due date, time, reminder date and time, recurrence settings, and a checklist.
 function TaskForm({
   draft,
   setDraft,
@@ -35,6 +38,8 @@ function TaskForm({
   const [reminderError, setReminderError] = useState("");
   const [checklistItemInput, setChecklistItemInput] = useState("");
   const [checklistError, setChecklistError] = useState("");
+  // Checklist only shows in view task if the task already has items
+  const [checklistToggle, setChecklistToggle] = useState(null);
 
   const reminderDaysAway = draft.reminderDate
     ? differenceInCalendarDays(
@@ -46,6 +51,7 @@ function TaskForm({
   const checklist = draft.checklist || [];
   const completedItems = checklist.filter(item => item.completed).length;
   const progress = checklist.length > 0 ? Math.round((completedItems / checklist.length) * 100) : 0;
+  const showChecklist = checklistToggle ?? (readOnly && checklist.length > 0);
 
   const checklistHandleAddItem = () => {
     if (checklist.length >= 10) {
@@ -452,17 +458,27 @@ function TaskForm({
         </div>
       )}
 
-      {/* Checklist */}
-      <div className="space-y-2">
-        {/* Header with a counter */}
-        <div className="flex items-center justify-between">
-          <Label>Checklist</Label>
+        {/* Checklist */}
+      <div className="space-y-2 rounded-md border p-4">
+        {/* Header: tick to show or hide the checklist, the counter stays visible */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={showChecklist}
+              id="task-checklist"
+              onCheckedChange={checked => setChecklistToggle(Boolean(checked))}
+            />
+            <Label htmlFor="task-checklist">Checklist</Label>
+          </div>
           {checklist.length > 0 && (
             <span className="text-xs text-muted-foreground">
               {completedItems} of {checklist.length} completed
             </span>
           )}
         </div>
+        {showChecklist && (
+          <>
+        
         {/* Progress bar */}
         {checklist.length > 0 && (
           <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
@@ -549,6 +565,8 @@ function TaskForm({
               </p>
             )}
           </div>
+        )}
+          </>
         )}
       </div>
       </div>
