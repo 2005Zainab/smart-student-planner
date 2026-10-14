@@ -246,7 +246,7 @@ router.post("/", requireAuth, async (req, res) => {
       dueDate: clean.dueDate,
       status: "To Do",
       priority: getPriorityFromDueDate(clean.dueDate, today),
-      series: { enabled: true },
+      series: { enabled: true, ruleValid: ruleValidation.clean, endDate },
     };
 
     return res.status(201).json({

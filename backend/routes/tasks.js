@@ -36,6 +36,16 @@ function isDateInRange(dateStr, fromStr, toStr) {
   return dateStr >= fromStr && dateStr <= toStr;
 }
 
+function getSeriesSummary(series) {
+  const openSegment =
+    series.segments.find(segment => segment.until === null) ?? series.segments.at(-1);
+  return {
+    enabled: series.enabled !== false,
+    rule: openSegment.rule,
+    endDate: series.endDate ?? null,
+  };
+}
+
 function getVirtualOccurrence(series, date, today) {
   const isFuture = date >= today;
   const reminderOffsetDays = series.template.reminderOffsetDays;
@@ -56,7 +66,7 @@ function getVirtualOccurrence(series, date, today) {
         : null,
     reminderTime: isFuture ? (series.template.reminderTime ?? null) : null,
     priority: getPriorityFromDueDate(date, today),
-    series: { enabled: series.enabled !== false },
+    series: getSeriesSummary(series),
   };
 }
 
@@ -66,7 +76,7 @@ function getMaterializedOccurrence(doc, series, today) {
     ...doc.data,
     virtual: false,
     priority: getPriorityFromDueDate(doc.data.dueDate ?? doc.data.occurrenceDate, today),
-    series: { enabled: series.enabled !== false },
+    series: getSeriesSummary(series),
   };
 }
 
