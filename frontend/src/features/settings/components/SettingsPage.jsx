@@ -15,8 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/shared/auth-provider";
-import { httpClient } from "@/shared/http-client";
-import { getSettings, saveEmailReminders } from "../api/settings-api";
+import { getSettings, saveEmailReminders, savePasswordLessEnabled } from "../api/settings-api";
 
 function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -29,33 +28,24 @@ function SettingsPage() {
   const [emailReminders, setEmailReminders] = useState(false);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
-  // Load the saved email reminders setting
-  useEffect(() => {
-    getSettings()
-      .then(settings => setEmailReminders(settings.emailReminders === true))
-      .catch(err => console.log(err))
-      .finally(() => setIsLoadingSettings(false));
-  }, []);
-
   const [isPasswordLessEnabled, setIsPasswordLessEnabled] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [settingsLoading, setSettingsLoading] = useState(true);
 
   const [emailSent, setEmailSent] = useState(false);
 
+  // load the user's settings.
   useEffect(() => {
     async function fetchSettings() {
       if (!user) return;
 
       try {
-        const data = await httpClient("http://localhost:3000/api/settings", {
-          method: "GET",
-        });
-        setIsPasswordLessEnabled(data.passwordLessEnabled || false);
+        const data = await getSettings();
+        setEmailReminders(data.emailReminders === true);
+        setIsPasswordLessEnabled(data.passwordLessEnabled === true);
       } catch (err) {
         console.error("Failed to fetch user settings", err);
       } finally {
-        setSettingsLoading(false);
+        setIsLoadingSettings(false);
       }
     }
     fetchSettings();
@@ -148,10 +138,7 @@ function SettingsPage() {
   const togglePasswordLess = async checked => {
     setIsPasswordLessEnabled(checked);
     try {
-      await httpClient("http://localhost:3000/api/settings", {
-        method: "PATCH",
-        body: JSON.stringify({ passwordLessEnabled: checked }),
-      });
+      await savePasswordLessEnabled(checked);
 
       toast.add({
         title: `Password-less sign-in: ${checked ? "enabled" : "disabled"}`,
@@ -231,7 +218,7 @@ function SettingsPage() {
             </p>
           </div>
 
-          {settingsLoading ? (
+          {isLoadingSettings ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
           ) : user?.emailVerified ? (
             <Switch checked={isPasswordLessEnabled} onCheckedChange={togglePasswordLess} />
