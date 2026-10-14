@@ -7,6 +7,7 @@ import {
 } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -16,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/shared/auth-provider";
 import { httpClient } from "@/shared/http-client";
+import { getSettings, saveEmailReminders } from "../api/settings-api";
 
 function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -25,6 +27,16 @@ function SettingsPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [emailReminders, setEmailReminders] = useState(false);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
+  // Load the saved email reminders setting
+  useEffect(() => {
+    getSettings()
+      .then(settings => setEmailReminders(settings.emailReminders === true))
+      .catch(err => console.log(err))
+      .finally(() => setIsLoadingSettings(false));
+  }, []);
 
   const [isPasswordLessEnabled, setIsPasswordLessEnabled] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -144,12 +156,31 @@ function SettingsPage() {
 
       toast.add({
         title: `Password-less sign-in: ${checked ? "enabled" : "disabled"}`,
-        type: "",
+        type: "success",
       });
     } catch {
       setIsPasswordLessEnabled(!checked);
       toast.add({
         title: "Failed to update preference",
+        type: "error",
+      });
+    }
+  };
+
+  // Save the email reminders setting as soon as the checkbox is clicked
+  const changeEmailReminders = async checked => {
+    setEmailReminders(checked);
+
+    try {
+      await saveEmailReminders(checked);
+    } catch (err) {
+      console.log(err);
+
+      // Put the checkbox back if saving failed
+      setEmailReminders(!checked);
+
+      toast.add({
+        title: "Could not save your notification setting",
         type: "error",
       });
     }
@@ -210,6 +241,22 @@ function SettingsPage() {
             </Button>
           )}
         </div>
+        <h3 className="text-lg font-semibold">Notifications</h3>
+
+        <div className="mt-4 flex items-center gap-3">
+          <Checkbox
+            id="email-reminders"
+            checked={emailReminders}
+            disabled={isLoadingSettings}
+            onCheckedChange={changeEmailReminders}
+          />
+
+          <Label htmlFor="email-reminders">Email me my reminders</Label>
+        </div>
+
+        <p className="mt-2 text-sm text-muted-foreground">
+          Reminders will be sent to {user?.email}.
+        </p>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>

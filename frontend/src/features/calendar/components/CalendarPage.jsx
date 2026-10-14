@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   addMonths,
   subMonths,
@@ -11,17 +11,35 @@ import {
   parseISO,
   isSameMonth,
   isToday,
+  isBefore,
 } from "date-fns";
-
 import { Plus } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-
-//import { useTasks } from '../../tasks/hooks/useTasks';
-import { useTasksContext } from "../../tasks/context/TasksContext";
 import { TaskForm } from "../../tasks/components/TaskForm";
 import { httpClient } from "../../../shared/http-client";
+import { buildCreateTaskRequest } from "../../tasks/utils/build-create-task-request";
+import { useTaskUpdates } from "../../tasks/hooks/useTaskUpdates";
+import { getCalendarTasks } from "../api/get-calendar-tasks";
+import { useTasksContext } from "../../tasks/context/TasksContext";
+
+function isTaskOverdue(task) {
+  if (!task.dueDate || task.status === "Completed") {
+    return false;
+  }
+
+  const now = new Date();
+  let taskDate = typeof task.dueDate === "string" ? parseISO(task.dueDate) : new Date(task.dueDate);
+
+  if (task.time) {
+    const [hours, minutes] = task.time.split(":").map(Number);
+    taskDate.setHours(hours, minutes, 0, 0);
+  } else {
+    taskDate.setHours(23, 59, 59, 999);
+  }
+
+  return isBefore(taskDate, now);
+}
 
 //Change task time from 24 hour to 12 hour format
 function formatTaskTime(time) {
@@ -37,15 +55,33 @@ function formatTaskTime(time) {
   return format(date, "h:mm a");
 }
 
-function CalendarPage() {
-  //const { tasks, setTasks, isLoading, error } = useTasks();
-  const { tasks, setTasks, isLoading, error } = useTasksContext();
+function getPriority(priority) {
+  if (!priority) {
+    return "border-l-4 border-transparent";
+  }
 
+  switch (priority) {
+    case "High":
+      return "border-l-4 border-high-priority";
+    case "Medium":
+      return "border-l-4 border-medium-priority";
+    case "Low":
+      return "border-l-4 border-low-priority";
+    default:
+      return "border-l-4 border-transparent";
+  }
+}
+
+function CalendarPage() {
+  const { setTasks: setGlobalTasks } = useTasksContext();
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [calendarTasks, setCalendarTasks] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [editorOpen, setEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
   const [editingTaskId, setEditingTaskId] = useState(null);
-
   const [titleError, setTitleError] = useState(null);
   const [saveError, setSaveError] = useState(null);
 
@@ -57,23 +93,11 @@ function CalendarPage() {
     status: "To Do",
     dueDate: undefined,
     time: "",
+    recurrence: null,
   };
 
   const [draft, setDraft] = useState(emptyDraft);
-
-  //Tasks that have a date can show on calendar
-  const calendarTasks = tasks.filter(task => task.dueDate);
-
-  //Group tasks by date
-  const tasksByDate = calendarTasks.reduce((groupedTasks, task) => {
-    if (!groupedTasks[task.dueDate]) {
-      groupedTasks[task.dueDate] = [];
-    }
-
-    groupedTasks[task.dueDate].push(task);
-
-    return groupedTasks;
-  }, {});
+  const { saveEdit } = useTaskUpdates(setCalendarTasks);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -90,6 +114,39 @@ function CalendarPage() {
     start: calendarStart,
     end: calendarEnd,
   });
+  const rangeFrom = format(calendarStart, "yyyy-MM-dd");
+  const rangeTo = format(calendarEnd, "yyyy-MM-dd");
+
+  useEffect(() => {
+    let active = true;
+
+    async function fetchCalendarTasks() {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const tasks = await getCalendarTasks(rangeFrom, rangeTo);
+        if (active) setCalendarTasks(tasks);
+      } catch (loadError) {
+        if (active) setError(loadError);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    }
+
+    fetchCalendarTasks();
+    return () => {
+      active = false;
+    };
+  }, [rangeFrom, rangeTo, refreshKey]);
+
+  //Group the bounded calendar response by date.
+  const tasksByDate = calendarTasks.reduce((groupedTasks, task) => {
+    if (!task.dueDate) return groupedTasks;
+    if (!groupedTasks[task.dueDate]) groupedTasks[task.dueDate] = [];
+    groupedTasks[task.dueDate].push(task);
+    return groupedTasks;
+  }, {});
 
   //Open form for a new task
   const openAddForm = (date = undefined) => {
@@ -124,11 +181,9 @@ function CalendarPage() {
 
   const closeEditor = () => {
     setEditorOpen(false);
-    setFormMode("create");
     setEditingTaskId(null);
     setTitleError(null);
     setSaveError(null);
-    setDraft(emptyDraft);
   };
 
   //Save new task or edited task
@@ -147,43 +202,47 @@ function CalendarPage() {
     setTitleError(null);
     setSaveError(null);
 
-    const taskToSave = {
-      title: draft.title.trim(),
-      description: draft.description || "",
-      subject: draft.subject || "",
-      priority: draft.priority || "Medium",
-      status: draft.status || "To Do",
-
-      dueDate: draft.dueDate instanceof Date ? format(draft.dueDate, "yyyy-MM-dd") : draft.dueDate,
-
-      //Send time to backend
-      time: draft.time || null,
-    };
+    const formattedDueDate =
+      draft.dueDate instanceof Date ? format(draft.dueDate, "yyyy-MM-dd") : draft.dueDate;
 
     try {
       if (formMode === "create") {
-        const savedTask = await httpClient("http://localhost:3000/api/tasks", {
+        const createRequest = buildCreateTaskRequest(draft);
+        const savedResponse = await httpClient(createRequest.url, {
           method: "POST",
-          body: JSON.stringify(taskToSave),
+          body: JSON.stringify(createRequest.body),
         });
+        const savedTask = createRequest.recurring ? savedResponse.firstOccurrence : savedResponse;
 
-        setTasks(current => [...current, savedTask]);
+        setCalendarTasks(current => [...current, savedTask]);
+        setRefreshKey(current => current + 1);
+
+        if (setGlobalTasks) {
+          setGlobalTasks(current =>
+            Array.isArray(current) ? [...current, savedTask] : [savedTask],
+          );
+        }
       } else {
-        await httpClient(`http://localhost:3000/api/tasks/${editingTaskId}`, {
-          method: "PATCH",
-          body: JSON.stringify(taskToSave),
-        });
+        const original = calendarTasks.find(task => task.id === editingTaskId) ?? {
+          id: editingTaskId,
+        };
 
-        setTasks(current =>
-          current.map(task =>
-            task.id === editingTaskId
-              ? {
-                  ...task,
-                  ...taskToSave,
-                }
-              : task,
-          ),
-        );
+        //Sends only the changed fields to the one-off task or recurring occurrence endpoint
+        await saveEdit(original, { ...draft, title: draft.title.trim() });
+
+        if (setGlobalTasks) {
+          setGlobalTasks(current => {
+            if (!Array.isArray(current)) {
+              return current;
+            }
+
+            return current.map(task =>
+              task.id === editingTaskId
+                ? { ...task, ...draft, title: draft.title.trim(), dueDate: formattedDueDate }
+                : task,
+            );
+          });
+        }
       }
 
       closeEditor();
@@ -285,36 +344,48 @@ function CalendarPage() {
                 </div>
 
                 <div className="space-y-1">
-                  {dayTasks.map(task => (
-                    <button
-                      key={task.id}
-                      type="button"
-                      onDoubleClick={event => {
-                        event.stopPropagation();
-                        openEditForm(task);
-                      }}
-                      className={`flex w-full items-center rounded-md bg-secondary px-2 py-1.5 text-left text-xs hover:bg-secondary/80 ${
-                        task.status === "Completed" ? "opacity-60" : ""
-                      }`}
-                    >
-                      {task.time && (
-                        <span className="shrink-0 mr-1 text-muted-foreground">
-                          {formatTaskTime(task.time)}
-                        </span>
-                      )}
-
-                      <span
-                        className={`truncate ${
+                  {dayTasks.map(task => {
+                    const isOverdue = isTaskOverdue(task);
+                    const priorityBorder = getPriority(task.priority);
+                    return (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onDoubleClick={event => {
+                          event.stopPropagation();
+                          openEditForm(task);
+                        }}
+                        className={`flex w-full items-center rounded-md  px-2 py-1.5 text-left text-xs ${priorityBorder} ${
                           task.status === "Completed"
-                            ? "line-through text-muted-foreground"
-                            : "font-medium text-secondary-foreground"
+                            ? "bg-secondary opacity-60 hover:bg-secondary/80"
+                            : isOverdue
+                              ? "bg-destructive text-destructive-foreground hover:bg-destructive/80"
+                              : "bg-secondary hover:bg-secondary/80"
                         }`}
-                        title={task.title}
                       >
-                        {task.title}
-                      </span>
-                    </button>
-                  ))}
+                        {task.time && (
+                          <span
+                            className={`shrink-0 mr-1 ${isOverdue ? "text-destructive-foreground/85" : "text-muted-foreground"}`}
+                          >
+                            {formatTaskTime(task.time)}
+                          </span>
+                        )}
+
+                        <span
+                          className={`truncate ${
+                            task.status === "Completed"
+                              ? "line-through text-muted-foreground"
+                              : isOverdue
+                                ? "font-semibold text-destructive-foreground"
+                                : "font-medium text-secondary-foreground"
+                          }`}
+                          title={task.title}
+                        >
+                          {task.title}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -348,6 +419,7 @@ function CalendarPage() {
             onCancel={closeEditor}
             titleError={titleError}
             saveError={saveError}
+            allowRecurrence={formMode === "create"}
           />
         </DialogContent>
       </Dialog>
