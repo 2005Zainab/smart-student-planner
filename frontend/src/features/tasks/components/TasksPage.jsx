@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { format, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,13 +29,13 @@ import { useTasksContext } from "../context/TasksContext";
 import { httpClient } from "../../../shared/http-client";
 import { buildCreateTaskRequest } from "../utils/build-create-task-request";
 import { useTaskUpdates } from "../hooks/useTaskUpdates";
-import { isOccurrence } from "../utils/task-endpoints";
+import { getOccurrenceChanges, getSeriesUrl, isOccurrence } from "../utils/task-endpoints";
+import { createTempId } from "../utils/temp-id";
 
 function TasksPage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
   const { patchTask, saveEdit, setSeriesEnabled } = useTaskUpdates(setTasks);
-
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -45,6 +45,7 @@ function TasksPage() {
   const [saveError, setSaveError] = useState(null);
   const [previousStatusLookup, setPreviousStatusLookup] = useState({});
   const seriesChangedRef = useRef(false);
+  const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
 
   const [draft, setDraft] = useState({
     title: "",
@@ -67,7 +68,7 @@ function TasksPage() {
 
     if (mode === "create") {
       const newTask = {
-        id: `temp-${Date.now()}`,
+        id: createTempId(), // Use the createTempId function to generate a temporary ID. Lint errors occurred when using Date.now()
         title: "",
         description: "",
         subject: "",
@@ -96,8 +97,17 @@ function TasksPage() {
                 typeof task.reminderDate === "string"
                   ? parseISO(task.reminderDate)
                   : task.reminderDate,
-              recurrence: null,
+              recurrence: task.recurrence ?? null,
               repeatEnabled: task.series?.enabled,
+              ...(task.series?.rule
+                ? {
+                    seriesPattern: {
+                      rule: task.series.rule,
+                      endDate: task.series.endDate ? parseISO(task.series.endDate) : null,
+                      defaultWeekday: isoWeekday(parseISO(task.occurrenceDate)),
+                    },
+                  }
+                : {}),
             }
           : {
               title: "",
@@ -140,8 +150,83 @@ function TasksPage() {
     }
   };
 
+  const OCCURRENCE_CONTENT_FIELDS = new Set([
+    "title",
+    "description",
+    "subject",
+    "time",
+    "checklist",
+    "reminderDate",
+    "reminderTime",
+  ]);
+
+  const toDateString = value =>
+    value ? (value instanceof Date ? format(value, "yyyy-MM-dd") : value) : null;
+
+  function getOccurrenceDraftChanges(draft, original) {
+    return getOccurrenceChanges(
+      {
+        ...draft,
+        reminderDate: toDateString(draft.reminderDate),
+        time: draft.time || null,
+        reminderTime: draft.reminderTime || null,
+        checklist: draft.checklist || [],
+      },
+      original,
+    );
+  }
+
+  function getTemplateChanges(changes, draft, original) {
+    const templateChanges = {};
+
+    for (const field of ["title", "description", "subject", "time", "checklist"]) {
+      if (Object.hasOwn(changes, field)) {
+        templateChanges[field] = field === "time" ? changes[field] || null : changes[field];
+      }
+    }
+
+    // The series API requires both reminder fields whenever either is changed.
+    if (Object.hasOwn(changes, "reminderDate") || Object.hasOwn(changes, "reminderTime")) {
+      const reminderDate = toDateString(draft.reminderDate);
+      const occurrenceDate = original.occurrenceDate;
+
+      templateChanges.reminderOffsetDays = reminderDate
+        ? differenceInCalendarDays(parseISO(occurrenceDate), parseISO(reminderDate))
+        : null;
+
+      templateChanges.reminderTime = reminderDate ? draft.reminderTime || null : null;
+    }
+
+    return templateChanges;
+  }
+
+  const isoWeekday = date => (date.getDay() === 0 ? 7 : date.getDay());
+
+  // Order-insensitive, mirroring the server, so [3, 1] vs a stored [1, 3] isn't a change.
+  const canonicalRule = rule =>
+    JSON.stringify(
+      Object.keys(rule)
+        .sort()
+        .map(key => [key, key === "weekdays" ? [...rule[key]].sort((a, b) => a - b) : rule[key]]),
+    );
+
+  // Pattern is only editable while Repeat is ticked, so edits made before unticking are ignored.
+  function getPatternChanges(draft, original) {
+    const pattern = draft.seriesPattern;
+    const stored = original.series;
+    if (draft.repeatEnabled !== true || !pattern || !stored?.rule) return {};
+
+    const changes = {};
+    if (canonicalRule(pattern.rule) !== canonicalRule(stored.rule)) changes.rule = pattern.rule;
+
+    const endDate = toDateString(pattern.endDate);
+    if (endDate !== (stored.endDate ?? null)) changes.endDate = endDate;
+
+    return changes;
+  }
+
   //Save a new task or edit an existing task
-  const saveTask = async () => {
+  const saveTask = async (scope = null) => {
     //Check title is not empty
     if (!draft.title || draft.title.trim() === "") {
       setEmptyTitleCheck("Title Cannot Be Empty");
@@ -180,11 +265,94 @@ function TasksPage() {
         return;
       }
     } else {
-      const original = tasks.find(task => task.id === editingTaskId) ?? { id: editingTaskId };
+      const original = tasks.find(task => task.id === editingTaskId) ?? {
+        id: editingTaskId,
+      };
+
+      if (isOccurrence(original) && scope === null) {
+        const changes = getOccurrenceDraftChanges(draft, original);
+        const changedFields = Object.keys(changes);
+
+        const contentOnly =
+          changedFields.length > 0 &&
+          changedFields.every(field => OCCURRENCE_CONTENT_FIELDS.has(field));
+
+        const recurrenceToggleChanged =
+          typeof draft.repeatEnabled === "boolean" &&
+          draft.repeatEnabled !== original.series?.enabled;
+
+        if (contentOnly && !recurrenceToggleChanged) {
+          setScopeDialogOpen(true);
+          return;
+        }
+      }
+
+      const savedParts = [];
 
       try {
-        //Sends only the changed fields to the one-off task or recurring occurrence endpoint
-        const didSave = await saveEdit(original, draft);
+        // 1. Content: this occurrence only, or the series template ("future")
+        let didSave = false;
+
+        if (isOccurrence(original) && scope === "future") {
+          const changes = getOccurrenceDraftChanges(draft, original);
+          const templateChanges = getTemplateChanges(changes, draft, original);
+
+          if (Object.keys(templateChanges).length > 0) {
+            await httpClient(getSeriesUrl(original.seriesId), {
+              method: "PATCH",
+              body: JSON.stringify(templateChanges),
+            });
+
+            seriesChangedRef.current = true;
+            didSave = true;
+          }
+        } else {
+          didSave = await saveEdit(original, draft);
+        }
+        if (didSave) savedParts.push("content changes");
+
+        // 2. Repeat pattern (rule / end date), effective today
+        let patternSaved = false;
+
+        if (isOccurrence(original)) {
+          const patternChanges = getPatternChanges(draft, original);
+
+          if (Object.keys(patternChanges).length > 0) {
+            const savedSeries = await httpClient(getSeriesUrl(original.seriesId), {
+              method: "PATCH",
+              body: JSON.stringify(patternChanges),
+            });
+
+            seriesChangedRef.current = true;
+            patternSaved = true;
+            savedParts.push("repeat pattern");
+
+            // Keep local series info current so a retry after a later failure diffs correctly
+            const openRule = savedSeries?.segments?.find(segment => segment.until === null)?.rule;
+            setTasks(current =>
+              current.map(task =>
+                task.seriesId === original.seriesId
+                  ? {
+                      ...task,
+                      series: {
+                        ...task.series,
+                        rule: openRule ?? task.series?.rule,
+                        endDate: savedSeries?.endDate ?? null,
+                      },
+                    }
+                  : task,
+              ),
+            );
+
+            toast.add({
+              title: "Repeat pattern updated",
+              description: "Applies from today",
+              type: "success",
+            });
+          }
+        }
+
+        // 3. Pause / resume (unchanged)
         let toggled = false;
 
         if (
@@ -207,14 +375,16 @@ function TasksPage() {
           });
         }
 
-        if (!didSave && !toggled) {
+        if (!didSave && !toggled && !patternSaved) {
           closeEditor();
           return;
         }
       } catch (err) {
         console.log(err);
 
-        setSaveError(err.message || "Failed to save task");
+        const savedNote =
+          savedParts.length > 0 ? ` Already saved: ${savedParts.join(" and ")}.` : "";
+        setSaveError(`${err.message || "Failed to save task"}${savedNote}`);
 
         return;
       }
@@ -425,6 +595,45 @@ function TasksPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={scopeDialogOpen} onOpenChange={open => setScopeDialogOpen(open)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apply changes to</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose whether these content changes should apply only to this occurrence or to future
+              occurrences in the series.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter className="flex-col-reverse sm:flex-col-reverse">
+            <AlertDialogCancel className="w-full">Cancel</AlertDialogCancel>
+
+            <Button
+              className="w-full"
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setScopeDialogOpen(false);
+                saveTask("occurrence");
+              }}
+            >
+              This occurrence only
+            </Button>
+
+            <AlertDialogAction
+              className="w-full"
+              onClick={event => {
+                event.preventDefault();
+                setScopeDialogOpen(false);
+                saveTask("future");
+              }}
+            >
+              Apply to future occurrences
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}>
         <AlertDialogContent>
