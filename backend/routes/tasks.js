@@ -56,15 +56,17 @@ function getVirtualOccurrence(series, date, today) {
         : null,
     reminderTime: isFuture ? (series.template.reminderTime ?? null) : null,
     priority: getPriorityFromDueDate(date, today),
+    series: { enabled: series.enabled !== false },
   };
 }
 
-function getMaterializedOccurrence(doc, today) {
+function getMaterializedOccurrence(doc, series, today) {
   return {
     id: doc.id,
     ...doc.data,
     virtual: false,
     priority: getPriorityFromDueDate(doc.data.dueDate ?? doc.data.occurrenceDate, today),
+    series: { enabled: series.enabled !== false },
   };
 }
 
@@ -300,7 +302,7 @@ router.get("/", requireAuth, async (req, res) => {
         const materializedDoc = materialized.get(`${series.id}_${date}`);
         occurrences.push(
           materializedDoc
-            ? getMaterializedOccurrence(materializedDoc, today)
+            ? getMaterializedOccurrence(materializedDoc, series, today)
             : getVirtualOccurrence(series, date, today),
         );
       }
@@ -362,7 +364,7 @@ router.get("/calendar", requireAuth, async (req, res) => {
         const materializedDoc = materialized.get(`${series.id}_${date}`);
         occurrences.push(
           materializedDoc
-            ? getMaterializedOccurrence(materializedDoc, today)
+            ? getMaterializedOccurrence(materializedDoc, series, today)
             : getVirtualOccurrence(series, date, today),
         );
       }
@@ -374,7 +376,7 @@ router.get("/calendar", requireAuth, async (req, res) => {
           !scheduledDates.has(materializedDoc.data.occurrenceDate) &&
           shouldRenderMaterialized(materializedDoc.data, series, today)
         ) {
-          occurrences.push(getMaterializedOccurrence(materializedDoc, today));
+          occurrences.push(getMaterializedOccurrence(materializedDoc, series, today));
         }
       }
     }

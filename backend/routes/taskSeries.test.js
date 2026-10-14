@@ -96,6 +96,7 @@ describe("POST /api/task-series", () => {
       status: "To Do",
       virtual: true,
       priority: "High",
+      series: { enabled: true },
     });
   });
 

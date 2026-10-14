@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { differenceInCalendarDays } from "date-fns";
+import { isOccurrence } from "../utils/task-endpoints";
 
 function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
   //Show loading layout while tasks are loading
@@ -65,8 +66,10 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
         >
           {task.title}
         </p>
-
-        <p className="mt-1 text-sm text-muted-foreground">{task.subject}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {isOccurrence(task) && <Badge variant="ghost">Recurring Task</Badge>}{" "}
+          {task.subject && ` ${task.subject}`}
+        </p>
       </div>
 
       {/* Overdue indicator */}
