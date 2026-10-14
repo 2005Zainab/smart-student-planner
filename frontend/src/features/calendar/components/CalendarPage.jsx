@@ -403,7 +403,7 @@ function CalendarPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-2xl">
           <DialogTitle>{formMode === "create" ? "Add task" : "Edit task"}</DialogTitle>
 
           <DialogDescription>
