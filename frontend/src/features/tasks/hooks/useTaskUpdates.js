@@ -1,6 +1,11 @@
 import { format } from "date-fns";
 import { httpClient } from "../../../shared/http-client";
-import { getOccurrenceChanges, getTaskUrl, isOccurrence } from "../utils/task-endpoints";
+import {
+  getOccurrenceChanges,
+  getSeriesUrl,
+  getTaskUrl,
+  isOccurrence,
+} from "../utils/task-endpoints";
 
 //Editor dates are Date objects; the API wants YYYY-MM-DD. Empty values become undefined.
 const toDateString = value =>
@@ -78,7 +83,22 @@ function useTaskUpdates(setTasks) {
     return true;
   }
 
-  return { patchTask, saveEdit };
+  async function setSeriesEnabled(seriesId, enabled) {
+    const saved = await httpClient(getSeriesUrl(seriesId), {
+      method: "PATCH",
+      body: JSON.stringify({ enabled }),
+    });
+
+    setTasks(current =>
+      current.map(task =>
+        task.seriesId === seriesId ? { ...task, series: { ...task.series, enabled } } : task,
+      ),
+    );
+
+    return saved;
+  }
+
+  return { patchTask, saveEdit, setSeriesEnabled };
 }
 
 export { useTaskUpdates };

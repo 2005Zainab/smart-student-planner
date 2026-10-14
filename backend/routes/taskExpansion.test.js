@@ -91,6 +91,7 @@ describe("recurring task expansion", () => {
       reminderDate: null,
       reminderTime: null,
       priority: "High",
+      series: { enabled: true },
     });
     expect(res.body[2]).toMatchObject({
       virtual: true,
@@ -170,6 +171,42 @@ describe("recurring task expansion", () => {
     expect(res.body.find(task => task.title === "Completed off schedule")).toBeDefined();
     expect(res.body.find(task => task.title === "Hidden pending")).toBeUndefined();
     expect(res.body.find(task => task.title === "Excepted")).toBeUndefined();
+    expect(res.body.find(task => task.title === "Custom today").series).toEqual({ enabled: true });
+  });
+
+  it.each([
+    ["enabled", true],
+    ["paused", false],
+    ["missing enabled", undefined],
+  ])("adds series.enabled to virtual and materialized occurrences when %s", async (_, enabled) => {
+    const taskDocs = [
+      {
+        id: "series-1_2026-10-02",
+        data: () => ({
+          seriesId: "series-1",
+          occurrenceDate: "2026-10-02",
+          dueDate: "2026-10-02",
+          title: "Materialized",
+          status: "In Progress",
+          userId: "test-user-1",
+        }),
+      },
+    ];
+    const series = seriesDoc(
+      "series-1",
+      enabled === undefined ? { enabled: undefined } : { enabled },
+    );
+    mockCollections({ taskDocs, seriesDocs: [series] });
+
+    const res = await request(app).get("/api/tasks");
+
+    expect(res.status).toBe(200);
+    expect(res.body.find(task => task.title === "Materialized").series).toEqual({
+      enabled: enabled ?? true,
+    });
+    expect(res.body.find(task => task.dueDate === "2026-10-01").series).toEqual({
+      enabled: enabled ?? true,
+    });
   });
 
   it("includes one-offs and scheduled or visible materialized docs in calendar ranges", async () => {
@@ -214,6 +251,57 @@ describe("recurring task expansion", () => {
       res.body.find(task => task.title === "Study" && task.dueDate === "2026-10-01"),
     ).toBeDefined();
     expect(res.body.find(task => task.title === "Edited occurrence")).toBeDefined();
+    expect(res.body.find(task => task.title === "Edited occurrence").series).toEqual({
+      enabled: true,
+    });
+    expect(
+      res.body.find(task => task.title === "Study" && task.dueDate === "2026-10-01").series,
+    ).toEqual({
+      enabled: true,
+    });
+  });
+
+  it("adds series.enabled to paused and default-enabled calendar occurrences", async () => {
+    const taskDocs = [
+      {
+        id: "series-1_2026-10-02",
+        data: () => ({
+          seriesId: "series-1",
+          occurrenceDate: "2026-10-02",
+          dueDate: "2026-10-02",
+          title: "Paused materialized",
+          status: "In Progress",
+          userId: "test-user-1",
+        }),
+      },
+    ];
+    mockCollections({
+      taskDocs,
+      seriesDocs: [
+        seriesDoc("series-1", {
+          enabled: false,
+          pauses: [{ from: "2026-10-03", until: null }],
+        }),
+      ],
+    });
+
+    const paused = await request(app).get("/api/tasks/calendar?from=2026-10-01&to=2026-10-03");
+
+    expect(paused.status).toBe(200);
+    expect(paused.body.find(task => task.title === "Paused materialized").series).toEqual({
+      enabled: false,
+    });
+    expect(paused.body.find(task => task.dueDate === "2026-10-01").series).toEqual({
+      enabled: false,
+    });
+
+    mockCollections({ taskDocs: [], seriesDocs: [seriesDoc("series-1", { enabled: undefined })] });
+    const defaultEnabled = await request(app).get(
+      "/api/tasks/calendar?from=2026-10-01&to=2026-10-01",
+    );
+
+    expect(defaultEnabled.status).toBe(200);
+    expect(defaultEnabled.body[0].series).toEqual({ enabled: true });
   });
 
   it.each([

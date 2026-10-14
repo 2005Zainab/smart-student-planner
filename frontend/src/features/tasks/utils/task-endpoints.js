@@ -26,6 +26,8 @@ export const getTaskUrl = task =>
     ? `${API_BASE}/task-series/${task.seriesId}/occurrences/${task.occurrenceDate}`
     : `${API_BASE}/tasks/${task.id}`;
 
+export const getSeriesUrl = seriesId => `${API_BASE}/task-series/${seriesId}`;
+
 const normalize = (key, value) => {
   if (key === "checklist") return value ?? [];
   if (NULLABLE_FIELDS.has(key)) return value === "" || value === undefined ? null : value;
