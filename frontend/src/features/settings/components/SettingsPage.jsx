@@ -219,7 +219,7 @@ function SettingsPage() {
       <div className="rounded-xl border bg-card p-6">
         <h3 className="text-lg font-semibold">Sign-in Preferences</h3>
 
-        <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <p className="font-medium">Password-less Sign-in</p>
             <p className="text-sm text-muted-foreground">
@@ -241,22 +241,23 @@ function SettingsPage() {
             </Button>
           )}
         </div>
+      </div>
+
+      <div className="rounded-xl border bg-card p-6">
         <h3 className="text-lg font-semibold">Notifications</h3>
 
-        <div className="mt-4 flex items-center gap-3">
-          <Checkbox
-            id="email-reminders"
-            checked={emailReminders}
-            disabled={isLoadingSettings}
-            onCheckedChange={changeEmailReminders}
-          />
+        <div className="mt-4 flex items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="font-medium">Email Reminders</p>
+            <p className="text-sm text-muted-foreground">Reminders will be sent to {user?.email}</p>
+          </div>
 
-          <Label htmlFor="email-reminders">Email me my reminders</Label>
+          {isLoadingSettings ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : (
+            <Switch checked={emailReminders} onCheckedChange={changeEmailReminders} />
+          )}
         </div>
-
-        <p className="mt-2 text-sm text-muted-foreground">
-          Reminders will be sent to {user?.email}.
-        </p>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
