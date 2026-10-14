@@ -158,6 +158,28 @@ function TaskForm({
         {titleError && <p className="text-sm text-destructive">{titleError}</p>}
       </div>
 
+      {/* Subject */}
+      <div className="space-y-2">
+        <Label htmlFor="task-subject">Subject</Label>
+
+        <Input
+          id="task-subject"
+          onChange={event =>
+            setDraft(prev => ({
+              ...prev,
+              subject: event.target.value,
+            }))
+          }
+          maxLength={200}
+          disabled={readOnly}
+          value={draft.subject || ""}
+        />
+
+        {(draft.subject?.length || 0) >= 200 && (
+          <p className="text-sm text-medium-priority">Subject cannot be more than 200 characters</p>
+        )}
+      </div>
+
       {/* Description */}
       <div className="space-y-2">
         <Label htmlFor="task-description">Description</Label>
@@ -182,28 +204,6 @@ function TaskForm({
         )}
       </div>
 
-      {/* Subject */}
-      <div className="space-y-2">
-        <Label htmlFor="task-subject">Subject</Label>
-
-        <Input
-          id="task-subject"
-          onChange={event =>
-            setDraft(prev => ({
-              ...prev,
-              subject: event.target.value,
-            }))
-          }
-          maxLength={200}
-          disabled={readOnly}
-          value={draft.subject || ""}
-        />
-
-        {(draft.subject?.length || 0) >= 200 && (
-          <p className="text-sm text-medium-priority">Subject cannot be more than 200 characters</p>
-        )}
-      </div>
-
       {/* Priority */}
       <div className="space-y-1">
         <Label>Priority</Label>
@@ -212,6 +212,34 @@ function TaskForm({
           Priority is automatically calculated from the due date.
         </p>
       </div>
+
+      {/* Status */}
+        <div className="space-y-2">
+          <Label htmlFor="task-status">Status</Label>
+
+          <Select
+            disabled={readOnly}
+            onValueChange={status =>
+              setDraft(prev => ({
+                ...prev,
+                status,
+              }))
+            }
+            value={draft.status || "To Do"}
+          >
+            <SelectTrigger aria-label="Status" className="w-full" id="task-status">
+              <SelectValue />
+            </SelectTrigger>
+
+            <SelectContent>
+              <SelectItem value="To Do">To Do</SelectItem>
+
+              <SelectItem value="In Progress">In Progress</SelectItem>
+
+              <SelectItem value="Completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {/* Due date */}
@@ -270,7 +298,7 @@ function TaskForm({
         {/* Time */}
         <div className="space-y-2">
           <Label htmlFor="task-time">
-            Time {requireDateAndTime && <span className="text-destructive">*</span>}
+            Due time {requireDateAndTime && <span className="text-destructive">*</span>}
           </Label>
 
           <Input
@@ -288,34 +316,7 @@ function TaskForm({
           />
         </div>
 
-        {/* Status */}
-        <div className="space-y-2">
-          <Label htmlFor="task-status">Status</Label>
-
-          <Select
-            disabled={readOnly}
-            onValueChange={status =>
-              setDraft(prev => ({
-                ...prev,
-                status,
-              }))
-            }
-            value={draft.status || "To Do"}
-          >
-            <SelectTrigger aria-label="Status" className="w-full" id="task-status">
-              <SelectValue />
-            </SelectTrigger>
-
-            <SelectContent>
-              <SelectItem value="To Do">To Do</SelectItem>
-
-              <SelectItem value="In Progress">In Progress</SelectItem>
-
-              <SelectItem value="Completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
+        {/* Reminder date & time */}
         {!recurrence && (
           <>
             <div className="space-y-2">
