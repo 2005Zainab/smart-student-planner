@@ -38,6 +38,7 @@ function TaskForm({
   const [reminderError, setReminderError] = useState("");
   const [checklistItemInput, setChecklistItemInput] = useState("");
   const [checklistError, setChecklistError] = useState("");
+  const [taskSaving, setTaskSaving] = useState(false);
   // Checklist only shows in view task if the task already has items
   const [checklistToggle, setChecklistToggle] = useState(null);
 
@@ -78,9 +79,14 @@ function TaskForm({
   const hidesThisOccurrence =
     pausing && draft.dueDate instanceof Date && isAfter(startOfDay(draft.dueDate), startOfToday());
 
-  const handleSave = event => {
+  const handleSave = async event => {
     event.preventDefault();
     setDateError("");
+
+    //Ignores task submit requests if the current task is being save
+    if (taskSaving) {
+      return;
+    }
 
     if ((requireDateAndTime || draft.recurrence) && !draft.dueDate) {
       setDateError("Due date is required for adding task to schedule.");
@@ -114,7 +120,13 @@ function TaskForm({
       }
     }
 
-    onSave();
+    //Disables submit when saving, re-enables after waiting for save to finish, re-enables if save fails
+    setTaskSaving(true);
+    try {
+      await onSave();
+    } finally {
+      setTaskSaving(false);
+    }
   };
 
   const createRecurrence = () => {
@@ -583,7 +595,9 @@ function TaskForm({
             Cancel
           </Button>
 
-          <Button type="submit">Save task</Button>
+          <Button type="submit" disabled={taskSaving}>
+            Save task
+          </Button>
         </div>
       )}
     </form>
