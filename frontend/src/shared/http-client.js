@@ -1,6 +1,6 @@
 import { auth } from "./auth";
 
-export class HttpError extends Error {
+export class httpError extends Error {
   constructor(status, message, body) {
     super(message);
     this.name = "HttpError";
@@ -14,7 +14,7 @@ export class HttpError extends Error {
  * @param {string} url - The URL to fetch.
  * @param {object} options - The options to pass to fetch.
  * @returns {Promise<any>} - The response body as JSON.
- * @throws {HttpError} - If the response is not ok, throws an HttpError with the status and message.
+ * @throws {httpError} - If the response is not ok, throws an HttpError with the status and message.
  *
  * Sample usage:
  *
@@ -50,7 +50,7 @@ export async function httpClient(url, options = {}) {
   const body = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new HttpError(
+    throw new httpError(
       response.status,
       body?.message || `HTTP error! status: ${response.status}`,
       body,
