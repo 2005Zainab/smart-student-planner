@@ -66,7 +66,6 @@ function useTaskFiles(task, onFilesChange) {
     }
   };
 
-
   // Returns true if all files were uploaded, false if any failed.
   const uploadStaged = async () => {
     if (stagedFiles.length === 0) return true;
@@ -104,7 +103,7 @@ function useTaskFiles(task, onFilesChange) {
     return failed.length === 0;
   };
 
-  // Removes a file 
+  // Removes a file
   const removeFile = async file => {
     setErrors([]);
 
