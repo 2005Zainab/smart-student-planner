@@ -1,14 +1,21 @@
-import { useState } from "react";
-import { EmailAuthProvider, reauthenticateWithCredential, updateProfile } from "firebase/auth";
+import { useEffect, useState } from "react";
+import {
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updateProfile,
+  sendEmailVerification,
+} from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/shared/auth-provider";
+import { getSettings, saveEmailReminders, savePasswordLessEnabled } from "../api/settings-api";
 
 function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -18,6 +25,31 @@ function SettingsPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [emailReminders, setEmailReminders] = useState(false);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
+  const [isPasswordLessEnabled, setIsPasswordLessEnabled] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const [emailSent, setEmailSent] = useState(false);
+
+  // load the user's settings.
+  useEffect(() => {
+    async function fetchSettings() {
+      if (!user) return;
+
+      try {
+        const data = await getSettings();
+        setEmailReminders(data.emailReminders === true);
+        setIsPasswordLessEnabled(data.passwordLessEnabled === true);
+      } catch (err) {
+        console.error("Failed to fetch user settings", err);
+      } finally {
+        setIsLoadingSettings(false);
+      }
+    }
+    fetchSettings();
+  }, [user]);
 
   const changeUsername = async event => {
     event.preventDefault();
@@ -72,6 +104,79 @@ function SettingsPage() {
     }
   };
 
+  const handleVerifyEmail = async () => {
+    setIsVerifying(true);
+    try {
+      await sendEmailVerification(user);
+      setEmailSent(true);
+      toast.add({
+        title: "Verification email sent. Please check your inbox.",
+        type: "success",
+      });
+    } catch {
+      toast.add({
+        title: "Failed to send verification email",
+        type: "error",
+      });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const checkVerificationStatus = async () => {
+    setIsVerifying(true);
+    try {
+      await user.reload();
+      refreshUser();
+    } catch (err) {
+      console.error("Failed to reload user", err);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const togglePasswordLess = async checked => {
+    setIsPasswordLessEnabled(checked);
+    try {
+      await savePasswordLessEnabled(checked);
+
+      toast.add({
+        title: `Password-less sign-in: ${checked ? "enabled" : "disabled"}`,
+        type: "success",
+      });
+    } catch {
+      setIsPasswordLessEnabled(!checked);
+      toast.add({
+        title: "Failed to update preference",
+        type: "error",
+      });
+    }
+  };
+
+  // Save the email reminders setting as soon as the checkbox is clicked
+  const changeEmailReminders = async checked => {
+    setEmailReminders(checked);
+
+    try {
+      await saveEmailReminders(checked);
+
+      toast.add({
+        title: `Email reminders: ${checked ? "enabled" : "disabled"}`,
+        type: "success",
+      });
+    } catch (err) {
+      console.log(err);
+
+      // Put the checkbox back if saving failed
+      setEmailReminders(!checked);
+
+      toast.add({
+        title: "Could not save your notification setting",
+        type: "error",
+      });
+    }
+  };
+
   return (
     <main className="flex-1 space-y-6 p-4 md:p-6">
       <div>
@@ -100,6 +205,50 @@ function SettingsPage() {
         >
           Change username
         </Button>
+      </div>
+
+      <div className="rounded-xl border bg-card p-6">
+        <h3 className="text-lg font-semibold">Sign-in Preferences</h3>
+
+        <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="font-medium">Password-less Sign-in</p>
+            <p className="text-sm text-muted-foreground">
+              Sign-in via a secure link sent to your email address instead of a password.
+            </p>
+          </div>
+
+          {isLoadingSettings ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : user?.emailVerified ? (
+            <Switch checked={isPasswordLessEnabled} onCheckedChange={togglePasswordLess} />
+          ) : emailSent ? (
+            <Button variant="outline" onClick={checkVerificationStatus} disabled={isVerifying}>
+              {isVerifying ? "Checking..." : "I've verified my email"}
+            </Button>
+          ) : (
+            <Button variant="secondary" onClick={handleVerifyEmail} disabled={isVerifying}>
+              {isVerifying ? "Sending..." : "Verify Email to Enable"}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-xl border bg-card p-6">
+        <h3 className="text-lg font-semibold">Notifications</h3>
+
+        <div className="mt-4 flex items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="font-medium">Email Reminders</p>
+            <p className="text-sm text-muted-foreground">Reminders will be sent to {user?.email}</p>
+          </div>
+
+          {isLoadingSettings ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : (
+            <Switch checked={emailReminders} onCheckedChange={changeEmailReminders} />
+          )}
+        </div>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>

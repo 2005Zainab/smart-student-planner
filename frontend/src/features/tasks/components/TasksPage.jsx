@@ -1,13 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
-
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-
 import {
   Sheet,
   SheetContent,
@@ -15,7 +12,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,16 +22,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
 import { TaskForm } from "./TaskForm";
 import { TaskList } from "./TaskList";
 //import { useTasks } from '../hooks/useTasks';
 import { useTasksContext } from "../context/TasksContext";
 import { httpClient } from "../../../shared/http-client";
+import { buildCreateTaskRequest } from "../utils/build-create-task-request";
+import { useTaskUpdates } from "../hooks/useTaskUpdates";
+import { isOccurrence } from "../utils/task-endpoints";
 
 function TasksPage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
-  const { tasks, setTasks, isLoading, error } = useTasksContext();
+  const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
+  const { patchTask, saveEdit, setSeriesEnabled } = useTaskUpdates(setTasks);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
@@ -45,6 +44,7 @@ function TasksPage() {
   const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [previousStatusLookup, setPreviousStatusLookup] = useState({});
+  const seriesChangedRef = useRef(false);
 
   const [draft, setDraft] = useState({
     title: "",
@@ -56,6 +56,7 @@ function TasksPage() {
     time: "",
     reminderDate: undefined,
     reminderTime: "",
+    recurrence: null,
   });
 
   //Open the task form
@@ -76,6 +77,7 @@ function TasksPage() {
         time: "",
         reminderDate: undefined,
         reminderTime: "",
+        recurrence: null,
       };
 
       setEditingTaskId(newTask.id);
@@ -94,6 +96,8 @@ function TasksPage() {
                 typeof task.reminderDate === "string"
                   ? parseISO(task.reminderDate)
                   : task.reminderDate,
+              recurrence: null,
+              repeatEnabled: task.series?.enabled,
             }
           : {
               title: "",
@@ -118,16 +122,22 @@ function TasksPage() {
 
   //Close the task form
   const closeEditor = () => {
+    const shouldRefetch = seriesChangedRef.current;
+    seriesChangedRef.current = false;
+
     if (formMode === "create" && editingTaskId !== null) {
       setTasks(current => current.filter(task => task.id !== editingTaskId));
     }
 
     setEditorOpen(false);
     setMobileEditorOpen(false);
-    setFormMode("create");
     setEditingTaskId(null);
     setEmptyTitleCheck(null);
     setSaveError(null);
+
+    if (shouldRefetch) {
+      refetch();
+    }
   };
 
   //Save a new task or edit an existing task
@@ -142,31 +152,14 @@ function TasksPage() {
     setSaveError(null);
 
     if (formMode === "create") {
-      const taskToSave = {
-        title: draft.title,
-        description: draft.description,
-        subject: draft.subject,
-        status: draft.status,
-        dueDate: draft.dueDate
-          ? draft.dueDate instanceof Date
-            ? format(draft.dueDate, "yyyy-MM-dd")
-            : draft.dueDate
-          : null,
-        time: draft.time || null,
-        checklist: draft.checklist || [],
-        reminderDate: draft.reminderDate
-          ? draft.reminderDate instanceof Date
-            ? format(draft.reminderDate, "yyyy-MM-dd")
-            : draft.reminderDate
-          : null,
-        reminderTime: draft.reminderTime || null,
-      };
+      const createRequest = buildCreateTaskRequest(draft);
 
       try {
-        const savedTask = await httpClient("http://localhost:3000/api/tasks", {
+        const savedResponse = await httpClient(createRequest.url, {
           method: "POST",
-          body: JSON.stringify(taskToSave),
+          body: JSON.stringify(createRequest.body),
         });
+        const savedTask = createRequest.recurring ? savedResponse.firstOccurrence : savedResponse;
 
         setTasks(current => current.map(task => (task.id === editingTaskId ? savedTask : task)));
 
@@ -187,51 +180,37 @@ function TasksPage() {
         return;
       }
     } else {
-      //Change the date back to YYYY-MM-DD before saving
-      const taskToEdit = {
-        ...draft,
-
-        dueDate: draft.dueDate
-          ? draft.dueDate instanceof Date
-            ? format(draft.dueDate, "yyyy-MM-dd")
-            : draft.dueDate
-          : undefined,
-
-        time: draft.time || null,
-        checklist: draft.checklist || [],
-        reminderDate: draft.reminderDate
-          ? draft.reminderDate instanceof Date
-            ? format(draft.reminderDate, "yyyy-MM-dd")
-            : draft.reminderDate
-          : undefined,
-      };
-
-      const original = tasks.find(task => task.id === editingTaskId);
-
-      //Only send fields that were changed
-      const changes = Object.keys(taskToEdit).reduce((updatedFields, key) => {
-        if (taskToEdit[key] !== original?.[key]) {
-          updatedFields[key] = taskToEdit[key];
-        }
-
-        return updatedFields;
-      }, {});
-
-      if (Object.keys(changes).length === 0) {
-        setEditorOpen(false);
-        setMobileEditorOpen(false);
-        setEditingTaskId(null);
-        return;
-      }
+      const original = tasks.find(task => task.id === editingTaskId) ?? { id: editingTaskId };
 
       try {
-        //Backend returns the updated task with new priority
-        const updatedTask = await httpClient(`http://localhost:3000/api/tasks/${editingTaskId}`, {
-          method: "PATCH",
-          body: JSON.stringify(changes),
-        });
+        //Sends only the changed fields to the one-off task or recurring occurrence endpoint
+        const didSave = await saveEdit(original, draft);
+        let toggled = false;
 
-        setTasks(current => current.map(task => (task.id === editingTaskId ? updatedTask : task)));
+        if (
+          isOccurrence(original) &&
+          typeof draft.repeatEnabled === "boolean" &&
+          draft.repeatEnabled !== original.series?.enabled
+        ) {
+          seriesChangedRef.current = true;
+          const saved = await setSeriesEnabled(original.seriesId, draft.repeatEnabled);
+          const openPause = saved?.pauses?.find(pause => pause.until === null);
+          const pausedFrom =
+            !draft.repeatEnabled && openPause?.from
+              ? format(parseISO(openPause.from), "d MMM")
+              : null;
+          toggled = true;
+          toast.add({
+            title: draft.repeatEnabled ? "Repeat resumed" : "Repeat paused",
+            ...(pausedFrom ? { description: `From ${pausedFrom}` } : {}),
+            type: "success",
+          });
+        }
+
+        if (!didSave && !toggled) {
+          closeEditor();
+          return;
+        }
       } catch (err) {
         console.log(err);
 
@@ -243,6 +222,8 @@ function TasksPage() {
 
     closeEditor();
   };
+
+  const editingTask = tasks.find(task => task.id === editingTaskId);
 
   //Save task status when checkbox is clicked
   const toggleTask = async id => {
@@ -266,15 +247,7 @@ function TasksPage() {
         : { status: newStatus };
     // Update the task status in the backend and update the local state
     try {
-      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(patchBody),
-      });
-      setTasks(current =>
-        current.map(existingTask =>
-          existingTask.id === id ? { ...existingTask, ...patchBody } : existingTask,
-        ),
-      );
+      await patchTask(task, patchBody);
 
       //Show undo option when task is completed
       if (newStatus === "Completed") {
@@ -302,24 +275,14 @@ function TasksPage() {
 
   //Change completed task back to previous status
   const undoCompleted = async (id, originalStatus) => {
-    try {
-      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          status: originalStatus,
-        }),
-      });
+    const task = tasks.find(existingTask => existingTask.id === id);
 
-      setTasks(current =>
-        current.map(existingTask =>
-          existingTask.id === id
-            ? {
-                ...existingTask,
-                status: originalStatus,
-              }
-            : existingTask,
-        ),
-      );
+    if (!task) {
+      return;
+    }
+
+    try {
+      await patchTask(task, { status: originalStatus });
     } catch (err) {
       console.log(err);
     }
@@ -338,20 +301,11 @@ function TasksPage() {
     );
 
     try {
-      const updatedTask = await httpClient(`http://localhost:3000/api/tasks/${taskId}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          checklist: updateChecklist,
-        }),
-      });
-
-      setTasks(current =>
-        current.map(existingTask => (existingTask.id === taskId ? updatedTask : existingTask)),
-      );
+      const saved = await patchTask(task, { checklist: updateChecklist });
 
       setDraft(prev => ({
         ...prev,
-        checklist: updatedTask.checklist,
+        checklist: saved?.checklist ?? updateChecklist,
       }));
     } catch (err) {
       console.log(err);
@@ -408,7 +362,7 @@ function TasksPage() {
       </Card>
 
       <Dialog open={editorOpen} onOpenChange={open => (open ? setEditorOpen(true) : closeEditor())}>
-        <DialogContent>
+        <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-2xl">
           <DialogTitle>
             {formMode === "view" ? "View task" : formMode === "create" ? "Add task" : "Edit task"}
           </DialogTitle>
@@ -430,7 +384,8 @@ function TasksPage() {
             titleError={emptyTitleCheck}
             saveError={saveError}
             onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
-            isNewTask={formMode === "create"}
+            allowRecurrence={formMode === "create"}
+            seriesEnabled={editingTask?.series?.enabled}
           />
         </DialogContent>
       </Dialog>
@@ -464,7 +419,8 @@ function TasksPage() {
               titleError={emptyTitleCheck}
               saveError={saveError}
               onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
-              isNewTask={formMode === "create"}
+              allowRecurrence={formMode === "create"}
+              seriesEnabled={editingTask?.series?.enabled}
             />
           </div>
         </SheetContent>
