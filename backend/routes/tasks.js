@@ -156,7 +156,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
       return res.status(403).json({
         message: "Unauthorized to delete this task: You do not own this task",
       });
-      }
+    }
 
     // Delete the task's uploaded files first
     const files = taskSnap.data().files ?? [];
