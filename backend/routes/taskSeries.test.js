@@ -82,6 +82,7 @@ describe("POST /api/task-series", () => {
       subject: "Work",
       time: "09:00",
       checklist: [{ text: "Draft outline" }],
+      links: [],
       reminderOffsetDays: 1,
       reminderTime: "08:00",
     });

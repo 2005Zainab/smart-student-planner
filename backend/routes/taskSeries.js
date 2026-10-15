@@ -221,7 +221,7 @@ router.post("/", requireAuth, async (req, res) => {
       subject: clean.subject,
       time: clean.time,
       checklist: templateChecklist,
-      links: req.body.links ?? [],
+      links: clean.links,
       ...reminderValidation.clean,
     };
     const seriesDoc = {
