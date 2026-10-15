@@ -18,6 +18,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { RecurrenceFields } from "./RecurrenceFields";
 import { isAfter, startOfDay, startOfToday } from "date-fns";
 
+const MAX_LINKS = 10;
+const MAX_LINK_LENGTH = 500;
+
 // TaskForm component is used for creating and editing tasks.
 // It includes fields for task name, subject, description, priority,
 // status, due date, time, reminder date and time, recurrence settings, and a checklist.
@@ -40,6 +43,11 @@ function TaskForm({
   const [checklistError, setChecklistError] = useState("");
   // Checklist only shows in view task if the task already has items
   const [checklistToggle, setChecklistToggle] = useState(null);
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkInput, setLinkInput] = useState("");
+  const [linkError, setLinkError] = useState("");
+  // Links only show in view task if the task already has links
+  const [linksToggle, setLinksToggle] = useState(null);
 
   const reminderDaysAway = draft.reminderDate
     ? differenceInCalendarDays(
@@ -52,6 +60,8 @@ function TaskForm({
   const completedItems = checklist.filter(item => item.completed).length;
   const progress = checklist.length > 0 ? Math.round((completedItems / checklist.length) * 100) : 0;
   const showChecklist = checklistToggle ?? (readOnly && checklist.length > 0);
+  const links = draft.links || [];
+  const showLinks = linksToggle ?? links.length > 0;
 
   const checklistHandleAddItem = () => {
     if (checklist.length >= 10) {
@@ -72,6 +82,46 @@ function TaskForm({
       ],
     }));
     setChecklistItemInput("");
+  };
+
+  const handleAddLink = () => {
+    const trimmed = linkInput.trim();
+
+    if (!trimmed) {
+      setLinkError("Link can't be empty");
+      return;
+    }
+
+    if (links.length >= MAX_LINKS) {
+      setLinkError(`Max links allowed per task is ${MAX_LINKS}`);
+      return;
+    }
+
+    //if user adds a link such as game.com adds https:// to it
+    const withProtocol = /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+    if (withProtocol.length > MAX_LINK_LENGTH) {
+      setLinkError(`Link cannot be more than ${MAX_LINK_LENGTH} characters`);
+      return;
+    }
+
+    let url;
+    try {
+      url = new URL(withProtocol);
+    } catch {
+      setLinkError("Please enter a valid link");
+      return;
+    }
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      setLinkError("Link must begin with http:// or https://");
+      return;
+    }
+
+    setDraft(prev => ({ ...prev, links: [...(prev.links || []), withProtocol] }));
+    setLinkInput("");
+    setLinkError("");
+    setShowLinkInput(false);
   };
 
   const pausing = draft.repeatEnabled === false && seriesEnabled === true;
@@ -573,6 +623,96 @@ function TaskForm({
             </>
           )}
         </div>
+
+        {/* Links */}
+        {(!readOnly || links.length > 0) && (
+          <div className="space-y-2 rounded-md border p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={showLinks}
+                  id="task-links"
+                  onCheckedChange={checked => setLinksToggle(Boolean(checked))}
+                />
+                <Label htmlFor="task-links">Links</Label>
+              </div>
+              {links.length > 0 && (
+                <span className="text-xs text-muted-foreground">{links.length} added</span>
+              )}
+            </div>
+
+            {showLinks && (
+              <>
+                {links.map((link, index) => (
+                  <div
+                    key={`${index}-${link}`}
+                    className="flex items-center justify-between gap-2 min-w-0"
+                  >
+                    <a
+                      href={link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-w-0 truncate text-sm text-primary underline"
+                    >
+                      {link}
+                    </a>
+                    {!readOnly && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        onClick={() =>
+                          setDraft(prev => ({
+                            ...prev,
+                            links: prev.links.filter((_, i) => i !== index),
+                          }))
+                        }
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+
+                {!readOnly &&
+                  (showLinkInput ? (
+                    <div className="space-y-1">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Paste a link"
+                          maxLength={MAX_LINK_LENGTH}
+                          value={linkInput}
+                          onChange={event => {
+                            setLinkInput(event.target.value);
+                            if (linkError) setLinkError("");
+                          }}
+                          onKeyDown={event => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              handleAddLink();
+                            }
+                          }}
+                        />
+                        <Button type="button" variant="outline" onClick={handleAddLink}>
+                          Done
+                        </Button>
+                      </div>
+                      {linkError && <p className="text-sm text-medium-priority">{linkError}</p>}
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowLinkInput(true)}
+                    >
+                      Add link
+                    </Button>
+                  ))}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {saveError && <p className="text-sm text-destructive">{saveError}</p>}
