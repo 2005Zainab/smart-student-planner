@@ -82,12 +82,12 @@ function TaskForm({
   const handleSave = async event => {
     event.preventDefault();
     setDateError("");
-    
+
     //Ignores task submit requests if the current task is being save
-    if(taskSaving){
+    if (taskSaving) {
       return;
     }
-    
+
     if ((requireDateAndTime || draft.recurrence) && !draft.dueDate) {
       setDateError("Due date is required for adding task to schedule.");
       return;
