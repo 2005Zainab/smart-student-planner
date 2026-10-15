@@ -32,6 +32,7 @@ function TaskForm({
   requireDateAndTime = false,
   onToggleChecklistItem,
   allowRecurrence = false,
+  allowSeriesControls = false,
   seriesEnabled,
 }) {
   const [dateError, setDateError] = useState("");
@@ -408,6 +409,7 @@ function TaskForm({
             <RecurrenceFields
               recurrence={recurrence}
               dueDate={draft.dueDate}
+              readOnly={readOnly}
               onChange={changes =>
                 setDraft(prev => ({
                   ...prev,
@@ -430,35 +432,61 @@ function TaskForm({
           </div>
         )}
 
-        {draft.seriesId && typeof draft.repeatEnabled === "boolean" && (
-          <div className="space-y-2 rounded-md border p-4">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={draft.repeatEnabled}
-                disabled={readOnly}
-                id="task-repeat"
-                onCheckedChange={checked =>
+        {allowSeriesControls && draft.seriesId && typeof draft.repeatEnabled === "boolean" && (
+          <div className="space-y-4 rounded-md border p-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={draft.repeatEnabled}
+                  disabled={readOnly}
+                  id="task-series-repeat"
+                  onCheckedChange={checked =>
+                    setDraft(prev => ({ ...prev, repeatEnabled: checked }))
+                  }
+                />
+                <Label htmlFor="task-series-repeat">Repeat</Label>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Unticking pauses this series from tomorrow. Today's occurrence stays. Re-tick to
+                resume.
+              </p>
+              {hidesThisOccurrence && (
+                <p className="text-sm text-medium-priority">This occurrence will be hidden too.</p>
+              )}
+              {draft.repeatEnabled !== seriesEnabled && (
+                <p className="text-sm text-muted-foreground">
+                  {draft.repeatEnabled ? "Resumes today" : "Pauses from tomorrow"}
+                </p>
+              )}
+            </div>
+
+            {draft.repeatEnabled && draft.seriesPattern && (
+              <RecurrenceFields
+                recurrence={draft.seriesPattern}
+                dueDate={draft.dueDate}
+                showReminder={false}
+                readOnly={readOnly}
+                onChange={changes =>
                   setDraft(prev => ({
                     ...prev,
-                    repeatEnabled: checked,
+                    seriesPattern: { ...prev.seriesPattern, ...changes },
+                  }))
+                }
+                onRuleChange={rule =>
+                  setDraft(prev => ({
+                    ...prev,
+                    seriesPattern: { ...prev.seriesPattern, rule },
                   }))
                 }
               />
-              <Label htmlFor="task-repeat">Repeat</Label>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Unticking pauses this series from tomorrow. Today's occurrence stays. Re-tick to
-              resume.
-            </p>
-            {hidesThisOccurrence && (
-              <p className="text-sm text-medium-priority">This occurrence will be hidden too.</p>
-            )}
-            {draft.repeatEnabled !== seriesEnabled && (
-              <p className="text-sm text-muted-foreground">
-                {draft.repeatEnabled ? "Resumes today" : "Pauses from tomorrow"}
-              </p>
             )}
           </div>
+        )}
+
+        {draft.seriesId && !allowSeriesControls && (
+          <p className="text-sm text-muted-foreground">
+            Part of a repeating series. Change repeat settings on the Tasks page.
+          </p>
         )}
 
         {/* Checklist */}

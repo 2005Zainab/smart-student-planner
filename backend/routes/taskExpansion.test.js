@@ -66,6 +66,15 @@ function seriesDoc(id, overrides = {}) {
   };
 }
 
+const DAILY_RULE = { type: "daily", interval: 1 };
+
+const seriesInfo = (overrides = {}) => ({
+  enabled: true,
+  rule: DAILY_RULE,
+  endDate: null,
+  ...overrides,
+});
+
 describe("recurring task expansion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -171,7 +180,7 @@ describe("recurring task expansion", () => {
     expect(res.body.find(task => task.title === "Completed off schedule")).toBeDefined();
     expect(res.body.find(task => task.title === "Hidden pending")).toBeUndefined();
     expect(res.body.find(task => task.title === "Excepted")).toBeUndefined();
-    expect(res.body.find(task => task.title === "Custom today").series).toEqual({ enabled: true });
+    expect(res.body.find(task => task.title === "Custom today").series).toEqual(seriesInfo());
   });
 
   it.each([
@@ -201,12 +210,12 @@ describe("recurring task expansion", () => {
     const res = await request(app).get("/api/tasks");
 
     expect(res.status).toBe(200);
-    expect(res.body.find(task => task.title === "Materialized").series).toEqual({
-      enabled: enabled ?? true,
-    });
-    expect(res.body.find(task => task.dueDate === "2026-10-01").series).toEqual({
-      enabled: enabled ?? true,
-    });
+    expect(res.body.find(task => task.title === "Materialized").series).toEqual(
+      seriesInfo({ enabled: enabled ?? true }),
+    );
+    expect(res.body.find(task => task.dueDate === "2026-10-01").series).toEqual(
+      seriesInfo({ enabled: enabled ?? true }),
+    );
   });
 
   it("includes one-offs and scheduled or visible materialized docs in calendar ranges", async () => {
@@ -245,20 +254,18 @@ describe("recurring task expansion", () => {
 
     const res = await request(app).get("/api/tasks/calendar?from=2026-10-01&to=2026-10-08");
 
+    const weeklyInfo = seriesInfo({ rule: { type: "weekly", interval: 1, weekdays: [4] } });
+
     expect(res.status).toBe(200);
     expect(res.body.find(task => task.title === "One off")).toBeDefined();
     expect(
       res.body.find(task => task.title === "Study" && task.dueDate === "2026-10-01"),
     ).toBeDefined();
     expect(res.body.find(task => task.title === "Edited occurrence")).toBeDefined();
-    expect(res.body.find(task => task.title === "Edited occurrence").series).toEqual({
-      enabled: true,
-    });
+    expect(res.body.find(task => task.title === "Edited occurrence").series).toEqual(weeklyInfo);
     expect(
       res.body.find(task => task.title === "Study" && task.dueDate === "2026-10-01").series,
-    ).toEqual({
-      enabled: true,
-    });
+    ).toEqual(weeklyInfo);
   });
 
   it("adds series.enabled to paused and default-enabled calendar occurrences", async () => {
@@ -288,12 +295,12 @@ describe("recurring task expansion", () => {
     const paused = await request(app).get("/api/tasks/calendar?from=2026-10-01&to=2026-10-03");
 
     expect(paused.status).toBe(200);
-    expect(paused.body.find(task => task.title === "Paused materialized").series).toEqual({
-      enabled: false,
-    });
-    expect(paused.body.find(task => task.dueDate === "2026-10-01").series).toEqual({
-      enabled: false,
-    });
+    expect(paused.body.find(task => task.title === "Paused materialized").series).toEqual(
+      seriesInfo({ enabled: false }),
+    );
+    expect(paused.body.find(task => task.dueDate === "2026-10-01").series).toEqual(
+      seriesInfo({ enabled: false }),
+    );
 
     mockCollections({ taskDocs: [], seriesDocs: [seriesDoc("series-1", { enabled: undefined })] });
     const defaultEnabled = await request(app).get(
@@ -301,7 +308,7 @@ describe("recurring task expansion", () => {
     );
 
     expect(defaultEnabled.status).toBe(200);
-    expect(defaultEnabled.body[0].series).toEqual({ enabled: true });
+    expect(defaultEnabled.body[0].series).toEqual(seriesInfo());
   });
 
   it.each([
@@ -312,5 +319,33 @@ describe("recurring task expansion", () => {
     mockCollections();
     const res = await request(app).get(path);
     expect(res.status).toBe(400);
+  });
+
+  it("exposes the open segment's rule and the series end date", async () => {
+    const series = seriesDoc("series-1", {
+      segments: [
+        { from: "2026-10-01", until: "2026-10-04", rule: DAILY_RULE },
+        {
+          from: "2026-10-05",
+          until: null,
+          rule: { type: "weekly", interval: 1, weekdays: [4] },
+        },
+      ],
+      endDate: "2026-12-31",
+    });
+    mockCollections({ seriesDocs: [series] });
+
+    const res = await request(app).get("/api/tasks");
+
+    expect(res.status).toBe(200);
+    expect(res.body.length).toBeGreaterThan(0);
+    for (const task of res.body) {
+      expect(task.series).toEqual(
+        seriesInfo({
+          rule: { type: "weekly", interval: 1, weekdays: [4] },
+          endDate: "2026-12-31",
+        }),
+      );
+    }
   });
 });
