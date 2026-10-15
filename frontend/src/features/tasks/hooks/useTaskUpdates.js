@@ -6,6 +6,7 @@ import {
   getTaskUrl,
   isOccurrence,
 } from "../utils/task-endpoints";
+import { getOccurrenceDraftChanges, getTemplateChanges } from "../utils/occurrence-scope";
 
 //Editor dates are Date objects; the API wants YYYY-MM-DD. Empty values become undefined.
 const toDateString = value =>
@@ -98,7 +99,26 @@ function useTaskUpdates(setTasks) {
     return saved;
   }
 
-  return { patchTask, saveEdit, setSeriesEnabled };
+  // scope: null/"occurrence" edits this task; "future" patches the series template.
+  // Resolves to false, sending nothing, when there was nothing to save.
+  async function saveScopedEdit(original, draft, scope = null) {
+    if (isOccurrence(original) && scope === "future") {
+      const changes = getOccurrenceDraftChanges(draft, original);
+      const templateChanges = getTemplateChanges(changes, draft, original);
+
+      if (Object.keys(templateChanges).length === 0) return false;
+
+      await httpClient(getSeriesUrl(original.seriesId), {
+        method: "PATCH",
+        body: JSON.stringify(templateChanges),
+      });
+      return true;
+    }
+
+    return saveEdit(original, draft);
+  }
+
+  return { patchTask, saveEdit, saveScopedEdit, setSeriesEnabled };
 }
 
 export { useTaskUpdates };

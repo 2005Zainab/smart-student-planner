@@ -32,6 +32,7 @@ function TaskForm({
   requireDateAndTime = false,
   onToggleChecklistItem,
   allowRecurrence = false,
+  allowSeriesControls = false,
   seriesEnabled,
 }) {
   const [dateError, setDateError] = useState("");
@@ -431,7 +432,7 @@ function TaskForm({
           </div>
         )}
 
-        {draft.seriesId && typeof draft.repeatEnabled === "boolean" && (
+        {allowSeriesControls && draft.seriesId && typeof draft.repeatEnabled === "boolean" && (
           <div className="space-y-4 rounded-md border p-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
@@ -480,6 +481,12 @@ function TaskForm({
               />
             )}
           </div>
+        )}
+
+        {draft.seriesId && !allowSeriesControls && (
+          <p className="text-sm text-muted-foreground">
+            Part of a repeating series. Change repeat settings on the Tasks page.
+          </p>
         )}
 
         {/* Checklist */}

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { differenceInCalendarDays, format, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,13 +29,15 @@ import { useTasksContext } from "../context/TasksContext";
 import { httpClient } from "../../../shared/http-client";
 import { buildCreateTaskRequest } from "../utils/build-create-task-request";
 import { useTaskUpdates } from "../hooks/useTaskUpdates";
-import { getOccurrenceChanges, getSeriesUrl, isOccurrence } from "../utils/task-endpoints";
 import { createTempId } from "../utils/temp-id";
+import { getSeriesUrl, isOccurrence } from "../utils/task-endpoints"; // getOccurrenceChanges no longer used
+import { ScopeDialog } from "./ScopeDialog";
+import { needsScopeChoice, toNullableDateString } from "../utils/occurrence-scope";
 
 function TasksPage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
-  const { patchTask, saveEdit, setSeriesEnabled } = useTaskUpdates(setTasks);
+  const { patchTask, saveScopedEdit, setSeriesEnabled } = useTaskUpdates(setTasks);
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -150,56 +152,6 @@ function TasksPage() {
     }
   };
 
-  const OCCURRENCE_CONTENT_FIELDS = new Set([
-    "title",
-    "description",
-    "subject",
-    "time",
-    "checklist",
-    "reminderDate",
-    "reminderTime",
-  ]);
-
-  const toDateString = value =>
-    value ? (value instanceof Date ? format(value, "yyyy-MM-dd") : value) : null;
-
-  function getOccurrenceDraftChanges(draft, original) {
-    return getOccurrenceChanges(
-      {
-        ...draft,
-        reminderDate: toDateString(draft.reminderDate),
-        time: draft.time || null,
-        reminderTime: draft.reminderTime || null,
-        checklist: draft.checklist || [],
-      },
-      original,
-    );
-  }
-
-  function getTemplateChanges(changes, draft, original) {
-    const templateChanges = {};
-
-    for (const field of ["title", "description", "subject", "time", "checklist"]) {
-      if (Object.hasOwn(changes, field)) {
-        templateChanges[field] = field === "time" ? changes[field] || null : changes[field];
-      }
-    }
-
-    // The series API requires both reminder fields whenever either is changed.
-    if (Object.hasOwn(changes, "reminderDate") || Object.hasOwn(changes, "reminderTime")) {
-      const reminderDate = toDateString(draft.reminderDate);
-      const occurrenceDate = original.occurrenceDate;
-
-      templateChanges.reminderOffsetDays = reminderDate
-        ? differenceInCalendarDays(parseISO(occurrenceDate), parseISO(reminderDate))
-        : null;
-
-      templateChanges.reminderTime = reminderDate ? draft.reminderTime || null : null;
-    }
-
-    return templateChanges;
-  }
-
   const isoWeekday = date => (date.getDay() === 0 ? 7 : date.getDay());
 
   // Order-insensitive, mirroring the server, so [3, 1] vs a stored [1, 3] isn't a change.
@@ -219,7 +171,7 @@ function TasksPage() {
     const changes = {};
     if (canonicalRule(pattern.rule) !== canonicalRule(stored.rule)) changes.rule = pattern.rule;
 
-    const endDate = toDateString(pattern.endDate);
+    const endDate = toNullableDateString(pattern.endDate);
     if (endDate !== (stored.endDate ?? null)) changes.endDate = endDate;
 
     return changes;
@@ -269,51 +221,20 @@ function TasksPage() {
         id: editingTaskId,
       };
 
-      if (isOccurrence(original) && scope === null) {
-        const changes = getOccurrenceDraftChanges(draft, original);
-        const changedFields = Object.keys(changes);
-
-        const contentOnly =
-          changedFields.length > 0 &&
-          changedFields.every(field => OCCURRENCE_CONTENT_FIELDS.has(field));
-
-        const recurrenceToggleChanged =
-          typeof draft.repeatEnabled === "boolean" &&
-          draft.repeatEnabled !== original.series?.enabled;
-
-        if (contentOnly && !recurrenceToggleChanged) {
-          setScopeDialogOpen(true);
-          return;
-        }
+      if (scope === null && needsScopeChoice(original, draft)) {
+        setScopeDialogOpen(true);
+        return;
       }
 
       const savedParts = [];
 
       try {
         // 1. Content: this occurrence only, or the series template ("future")
-        let didSave = false;
-
-        if (isOccurrence(original) && scope === "future") {
-          const changes = getOccurrenceDraftChanges(draft, original);
-          const templateChanges = getTemplateChanges(changes, draft, original);
-
-          if (Object.keys(templateChanges).length > 0) {
-            await httpClient(getSeriesUrl(original.seriesId), {
-              method: "PATCH",
-              body: JSON.stringify(templateChanges),
-            });
-
-            seriesChangedRef.current = true;
-            didSave = true;
-          }
-        } else {
-          didSave = await saveEdit(original, draft);
-        }
+        const didSave = await saveScopedEdit(original, draft, scope);
+        if (didSave && scope === "future") seriesChangedRef.current = true;
         if (didSave) savedParts.push("content changes");
 
         // 2. Repeat pattern (rule / end date), effective today
-        let patternSaved = false;
-
         if (isOccurrence(original)) {
           const patternChanges = getPatternChanges(draft, original);
 
@@ -324,7 +245,6 @@ function TasksPage() {
             });
 
             seriesChangedRef.current = true;
-            patternSaved = true;
             savedParts.push("repeat pattern");
 
             // Keep local series info current so a retry after a later failure diffs correctly
@@ -353,8 +273,6 @@ function TasksPage() {
         }
 
         // 3. Pause / resume (unchanged)
-        let toggled = false;
-
         if (
           isOccurrence(original) &&
           typeof draft.repeatEnabled === "boolean" &&
@@ -367,17 +285,11 @@ function TasksPage() {
             !draft.repeatEnabled && openPause?.from
               ? format(parseISO(openPause.from), "d MMM")
               : null;
-          toggled = true;
           toast.add({
             title: draft.repeatEnabled ? "Repeat resumed" : "Repeat paused",
             ...(pausedFrom ? { description: `From ${pausedFrom}` } : {}),
             type: "success",
           });
-        }
-
-        if (!didSave && !toggled && !patternSaved) {
-          closeEditor();
-          return;
         }
       } catch (err) {
         console.log(err);
@@ -555,6 +467,7 @@ function TasksPage() {
             saveError={saveError}
             onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
             allowRecurrence={formMode === "create"}
+            allowSeriesControls={true}
             seriesEnabled={editingTask?.series?.enabled}
           />
         </DialogContent>
@@ -590,50 +503,21 @@ function TasksPage() {
               saveError={saveError}
               onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
               allowRecurrence={formMode === "create"}
+              allowSeriesControls={true}
               seriesEnabled={editingTask?.series?.enabled}
             />
           </div>
         </SheetContent>
       </Sheet>
 
-      <AlertDialog open={scopeDialogOpen} onOpenChange={open => setScopeDialogOpen(open)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Apply changes to</AlertDialogTitle>
-            <AlertDialogDescription>
-              Choose whether these content changes should apply only to this occurrence or to future
-              occurrences in the series.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <AlertDialogFooter className="flex-col-reverse sm:flex-col-reverse">
-            <AlertDialogCancel className="w-full">Cancel</AlertDialogCancel>
-
-            <Button
-              className="w-full"
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setScopeDialogOpen(false);
-                saveTask("occurrence");
-              }}
-            >
-              This occurrence only
-            </Button>
-
-            <AlertDialogAction
-              className="w-full"
-              onClick={event => {
-                event.preventDefault();
-                setScopeDialogOpen(false);
-                saveTask("future");
-              }}
-            >
-              Apply to future occurrences
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ScopeDialog
+        open={scopeDialogOpen}
+        onOpenChange={open => setScopeDialogOpen(open)}
+        onChoose={scope => {
+          setScopeDialogOpen(false);
+          saveTask(scope);
+        }}
+      />
 
       <AlertDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}>
         <AlertDialogContent>
