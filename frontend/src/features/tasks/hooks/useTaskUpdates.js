@@ -26,6 +26,7 @@ function getEditChanges(original, draft) {
     reminderDate: toDateString(draft.reminderDate),
     time: draft.time || null,
     checklist: draft.checklist || [],
+    links: draft.links || [],
   };
 
   const changes = isOccurrence(original)

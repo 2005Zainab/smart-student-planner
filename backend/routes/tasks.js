@@ -48,6 +48,7 @@ function getVirtualOccurrence(series, date, today) {
     occurrenceDate: date,
     ...series.template,
     checklist: buildOccurrenceChecklist(series.template.checklist, occcurrenceId),
+    links: series.template.links ?? [],
     virtual: true,
     dueDate: date,
     status: "To Do",

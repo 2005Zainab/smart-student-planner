@@ -57,6 +57,7 @@ function TasksPage() {
     reminderDate: undefined,
     reminderTime: "",
     recurrence: null,
+    links: [],
   });
 
   //Open the task form
@@ -78,6 +79,7 @@ function TasksPage() {
         reminderDate: undefined,
         reminderTime: "",
         recurrence: null,
+        links: [],
       };
 
       setEditingTaskId(newTask.id);
