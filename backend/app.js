@@ -24,7 +24,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use("/api/tasks/:taskId/files", taskFilesRoute);
+app.use("/api/tasks/:id/files", taskFilesRoute);
 app.use("/api/tasks", tasksRoute);
 app.use("/api/settings", settingsRoute);
 app.use("/api/reminders", remindersRoute);

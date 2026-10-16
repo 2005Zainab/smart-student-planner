@@ -13,7 +13,7 @@ import {
   getVerifiedMimeType,
 } from "../lib/fileRules.js";
 
-// This router handles file uploads, downloads, and deletions for tasks.
+// Mounted at /api/tasks/:id/files, so the task id is available as req.params.id
 const router = express.Router({ mergeParams: true });
 
 // Keeps the uploaded file in memory (never on disk) and rejects anything over the size limit
@@ -38,7 +38,7 @@ function receiveFile(req, res, next) {
 // Upload a file to a task
 router.post("/", requireAuth, receiveFile, async (req, res) => {
   const uid = req.user.uid;
-  const { taskId } = req.params;
+  const { id: taskId } = req.params;
   const file = req.file;
 
   if (!file) {
@@ -54,39 +54,48 @@ router.post("/", requireAuth, receiveFile, async (req, res) => {
 
   try {
     const taskRef = db.collection("tasks").doc(taskId);
-    const taskSnap = await taskRef.get();
 
-    if (!taskSnap.exists) {
-      return res.status(404).json({ message: "Task Wasn't Found" });
-    }
-
-    if (taskSnap.data().userId !== uid) {
-      return res.status(403).json({
-        message: "Unauthorized to add files to this task: You do not own this task",
-      });
-    }
-
-    if ((taskSnap.data().files ?? []).length >= MAX_FILES_PER_TASK) {
-      return res
-        .status(400)
-        .json({ message: `A task can have at most ${MAX_FILES_PER_TASK} files` });
-    }
-
-    // The file's bytes get their own document. The task only keeps a summary,
-    // so loading the task list never downloads any file contents.
+    // The file's bytes get their own document.
+    // Loading the task list never downloads any file contents.
     const fileRef = db.collection("taskFiles").doc();
     const summary = { id: fileRef.id, name, type: mimeType, size: file.size };
 
-    const batch = db.batch();
-    batch.set(fileRef, {
-      ...summary,
-      taskId,
-      userId: uid,
-      data: file.buffer,
-      createdAt: FieldValue.serverTimestamp(),
+    // A transaction makes the checks and the writes one unit.
+    // If the task changes in between, Firestore re-runs this, so the 10 file limit can't be beaten.
+    // This function can run more than once, so it must not send a response itself.
+    const failure = await db.runTransaction(async transaction => {
+      const taskSnap = await transaction.get(taskRef);
+
+      if (!taskSnap.exists) {
+        return { status: 404, message: "Task Wasn't Found" };
+      }
+
+      if (taskSnap.data().userId !== uid) {
+        return {
+          status: 403,
+          message: "Unauthorized to add files to this task: You do not own this task",
+        };
+      }
+
+      if ((taskSnap.data().files ?? []).length >= MAX_FILES_PER_TASK) {
+        return { status: 400, message: `A task can have at most ${MAX_FILES_PER_TASK} files` };
+      }
+
+      transaction.set(fileRef, {
+        ...summary,
+        taskId,
+        userId: uid,
+        data: file.buffer,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      transaction.update(taskRef, { files: FieldValue.arrayUnion(summary) });
+
+      return null;
     });
-    batch.update(taskRef, { files: FieldValue.arrayUnion(summary) });
-    await batch.commit();
+
+    if (failure) {
+      return res.status(failure.status).json({ message: failure.message });
+    }
 
     return res.status(201).json(summary);
   } catch (err) {
@@ -99,7 +108,7 @@ router.post("/", requireAuth, receiveFile, async (req, res) => {
 // Download a file (the frontend opens it in a new tab)
 router.get("/:fileId", requireAuth, async (req, res) => {
   const uid = req.user.uid;
-  const { taskId, fileId } = req.params;
+  const { id: taskId, fileId } = req.params;
 
   try {
     const fileSnap = await db.collection("taskFiles").doc(fileId).get();
@@ -131,7 +140,7 @@ router.get("/:fileId", requireAuth, async (req, res) => {
 //Remove a file from a task
 router.delete("/:fileId", requireAuth, async (req, res) => {
   const uid = req.user.uid;
-  const { taskId, fileId } = req.params;
+  const { id: taskId, fileId } = req.params;
 
   try {
     const taskRef = db.collection("tasks").doc(taskId);
