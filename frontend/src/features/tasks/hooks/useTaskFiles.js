@@ -13,8 +13,7 @@ const getExtension = fileName => {
   return dot === -1 ? "" : fileName.slice(dot).toLowerCase();
 };
 
-// Upload, remove, and open files for a task. The task must have an id (not a temp id) to attach files.
-// When a recurring task becomes a real occurrence the files can then be attached to it.
+// onFilesChange gets a function (current files in, new files out), e.g. current => [...current, ...uploaded]
 function useTaskFiles(task, onFilesChange) {
   const [stagedFiles, setStagedFiles] = useState([]);
   const [errors, setErrors] = useState([]);
@@ -54,8 +53,8 @@ function useTaskFiles(task, onFilesChange) {
     setErrors(problems);
   };
 
-  const unstageFile = index => {
-    setStagedFiles(current => current.filter((_, position) => position !== index));
+  const unstageFile = fileToRemove => {
+    setStagedFiles(current => current.filter(file => file !== fileToRemove));
   };
 
   // A recurring occurrence doesn't exist in the database until it is first saved.
@@ -93,7 +92,7 @@ function useTaskFiles(task, onFilesChange) {
     }
 
     if (uploaded.length > 0) {
-      onFilesChange([...files, ...uploaded]);
+      onFilesChange(current => [...current, ...uploaded]);
     }
 
     setStagedFiles(failed.map(item => item.file));
@@ -109,7 +108,7 @@ function useTaskFiles(task, onFilesChange) {
 
     try {
       await deleteTaskFile(task.id, file.id);
-      onFilesChange(files.filter(existing => existing.id !== file.id));
+      onFilesChange(current => current.filter(existing => existing.id !== file.id));
     } catch (err) {
       setErrors([`Couldn't remove ${file.name}: ${err.message}`]);
     }
