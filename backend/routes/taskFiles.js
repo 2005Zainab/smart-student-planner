@@ -61,7 +61,7 @@ router.post("/", requireAuth, receiveFile, async (req, res) => {
     const summary = { id: fileRef.id, name, type: mimeType, size: file.size };
 
     // A transaction makes the checks and the writes one unit.
-    // If the task changes in between, Firestore re-runs this, so the 10 file limit can't be beaten.
+    // If the task changes in between, Firestore re-runs this, so the 5 file limit can't be beaten.
     // This function can run more than once, so it must not send a response itself.
     const failure = await db.runTransaction(async transaction => {
       const taskSnap = await transaction.get(taskRef);

@@ -3,7 +3,7 @@ import path from "path";
 // Files are stored inside Firestore documents, which can be at most 1 MiB.
 // 900 KB leaves room for the file name and the other small fields.
 export const MAX_FILE_BYTES = 900 * 1024;
-export const MAX_FILES_PER_TASK = 10;
+export const MAX_FILES_PER_TASK = 5;
 
 export const FILE_TYPE_MESSAGE = "Only PDF, PNG, JPG, DOCX and PPTX files are allowed";
 export const FILE_SIZE_MESSAGE = "Files must be 900 KB or smaller";
