@@ -92,6 +92,7 @@ function TaskForm({
 
     // A file upload is still running, so ignore a second click
     if (taskFiles.isBusy) return;
+
     setDateError("");
 
     if ((requireDateAndTime || draft.recurrence) && !draft.dueDate) {

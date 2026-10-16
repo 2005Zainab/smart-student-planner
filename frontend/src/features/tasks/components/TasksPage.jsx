@@ -34,8 +34,7 @@ import { isOccurrence } from "../utils/task-endpoints";
 function TasksPage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
-  const { patchTask, saveEdit, setSeriesEnabled } = useTaskUpdates(setTasks);
-
+  const { patchTask, saveEdit, setSeriesEnabled, updateFiles } = useTaskUpdates(setTasks);
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -386,6 +385,7 @@ function TasksPage() {
             onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
             allowRecurrence={formMode === "create"}
             seriesEnabled={editingTask?.series?.enabled}
+            onFilesChange={updateFiles}
           />
         </DialogContent>
       </Dialog>
@@ -421,6 +421,7 @@ function TasksPage() {
               onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
               allowRecurrence={formMode === "create"}
               seriesEnabled={editingTask?.series?.enabled}
+              onFilesChange={updateFiles}
             />
           </div>
         </SheetContent>
