@@ -6,10 +6,16 @@ import {
   getNextOccurrence,
   getPriorityFromDueDate,
   shouldRenderMaterialized,
-  buildOccurrenceChecklist,
+  isDateInRange,
 } from "../lib/recurrence.js";
 import { getUserToday } from "../lib/userTime.js";
 import { validateDate, validateTaskFields } from "../lib/taskValidation.js";
+import {
+  forEachSnapshot,
+  readSeries,
+  getVirtualOccurrence,
+  getMaterializedOccurrence,
+} from "../lib/taskSeriesHelper.js";
 
 const router = express.Router();
 
@@ -24,78 +30,6 @@ const ALLOWED_FIELDS = [
   "reminderDate",
   "reminderTime",
 ];
-
-function offsetDate(dateStr, days) {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-function isDateInRange(dateStr, fromStr, toStr) {
-  return dateStr >= fromStr && dateStr <= toStr;
-}
-
-function getSeriesSummary(series) {
-  const openSegment =
-    series.segments.find(segment => segment.until === null) ?? series.segments.at(-1);
-  return {
-    enabled: series.enabled !== false,
-    rule: openSegment.rule,
-    endDate: series.endDate ?? null,
-  };
-}
-
-function getVirtualOccurrence(series, date, today) {
-  const isFuture = date >= today;
-  const reminderOffsetDays = series.template.reminderOffsetDays;
-
-  const occcurrenceId = `${series.id}_${date}`;
-  return {
-    id: occcurrenceId,
-    seriesId: series.id,
-    occurrenceDate: date,
-    ...series.template,
-    checklist: buildOccurrenceChecklist(series.template.checklist, occcurrenceId),
-    virtual: true,
-    dueDate: date,
-    status: "To Do",
-    reminderDate:
-      isFuture && reminderOffsetDays !== null && reminderOffsetDays !== undefined
-        ? offsetDate(date, -reminderOffsetDays)
-        : null,
-    reminderTime: isFuture ? (series.template.reminderTime ?? null) : null,
-    priority: getPriorityFromDueDate(date, today),
-    series: getSeriesSummary(series),
-  };
-}
-
-function getMaterializedOccurrence(doc, series, today) {
-  return {
-    id: doc.id,
-    ...doc.data,
-    virtual: false,
-    priority: getPriorityFromDueDate(doc.data.dueDate ?? doc.data.occurrenceDate, today),
-    series: getSeriesSummary(series),
-  };
-}
-
-function readSeries(snapshot) {
-  const series = [];
-  if (typeof snapshot.forEach !== "function") return series;
-
-  snapshot.forEach(doc => {
-    const data = doc.data();
-    if (Array.isArray(data.segments) && data.segments.length > 0) {
-      series.push({ id: doc.id, ...data });
-    }
-  });
-  return series;
-}
-
-function forEachSnapshot(snapshot, callback) {
-  if (typeof snapshot.forEach === "function") snapshot.forEach(callback);
-}
 
 //Add task
 router.post("/", requireAuth, async (req, res) => {
@@ -165,6 +99,12 @@ router.delete("/:id", requireAuth, async (req, res) => {
     if (taskSnap.data().userId != uid) {
       return res.status(403).json({
         message: "Unauthorized to delete this task: You do not own this task",
+      });
+    }
+
+    if (taskSnap.data().seriesId) {
+      return res.status(400).json({
+        message: "Recurring occurrences must be deleted through the task-series endpoint",
       });
     }
 
