@@ -16,6 +16,14 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/shared/auth-provider";
 import { getSettings, saveEmailReminders, savePasswordLessEnabled } from "../api/settings-api";
+import { useTheme } from "@/theme/theme-provider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -32,6 +40,7 @@ function SettingsPage() {
   const [isVerifying, setIsVerifying] = useState(false);
 
   const [emailSent, setEmailSent] = useState(false);
+  const { theme, setTheme, themes } = useTheme();
 
   // load the user's settings.
   useEffect(() => {
@@ -248,6 +257,27 @@ function SettingsPage() {
           ) : (
             <Switch checked={emailReminders} onCheckedChange={changeEmailReminders} />
           )}
+        </div>
+      </div>
+
+      <div className="rounded-xl border bg-card p-6">
+        <h3 className="text-lg font-semibold">Customize</h3>
+        <p className="mt-1 text-sm text-muted-foreground">Choose a theme for your Planner</p>
+
+        <div className="mt-4 max-w-xs">
+          <Select value={theme} onValueChange={setTheme}>
+            <SelectTrigger aria-label="Theme" className="w-full" id="theme-select">
+              <SelectValue>{themes[theme].label}</SelectValue>
+            </SelectTrigger>
+
+            <SelectContent>
+              {Object.entries(themes).map(([name, { label }]) => (
+                <SelectItem key={name} value={name}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
