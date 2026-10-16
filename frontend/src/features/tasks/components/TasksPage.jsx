@@ -29,8 +29,9 @@ import { useTasksContext } from "../context/TasksContext";
 import { httpClient } from "../../../shared/http-client";
 import { buildCreateTaskRequest } from "../utils/build-create-task-request";
 import { useTaskUpdates } from "../hooks/useTaskUpdates";
+import { useTaskDeletion } from "../hooks/useTaskDeletion";
 import { createTempId } from "../utils/temp-id";
-import { getSeriesUrl, isOccurrence } from "../utils/task-endpoints"; // getOccurrenceChanges no longer used
+import { getSeriesUrl, isOccurrence } from "../utils/task-endpoints";
 import { ScopeDialog } from "./ScopeDialog";
 import { needsScopeChoice, toNullableDateString } from "../utils/occurrence-scope";
 
@@ -48,6 +49,7 @@ function TasksPage() {
   const [previousStatusLookup, setPreviousStatusLookup] = useState({});
   const seriesChangedRef = useRef(false);
   const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
+  const { deleteTask, deleteSeries, canDeleteSeries } = useTaskDeletion(setTasks, refetch);
 
   const [draft, setDraft] = useState({
     title: "",
@@ -395,20 +397,20 @@ function TasksPage() {
   };
 
   //Deletes tasks from Firestore using Express API route then updates local UI
-  const deleteTask = async id => {
+  const deletingTask = tasks.find(task => task.id === deleteId);
+  const deletingOccurrence = isOccurrence(deletingTask);
+
+  const confirmDelete = async scope => {
+    const task = deletingTask;
+
     try {
-      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
-        method: "DELETE",
-      });
-
-      setTasks(current => current.filter(task => task.id !== id));
-
-      toast.add({
-        title: "Task Deleted",
-        type: "success",
-      });
+      if (task) {
+        if (scope === "series") await deleteSeries(task);
+        else await deleteTask(task);
+      }
     } catch (err) {
       console.log(err);
+      toast.add({ title: "Failed to delete task", type: "error" });
     } finally {
       setDeleteId(null);
     }
@@ -519,11 +521,14 @@ function TasksPage() {
         }}
       />
 
-      <AlertDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}>
+      {/* Delete dialog for one-off tasks */}
+      <AlertDialog
+        open={deleteId !== null && !deletingOccurrence}
+        onOpenChange={open => !open && setDeleteId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete task?</AlertDialogTitle>
-
             <AlertDialogDescription>
               This task will be removed from your study plan.
             </AlertDialogDescription>
@@ -531,17 +536,26 @@ function TasksPage() {
 
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-
-            <AlertDialogAction
-              onClick={() => {
-                deleteTask(deleteId);
-              }}
-            >
+            <AlertDialogAction onClick={() => confirmDelete("occurrence")}>
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete dialog for recurring tasks */}
+      <ScopeDialog
+        open={deleteId !== null && deletingOccurrence}
+        onOpenChange={open => !open && setDeleteId(null)}
+        onChoose={confirmDelete}
+        title="Delete recurring task"
+        description="Delete just this occurrence, or the whole series. Deleting the series also removes its completed occurrences."
+        occurrenceLabel="Delete this occurrence"
+        seriesLabel="Delete all occurrences"
+        seriesScope="series"
+        seriesDisabled={!canDeleteSeries}
+        destructive
+      />
     </main>
   );
 }

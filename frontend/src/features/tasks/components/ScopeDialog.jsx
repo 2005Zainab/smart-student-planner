@@ -10,16 +10,24 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-function ScopeDialog({ open, onOpenChange, onChoose }) {
+function ScopeDialog({
+  open,
+  onOpenChange,
+  onChoose,
+  title = "Apply changes to",
+  description = "Choose whether these content changes should apply only to this occurrence or to future occurrences in the series.",
+  occurrenceLabel = "This occurrence only",
+  seriesLabel = "Apply to future occurrences",
+  seriesScope = "future", // value passed to onChoose for the series option
+  seriesDisabled = false,
+  destructive = false, // styles the series option
+}) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Apply changes to</AlertDialogTitle>
-          <AlertDialogDescription>
-            Choose whether these content changes should apply only to this occurrence or to future
-            occurrences in the series.
-          </AlertDialogDescription>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
 
         <AlertDialogFooter className="flex-col-reverse sm:flex-col-reverse">
@@ -31,17 +39,22 @@ function ScopeDialog({ open, onOpenChange, onChoose }) {
             variant="outline"
             onClick={() => onChoose("occurrence")}
           >
-            This occurrence only
+            {occurrenceLabel}
           </Button>
 
           <AlertDialogAction
-            className="w-full"
+            className={`w-full ${
+              destructive
+                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                : ""
+            }`}
+            disabled={seriesDisabled}
             onClick={event => {
               event.preventDefault();
-              onChoose("future");
+              onChoose(seriesScope);
             }}
           >
-            Apply to future occurrences
+            {seriesLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
