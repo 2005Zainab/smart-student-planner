@@ -28,10 +28,14 @@ function getEditChanges(original, draft) {
     checklist: draft.checklist || [],
   };
 
+  // Files are never part of an edit. They are uploaded and removed through their own endpoints
+  // (see useTaskFiles), so the draft's files list must not be sent with the task fields.
   const changes = isOccurrence(original)
     ? getOccurrenceChanges(edited, original)
     : Object.fromEntries(
-        Object.entries(edited).filter(([key, value]) => value !== original?.[key]),
+        Object.entries(edited).filter(
+          ([key, value]) => key !== "files" && value !== original?.[key],
+        ),
       );
 
   return Object.keys(changes).length > 0 ? changes : null;
@@ -48,6 +52,8 @@ function getEditChanges(original, draft) {
  *   state. Used for edits, status toggles, undo and checklist toggles.
  * - saveEdit(original, draft): diff an editor draft against the original and patch only what
  *   changed. Resolves to false, sending nothing, when nothing changed.
+ *
+ * - updateFiles(taskId, update): change one task's files list in local state. Sends nothing.
  *
  * Both reject if the request fails, leaving local state untouched; callers show the error.
  */
@@ -83,6 +89,17 @@ function useTaskUpdates(setTasks) {
     return true;
   }
 
+  // Changes only the files list of one task in local state. The upload and remove requests are
+  // made by useTaskFiles, so nothing is sent from here. update takes the current files and
+  // returns the new list.
+  function updateFiles(taskId, update) {
+    setTasks(current =>
+      current.map(task =>
+        task.id === taskId ? { ...task, files: update(task.files ?? []) } : task,
+      ),
+    );
+  }
+
   async function setSeriesEnabled(seriesId, enabled) {
     const saved = await httpClient(getSeriesUrl(seriesId), {
       method: "PATCH",
@@ -98,7 +115,7 @@ function useTaskUpdates(setTasks) {
     return saved;
   }
 
-  return { patchTask, saveEdit, setSeriesEnabled };
+  return { patchTask, saveEdit, setSeriesEnabled, updateFiles };
 }
 
 export { useTaskUpdates };
