@@ -3,7 +3,7 @@ import { parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ScheduleList } from "./ScheduleList";
 import { TaskForm } from "../../tasks/components/TaskForm";
 import { toast } from "@/components/ui/toast";
@@ -29,16 +29,23 @@ import {
 import { useTasksContext } from "../../tasks/context/TasksContext";
 import { buildCreateTaskRequest } from "../../tasks/utils/build-create-task-request";
 import { useTaskUpdates } from "../../tasks/hooks/useTaskUpdates";
+import { ScopeDialog } from "../../tasks/components/ScopeDialog";
+import { needsScopeChoice } from "../../tasks/utils/occurrence-scope";
+import { useTaskDeletion } from "../../tasks/hooks/useTaskDeletion";
+import { isOccurrence } from "../../tasks/utils/task-endpoints";
 
 function SchedulePage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
-  const { tasks, setTasks, isLoading, error } = useTasksContext();
-  const { patchTask, saveEdit } = useTaskUpdates(setTasks);
+  const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
+  const { patchTask, saveScopedEdit } = useTaskUpdates(setTasks);
+  const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
+  const seriesChangedRef = useRef(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const { deleteTask, deleteSeries, canDeleteSeries } = useTaskDeletion(setTasks, refetch);
   const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [draft, setDraft] = useState({
@@ -96,6 +103,9 @@ function SchedulePage() {
   };
 
   const closeEditor = () => {
+    const shouldRefetch = seriesChangedRef.current;
+    seriesChangedRef.current = false;
+
     if (formMode === "create" && editingTaskId !== null) {
       setTasks(current => current.filter(task => task.id !== editingTaskId));
     }
@@ -105,9 +115,11 @@ function SchedulePage() {
     setEditingTaskId(null);
     setEmptyTitleCheck(null);
     setSaveError(null);
+
+    if (shouldRefetch) refetch();
   };
 
-  const saveTask = async () => {
+  const saveTask = async (scope = null) => {
     //Blank title check, can't be empty or blank space
     if (!draft.title || draft.title.trim() === "") {
       setEmptyTitleCheck("Title Cannot Be Empty");
@@ -147,9 +159,14 @@ function SchedulePage() {
       //edit task sends to backend to check and save to firestore via PATCH route
       const original = tasks.find(task => task.id === editingTaskId) ?? { id: editingTaskId };
 
+      if (scope === null && needsScopeChoice(original, draft)) {
+        setScopeDialogOpen(true);
+        return;
+      }
+
       try {
         //Sends only the changed fields to the one-off task or recurring occurrence endpoint
-        const didSave = await saveEdit(original, draft);
+        const didSave = await saveScopedEdit(original, draft, scope);
 
         if (!didSave) {
           setEditorOpen(false);
@@ -157,11 +174,11 @@ function SchedulePage() {
           setEditingTaskId(null);
           return;
         }
+
+        if (scope === "future") seriesChangedRef.current = true;
       } catch (err) {
         console.log(err);
-
         setSaveError(err.message || "Failed to save task");
-
         return;
       }
     }
@@ -192,18 +209,19 @@ function SchedulePage() {
     }
   };
 
-  const deleteTask = async id => {
+  const deletingTask = tasks.find(task => task.id === deleteId);
+  const deletingOccurrence = isOccurrence(deletingTask);
+  const confirmDelete = async scope => {
+    const task = deletingTask;
+
     try {
-      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
-        method: "DELETE",
-      });
-      setTasks(current => current.filter(task => task.id !== id));
-      toast.add({
-        title: "Task Deleted",
-        type: "success",
-      });
+      if (task) {
+        if (scope === "series") await deleteSeries(task);
+        else await deleteTask(task);
+      }
     } catch (err) {
       console.log(err);
+      toast.add({ title: "Failed to delete task", type: "error" });
     } finally {
       setDeleteId(null);
     }
@@ -354,7 +372,20 @@ function SchedulePage() {
         </SheetContent>
       </Sheet>
 
-      <AlertDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}>
+      <ScopeDialog
+        open={scopeDialogOpen}
+        onOpenChange={open => setScopeDialogOpen(open)}
+        onChoose={scope => {
+          setScopeDialogOpen(false);
+          saveTask(scope);
+        }}
+      />
+
+      {/* Delete dialog for one-off tasks */}
+      <AlertDialog
+        open={deleteId !== null && !deletingOccurrence}
+        onOpenChange={open => !open && setDeleteId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete task?</AlertDialogTitle>
@@ -362,18 +393,29 @@ function SchedulePage() {
               This task will be removed from your study plan.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                deleteTask(deleteId);
-              }}
-            >
+            <AlertDialogAction onClick={() => confirmDelete("occurrence")}>
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete dialog for recurring tasks */}
+      <ScopeDialog
+        open={deleteId !== null && deletingOccurrence}
+        onOpenChange={open => !open && setDeleteId(null)}
+        onChoose={confirmDelete}
+        title="Delete recurring task"
+        description="Delete just this occurrence, or the whole series. Deleting the series also removes its completed occurrences."
+        occurrenceLabel="Delete this occurrence"
+        seriesLabel="Delete all occurrences"
+        seriesScope="series"
+        seriesDisabled={!canDeleteSeries}
+        destructive
+      />
     </main>
   );
 }
