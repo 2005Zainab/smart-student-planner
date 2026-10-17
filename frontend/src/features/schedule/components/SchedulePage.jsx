@@ -33,7 +33,7 @@ import { useTaskUpdates } from "../../tasks/hooks/useTaskUpdates";
 function SchedulePage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error } = useTasksContext();
-  const { patchTask, saveEdit } = useTaskUpdates(setTasks);
+  const { patchTask, saveEdit, updateFiles } = useTaskUpdates(setTasks);
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -316,6 +316,7 @@ function SchedulePage() {
             requireDateAndTime={true}
             onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
             allowRecurrence={formMode === "create"}
+            onFilesChange={updateFiles}
           />
         </DialogContent>
       </Dialog>
@@ -349,6 +350,7 @@ function SchedulePage() {
               requireDateAndTime={true}
               onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
               allowRecurrence={formMode === "create"}
+              onFilesChange={updateFiles}
             />
           </div>
         </SheetContent>

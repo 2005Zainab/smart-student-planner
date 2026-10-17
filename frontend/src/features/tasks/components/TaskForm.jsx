@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -16,7 +16,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { RecurrenceFields } from "./RecurrenceFields";
+import { TaskFilesCard } from "./TaskFilesCard";
+import { useTaskFiles } from "../hooks/useTaskFiles";
 import { isAfter, startOfDay, startOfToday } from "date-fns";
+
+// The draft as text, without the files list, so two drafts can be compared
+const snapshotFields = draft =>
+  JSON.stringify(draft, (key, value) => (key === "files" ? undefined : value));
 
 // TaskForm component is used for creating and editing tasks.
 // It includes fields for task name, subject, description, priority,
@@ -33,6 +39,7 @@ function TaskForm({
   onToggleChecklistItem,
   allowRecurrence = false,
   seriesEnabled,
+  onFilesChange,
 }) {
   const [dateError, setDateError] = useState("");
   const [reminderError, setReminderError] = useState("");
@@ -40,6 +47,17 @@ function TaskForm({
   const [checklistError, setChecklistError] = useState("");
   // Checklist only shows in view task if the task already has items
   const [checklistToggle, setChecklistToggle] = useState(null);
+
+  // Remembers that a file was uploaded or removed (they save straight away) so Save counts it
+  const filesChangedRef = useRef(false);
+  // The fields as they were when the form opened, to tell whether any were edited
+  const [fieldsAtOpen] = useState(() => snapshotFields(draft));
+  // Task files are managed through the useTaskFiles hook, which handles staging, uploading, and removing files.
+  const taskFiles = useTaskFiles(draft, update => {
+    filesChangedRef.current = true;
+    setDraft(prev => ({ ...prev, files: update(prev.files ?? []) }));
+    onFilesChange?.(draft.id, update);
+  });
 
   const reminderDaysAway = draft.reminderDate
     ? differenceInCalendarDays(
@@ -78,8 +96,12 @@ function TaskForm({
   const hidesThisOccurrence =
     pausing && draft.dueDate instanceof Date && isAfter(startOfDay(draft.dueDate), startOfToday());
 
-  const handleSave = event => {
+  const handleSave = async event => {
     event.preventDefault();
+
+    // A file upload is still running, so ignore a second click
+    if (taskFiles.isBusy) return;
+
     setDateError("");
 
     if ((requireDateAndTime || draft.recurrence) && !draft.dueDate) {
@@ -112,6 +134,19 @@ function TaskForm({
         setReminderError("Reminders cannot be set in the past.");
         return;
       }
+    }
+
+    // Upload files that were chosen but not uploaded yet. If one fails, stay on the form so the
+    // error stays visible, and don't save the task yet.
+    if (taskFiles.stagedFiles.length > 0 && !(await taskFiles.uploadStaged())) {
+      return;
+    }
+
+    // Uploaded or removed files are already saved. If no field was edited, there's nothing
+    // else to send, so just close the form.
+    if (filesChangedRef.current && snapshotFields(draft) === fieldsAtOpen) {
+      onCancel();
+      return;
     }
 
     onSave();
@@ -573,6 +608,8 @@ function TaskForm({
             </>
           )}
         </div>
+        {/* Files */}
+        <TaskFilesCard taskFiles={taskFiles} readOnly={readOnly} />
       </div>
 
       {saveError && <p className="text-sm text-destructive">{saveError}</p>}
@@ -583,7 +620,9 @@ function TaskForm({
             Cancel
           </Button>
 
-          <Button type="submit">Save task</Button>
+          <Button type="submit" disabled={taskFiles.isBusy}>
+            Save task
+          </Button>
         </div>
       )}
     </form>
