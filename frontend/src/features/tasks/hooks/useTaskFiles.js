@@ -36,6 +36,15 @@ function useTaskFiles(task, onFilesChange) {
       );
 
       if (alreadyStaged) continue;
+      // Check if the file is already uploaded to the task
+      const alreadyUploaded = files.some(
+        uploaded => uploaded.name === file.name && uploaded.size === file.size,
+      );
+
+      if (alreadyUploaded) {
+        problems.push(`${file.name}: this file is already attached to the task`);
+        continue;
+      }
 
       if (!ACCEPTED_EXTENSIONS.includes(getExtension(file.name))) {
         problems.push(`${file.name}: only PDF, PNG, JPG, DOCX and PPTX files are allowed`);

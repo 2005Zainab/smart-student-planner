@@ -80,6 +80,14 @@ router.post("/", requireAuth, receiveFile, async (req, res) => {
       if ((taskSnap.data().files ?? []).length >= MAX_FILES_PER_TASK) {
         return { status: 400, message: `A task can have at most ${MAX_FILES_PER_TASK} files` };
       }
+      // Check if a file with the same name and size is already attached to the task
+      const alreadyAttached = (taskSnap.data().files ?? []).some(
+        existing => existing.name === name && existing.size === file.size,
+      );
+
+      if (alreadyAttached) {
+        return { status: 409, message: "This file is already attached to the task" };
+      }
 
       transaction.set(fileRef, {
         ...summary,
