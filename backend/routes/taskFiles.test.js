@@ -49,6 +49,21 @@ describe("POST /api/tasks/:id/files", () => {
     expect(transaction.update).toHaveBeenCalledTimes(1);
   });
 
+  it("uploads an empty .txt file", async () => {
+    mockTask({ userId: "test-user-1", files: [] });
+
+    const res = await uploadFile("blank.txt", Buffer.alloc(0));
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({
+      id: "file-1",
+      name: "blank.txt",
+      type: "text/plain; charset=utf-8",
+      size: 0,
+    });
+    expect(transaction.set).toHaveBeenCalledTimes(1);
+  });
+
   it("returns 403 when the task belongs to a different user", async () => {
     mockTask({ userId: "someone-else", files: [] });
 
@@ -82,9 +97,17 @@ describe("POST /api/tasks/:id/files", () => {
   });
 
   it("returns 400 for a file type that isn't allowed", async () => {
-    const res = await uploadFile("notes.txt", Buffer.from("hello"));
+    const res = await uploadFile("notes.exe", Buffer.from("hello"));
 
     expect(res.status).toBe(400);
+    expect(db.runTransaction).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 with a UTF-8 message for a .txt file that isn't valid UTF-8", async () => {
+    const res = await uploadFile("notes.txt", Buffer.from([0xca, 0xfe, 0xba, 0xbe]));
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/UTF-8/i);
     expect(db.runTransaction).not.toHaveBeenCalled();
   });
 });

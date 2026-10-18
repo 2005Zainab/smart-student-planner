@@ -21,6 +21,17 @@ describe("getVerifiedMimeType", () => {
     expect(getVerifiedMimeType(name, bytes)).toBe(mimeType);
   });
 
+  it("accepts UTF-8 text, including an empty file", () => {
+    expect(getVerifiedMimeType("notes.txt", Buffer.from("café"))).toBe("text/plain; charset=utf-8");
+    expect(getVerifiedMimeType("blank.txt", Buffer.alloc(0))).toBe("text/plain; charset=utf-8");
+  });
+
+  it("rejects a .txt file that isn't valid UTF-8", () => {
+    // These bytes are valid in Windows-1252, but not UTF-8.
+    expect(getVerifiedMimeType("notes.txt", Buffer.from([0xca, 0xfe, 0xba, 0xbe]))).toBeNull();
+    expect(getVerifiedMimeType("notes.txt", Buffer.from([0x63, 0x61, 0x66, 0xe9]))).toBeNull();
+  });
+
   it("rejects a file whose bytes don't match its extension", () => {
     const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d]);
 

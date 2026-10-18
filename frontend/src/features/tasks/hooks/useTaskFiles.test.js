@@ -42,9 +42,16 @@ describe("useTaskFiles stageFiles", () => {
   });
 
   it("rejects a file type that isn't allowed", () => {
-    const { stagedFiles, errors } = stage({ id: "t1", files: [] }, new File(["abc"], "notes.txt"));
+    const { stagedFiles, errors } = stage({ id: "t1", files: [] }, new File(["abc"], "notes.exe"));
 
     expect(stagedFiles).toHaveLength(0);
     expect(errors[0]).toMatch(/only PDF/i);
+  });
+
+  it("accepts a .txt file", () => {
+    const { stagedFiles, errors } = stage({ id: "t1", files: [] }, new File(["abc"], "notes.txt"));
+
+    expect(stagedFiles).toHaveLength(1);
+    expect(errors).toHaveLength(0);
   });
 });
