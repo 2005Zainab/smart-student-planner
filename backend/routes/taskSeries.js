@@ -83,6 +83,7 @@ function getOccurrenceFields(body) {
     "checklist",
     "reminderDate",
     "reminderTime",
+    "links",
   ]) {
     if (Object.prototype.hasOwnProperty.call(body, field)) fields[field] = body[field];
   }
@@ -116,6 +117,7 @@ const NON_PAUSE_SERIES_FIELDS = [
   "subject",
   "time",
   "checklist",
+  "links",
   "reminderOffsetDays",
   "reminderTime",
   "status",
@@ -178,6 +180,7 @@ router.post("/", requireAuth, async (req, res) => {
     dueDate: body.dueDate ?? null,
     time: typeof body.time === "string" && body.time.trim() ? body.time.trim() : null,
     checklist: body.checklist ?? [],
+    links: body.links ?? [],
   });
   if (taskValidation.message) {
     return res.status(400).json({ message: taskValidation.message });
@@ -218,6 +221,7 @@ router.post("/", requireAuth, async (req, res) => {
       subject: clean.subject,
       time: clean.time,
       checklist: templateChecklist,
+      links: clean.links,
       ...reminderValidation.clean,
     };
     const seriesDoc = {
@@ -243,6 +247,7 @@ router.post("/", requireAuth, async (req, res) => {
       ...template,
       ...getReminderFields(template, clean.dueDate, today),
       checklist: buildOccurrenceChecklist(template.checklist, occurrenceId),
+      links: template.links ?? [],
       dueDate: clean.dueDate,
       status: "To Do",
       priority: getPriorityFromDueDate(clean.dueDate, today),
@@ -683,6 +688,7 @@ router.patch("/:seriesId/occurrences/:date", requireAuth, async (req, res) => {
         subject: series.template.subject,
         time: series.template.time,
         checklist: materializeChecklist(series.template.checklist),
+        links: series.template.links ?? [],
         dueDate: date,
         status: "To Do",
         ...reminderFields,

@@ -23,6 +23,7 @@ const ALLOWED_FIELDS = [
   "checklist",
   "reminderDate",
   "reminderTime",
+  "links",
 ];
 
 function offsetDate(dateStr, days) {
@@ -57,6 +58,7 @@ function getVirtualOccurrence(series, date, today) {
     occurrenceDate: date,
     ...series.template,
     checklist: buildOccurrenceChecklist(series.template.checklist, occcurrenceId),
+    links: series.template.links ?? [],
     virtual: true,
     dueDate: date,
     status: "To Do",
@@ -114,6 +116,7 @@ router.post("/", requireAuth, async (req, res) => {
       typeof req.body.reminderTime === "string" && req.body.reminderTime.trim()
         ? req.body.reminderTime.trim()
         : null,
+    links: req.body.links ?? [],
   };
   const validation = validateTaskFields(fields);
   if (validation.message) return res.status(400).json({ message: validation.message });

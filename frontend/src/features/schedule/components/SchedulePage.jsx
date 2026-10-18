@@ -53,6 +53,7 @@ function SchedulePage() {
     status: "To Do",
     time: "",
     recurrence: null,
+    links: [],
   });
 
   const openEditor = (task = null, mode = task ? "edit" : "create") => {
@@ -71,6 +72,7 @@ function SchedulePage() {
         dueDate: undefined,
         time: "",
         recurrence: null,
+        links: [],
       };
 
       setEditingTaskId(newTask.id);

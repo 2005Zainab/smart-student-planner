@@ -94,6 +94,7 @@ function CalendarPage() {
     dueDate: undefined,
     time: "",
     recurrence: null,
+    links: [],
   };
 
   const [draft, setDraft] = useState(emptyDraft);

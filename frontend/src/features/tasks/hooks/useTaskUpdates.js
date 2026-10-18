@@ -27,6 +27,7 @@ function getEditChanges(original, draft) {
     reminderDate: toDateString(draft.reminderDate),
     time: draft.time || null,
     checklist: draft.checklist || [],
+    links: draft.links || [],
   };
 
   // Files are never part of an edit. They are uploaded and removed through their own endpoints
