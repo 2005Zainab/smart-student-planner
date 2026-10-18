@@ -3,6 +3,7 @@ import { TOTP, NobleCryptoPlugin, ScureBase32Plugin } from "otplib";
 import QRCode from "qrcode";
 import { db } from "../shared/firebase.js";
 import { requireAuth } from "../middleware/auth.js";
+import { getAuth } from "firebase-admin/auth";
 
 const router = express.Router();
 
@@ -51,12 +52,22 @@ router.post("/verify-setup", requireAuth, async (req, res) => {
       twoFactorEnabled: true,
       tempTwoFactorSecret: null,
     });
+
+    const userRecord = await getAuth.getUser(req.user.uid);
+    const currentClaims = userRecord.customClaims || {};
+
+    await getAuth().setCustomUserClaims(req.user.uid, {
+      ...currentClaims,
+      twoFactorEnabled: true,
+    });
+
     res.status(200).json({ message: "2FA enabled successfully" });
   } else {
     res.status(401).json({ message: "Invalid PIN code" });
   }
 });
 
+// verifies the pin from the user and responds with the mfa cookie if it is correct
 router.post("/login-verify", requireAuth, async (req, res) => {
   const { token } = req.body;
 
