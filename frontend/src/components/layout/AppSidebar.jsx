@@ -6,6 +6,7 @@ import {
   Settings,
   User,
   PanelLeft,
+  Sparkles,
 } from "lucide-react";
 
 import {
@@ -55,6 +56,7 @@ const navigation = [
     href: "/schedule",
     icon: List,
   },
+  { label: "AI Chat", href: "/ai-chat", icon: Sparkles },
 ];
 
 function AppSidebar() {
