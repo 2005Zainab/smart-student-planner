@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { format } from "date-fns";
 
@@ -11,7 +10,6 @@ import { getTimelineTasks } from "@/features/tasks/utils/task-date-utils";
 
 function TimelinePage() {
   const { tasks, setTasks, isLoading, error } = useTasksContext();
-
   const { patchTask } = useTaskUpdates(setTasks);
 
   const [selectedTask, setSelectedTask] = useState(null);
@@ -19,7 +17,7 @@ function TimelinePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  // Get tasks in date order using our shared utility
+  // Get the tasks in date order
   const timelineTasks = getTimelineTasks(tasks);
 
   // Open the date editor when a task is clicked
@@ -29,10 +27,11 @@ function TimelinePage() {
     setSaveError("");
   };
 
-  // Save the new date to the backend
+  // Save the new task date
   const handleSaveDate = async () => {
     if (!selectedTask || !newDate || isSaving) return;
 
+    // Close the editor if the date has not changed
     if (newDate === selectedTask.dueDate) {
       setSelectedTask(null);
       return;
@@ -46,9 +45,10 @@ function TimelinePage() {
         dueDate: newDate,
       });
 
-      // Close the editor after the date is saved
+      // Close the editor after saving
       setSelectedTask(null);
-    } catch (error) {
+    } catch {
+      // Show a message if the date could not be saved
       setSaveError("Could not save the new date. Please try again.");
     } finally {
       setIsSaving(false);
@@ -65,9 +65,7 @@ function TimelinePage() {
   return (
     <main className="flex-1 space-y-6 p-4 md:p-6">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Timeline
-        </h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Timeline</h2>
 
         <p className="mt-1 text-muted-foreground">
           View your assessments and deadlines in date order.
@@ -80,22 +78,15 @@ function TimelinePage() {
 
           {error && <p>Unable to load tasks.</p>}
 
-          {!isLoading &&
-            !error &&
-            timelineTasks.length === 0 && (
-              <p className="text-muted-foreground">
-                No assessments or deadlines found.
-              </p>
-            )}
+          {!isLoading && !error && timelineTasks.length === 0 && (
+            <p className="text-muted-foreground">No assessments or deadlines found.</p>
+          )}
 
           <div className="space-y-4">
             {!isLoading &&
               !error &&
               timelineTasks.map(task => (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-4"
-                >
+                <div key={task.id} className="flex items-center gap-4">
                   <div className="flex flex-col items-center">
                     <div className="size-3 rounded-full bg-primary" />
                     <div className="h-12 w-px bg-border" />
@@ -108,18 +99,14 @@ function TimelinePage() {
                     disabled={isSaving}
                   >
                     <div className="text-left">
-                      <p className="font-medium">
-                        {task.title}
-                      </p>
+                      <p className="font-medium">{task.title}</p>
 
                       <p className="text-sm text-muted-foreground">
                         {format(task.parsedDateTime, "dd/MM/yyyy")}
                       </p>
 
                       {task.subject && (
-                        <p className="text-sm text-muted-foreground">
-                          {task.subject}
-                        </p>
+                        <p className="text-sm text-muted-foreground">{task.subject}</p>
                       )}
                     </div>
                   </Button>
@@ -129,18 +116,11 @@ function TimelinePage() {
 
           {selectedTask && (
             <div className="mt-6 rounded-md border p-4">
-              <h3 className="font-semibold">
-                Move assessment
-              </h3>
+              <h3 className="font-semibold">Move assessment</h3>
 
-              <p className="mt-2">
-                {selectedTask.title}
-              </p>
+              <p className="mt-2">{selectedTask.title}</p>
 
-              <label
-                htmlFor="timeline-date"
-                className="mt-4 block text-sm font-medium"
-              >
+              <label htmlFor="timeline-date" className="mt-4 block text-sm font-medium">
                 Choose a new due date
               </label>
 
@@ -160,18 +140,11 @@ function TimelinePage() {
               )}
 
               <div className="mt-4 flex gap-2">
-                <Button
-                  onClick={handleSaveDate}
-                  disabled={!newDate || isSaving}
-                >
+                <Button onClick={handleSaveDate} disabled={!newDate || isSaving}>
                   {isSaving ? "Saving..." : "Save date"}
                 </Button>
 
-                <Button
-                  variant="outline"
-                  onClick={handleCancel}
-                  disabled={isSaving}
-                >
+                <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
                   Cancel
                 </Button>
               </div>
