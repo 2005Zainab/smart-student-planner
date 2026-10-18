@@ -35,7 +35,7 @@ import { needsScopeChoice } from "../../tasks/utils/occurrence-scope";
 function SchedulePage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
-  const { patchTask, saveEdit, updateFiles, saveScopedEdit } = useTaskUpdates(setTasks);
+  const { patchTask, saveScopedEdit, updateFiles } = useTaskUpdates(setTasks);
   const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
   const seriesChangedRef = useRef(false);
   const [editorOpen, setEditorOpen] = useState(false);

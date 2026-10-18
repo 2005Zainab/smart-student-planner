@@ -37,7 +37,7 @@ import { needsScopeChoice, toNullableDateString } from "../utils/occurrence-scop
 function TasksPage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
-  const { patchTask, saveEdit, saveScopedEdit, updateFiles, setSeriesEnabled } = useTaskUpdates(setTasks);
+  const { patchTask, saveScopedEdit, setSeriesEnabled, updateFiles } = useTaskUpdates(setTasks);
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
