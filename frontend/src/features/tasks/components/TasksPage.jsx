@@ -196,9 +196,31 @@ function TasksPage() {
           method: "POST",
           body: JSON.stringify(createRequest.body),
         });
+
         const savedTask = createRequest.recurring ? savedResponse.firstOccurrence : savedResponse;
 
-        setTasks(current => current.map(task => (task.id === editingTaskId ? savedTask : task)));
+        const taskToInsert = createRequest.recurring
+          ? {
+              ...savedTask,
+              seriesPattern: {
+                rule: savedResponse.series?.rule ?? createRequest.body.rule,
+                endDate: savedResponse.series?.endDate
+                  ? parseISO(savedResponse.series.endDate)
+                  : createRequest.body.endDate
+                    ? parseISO(createRequest.body.endDate)
+                    : null,
+                defaultWeekday:
+                  savedTask.dueDate instanceof Date
+                    ? isoWeekday(savedTask.dueDate)
+                    : savedTask.dueDate
+                      ? isoWeekday(parseISO(savedTask.dueDate))
+                      : undefined,
+              },
+              repeatEnabled: savedResponse.series?.enabled ?? true,
+            }
+          : savedTask;
+
+        setTasks(current => current.map(task => (task.id === editingTaskId ? taskToInsert : task)));
 
         toast.add({
           title: "Task Added",
