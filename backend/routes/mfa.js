@@ -70,7 +70,7 @@ router.post("/login-verify", requireAuth, async (req, res) => {
   const isValid = totp.verify({ token, secret: twoFactorSecret });
 
   if (isValid) {
-    res.cookie("2fa_verified", "true", { httpOnly: true, secure: true });
+    res.cookie("mfa_verified", "true", { httpOnly: true, secure: true });
     res.status(200).json({ message: "Login successful" });
   } else {
     res.status(401).json({ message: "Invalid 2FA code" });
