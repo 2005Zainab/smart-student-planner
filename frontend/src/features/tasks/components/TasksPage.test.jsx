@@ -6,11 +6,12 @@ import { TasksPage } from "./TasksPage";
 import { httpClient } from "../../../shared/http-client";
 
 let mockTasks = [];
+const mockRefetch = vi.fn();
 
 vi.mock("../context/TasksContext", () => ({
   useTasksContext: () => {
     const [tasks, setTasks] = useState(mockTasks);
-    return { tasks, setTasks, isLoading: false, error: null };
+    return { tasks, setTasks, isLoading: false, error: null, refetch: mockRefetch };
   },
 }));
 
@@ -26,6 +27,14 @@ vi.mock("./TaskForm", () => ({
         value={draft.title}
         onChange={e => setDraft(d => ({ ...d, title: e.target.value }))}
       />
+      {typeof draft.repeatEnabled === "boolean" && (
+        <button
+          aria-label="toggle repeat"
+          onClick={() => setDraft(d => ({ ...d, repeatEnabled: !d.repeatEnabled }))}
+        >
+          Toggle repeat
+        </button>
+      )}
       {titleError && <p role="alert">{titleError}</p>}
       {saveError && <p role="alert">{saveError}</p>}
       <button onClick={onSave}>Save</button>
@@ -175,6 +184,7 @@ describe("TasksPage", () => {
           reminderDate: null,
           reminderTime: null,
           virtual: true,
+          series: { enabled: true },
         },
       ];
     });
@@ -219,6 +229,31 @@ describe("TasksPage", () => {
       await userEvent.click(screen.getByRole("button", { name: /save/i }));
 
       expect(httpClient).not.toHaveBeenCalled();
+      expect(mockRefetch).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByTestId("task-form")).not.toBeInTheDocument());
+    });
+
+    it("saves occurrence content before toggling the series and refetches on close", async () => {
+      httpClient.mockResolvedValueOnce({ title: "Study hard" }).mockResolvedValueOnce({
+        enabled: false,
+        pauses: [{ from: "2026-10-08", until: null }],
+      });
+
+      render(<TasksPage />);
+      await userEvent.click(screen.getByRole("button", { name: "edit" }));
+      await userEvent.type(screen.getByLabelText("title"), " hard");
+      await userEvent.click(screen.getByRole("button", { name: "toggle repeat" }));
+      await userEvent.click(screen.getByRole("button", { name: /save/i }));
+
+      await waitFor(() => expect(httpClient).toHaveBeenCalledTimes(2));
+
+      expect(httpClient.mock.calls[0][0]).toBe(occurrenceUrl);
+      expect(JSON.parse(httpClient.mock.calls[0][1].body)).toEqual({ title: "Study hard" });
+      expect(httpClient.mock.calls[1][0]).toBe("http://localhost:3000/api/task-series/s1");
+      expect(JSON.parse(httpClient.mock.calls[1][1].body)).toEqual({ enabled: false });
+
+      // refetch runs in closeEditor, after the awaits that follow the second request
+      await waitFor(() => expect(mockRefetch).toHaveBeenCalledTimes(1));
       await waitFor(() => expect(screen.queryByTestId("task-form")).not.toBeInTheDocument());
     });
 

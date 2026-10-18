@@ -23,6 +23,7 @@ const ALLOWED_FIELDS = [
   "checklist",
   "reminderDate",
   "reminderTime",
+  "links",
 ];
 
 function offsetDate(dateStr, days) {
@@ -36,6 +37,16 @@ function isDateInRange(dateStr, fromStr, toStr) {
   return dateStr >= fromStr && dateStr <= toStr;
 }
 
+function getSeriesSummary(series) {
+  const openSegment =
+    series.segments.find(segment => segment.until === null) ?? series.segments.at(-1);
+  return {
+    enabled: series.enabled !== false,
+    rule: openSegment.rule,
+    endDate: series.endDate ?? null,
+  };
+}
+
 function getVirtualOccurrence(series, date, today) {
   const isFuture = date >= today;
   const reminderOffsetDays = series.template.reminderOffsetDays;
@@ -47,6 +58,7 @@ function getVirtualOccurrence(series, date, today) {
     occurrenceDate: date,
     ...series.template,
     checklist: buildOccurrenceChecklist(series.template.checklist, occcurrenceId),
+    links: series.template.links ?? [],
     virtual: true,
     dueDate: date,
     status: "To Do",
@@ -56,15 +68,17 @@ function getVirtualOccurrence(series, date, today) {
         : null,
     reminderTime: isFuture ? (series.template.reminderTime ?? null) : null,
     priority: getPriorityFromDueDate(date, today),
+    series: getSeriesSummary(series),
   };
 }
 
-function getMaterializedOccurrence(doc, today) {
+function getMaterializedOccurrence(doc, series, today) {
   return {
     id: doc.id,
     ...doc.data,
     virtual: false,
     priority: getPriorityFromDueDate(doc.data.dueDate ?? doc.data.occurrenceDate, today),
+    series: getSeriesSummary(series),
   };
 }
 
@@ -102,6 +116,7 @@ router.post("/", requireAuth, async (req, res) => {
       typeof req.body.reminderTime === "string" && req.body.reminderTime.trim()
         ? req.body.reminderTime.trim()
         : null,
+    links: req.body.links ?? [],
   };
   const validation = validateTaskFields(fields);
   if (validation.message) return res.status(400).json({ message: validation.message });
@@ -155,6 +170,10 @@ router.delete("/:id", requireAuth, async (req, res) => {
         message: "Unauthorized to delete this task: You do not own this task",
       });
     }
+
+    // Delete the task's uploaded files first
+    const files = taskSnap.data().files ?? [];
+    await Promise.all(files.map(file => db.collection("taskFiles").doc(file.id).delete()));
 
     await taskDoc.delete();
 
@@ -300,7 +319,7 @@ router.get("/", requireAuth, async (req, res) => {
         const materializedDoc = materialized.get(`${series.id}_${date}`);
         occurrences.push(
           materializedDoc
-            ? getMaterializedOccurrence(materializedDoc, today)
+            ? getMaterializedOccurrence(materializedDoc, series, today)
             : getVirtualOccurrence(series, date, today),
         );
       }
@@ -362,7 +381,7 @@ router.get("/calendar", requireAuth, async (req, res) => {
         const materializedDoc = materialized.get(`${series.id}_${date}`);
         occurrences.push(
           materializedDoc
-            ? getMaterializedOccurrence(materializedDoc, today)
+            ? getMaterializedOccurrence(materializedDoc, series, today)
             : getVirtualOccurrence(series, date, today),
         );
       }
@@ -374,7 +393,7 @@ router.get("/calendar", requireAuth, async (req, res) => {
           !scheduledDates.has(materializedDoc.data.occurrenceDate) &&
           shouldRenderMaterialized(materializedDoc.data, series, today)
         ) {
-          occurrences.push(getMaterializedOccurrence(materializedDoc, today));
+          occurrences.push(getMaterializedOccurrence(materializedDoc, series, today));
         }
       }
     }

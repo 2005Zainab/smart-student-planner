@@ -208,6 +208,7 @@ describe("PATCH /api/task-series/:seriesId/occurrences/:date", () => {
         status: "In Progress",
         dueDate: occurrenceDate,
       });
+      expect(taskState.get(`series-1_${occurrenceDate}`)).not.toHaveProperty("series");
     });
 
     it("defaults status to 'To Do' and copies every other content field from the template", async () => {

@@ -1,4 +1,4 @@
-import { httpClient, HttpError } from "../../../shared/http-client";
+import { httpClient, httpError } from "../../../shared/http-client";
 
 export async function getCalendarTasks(from, to) {
   try {
@@ -6,7 +6,7 @@ export async function getCalendarTasks(from, to) {
     const tasks = await httpClient(`http://localhost:3000/api/tasks/calendar?${params}`);
     return Array.isArray(tasks) ? tasks : [];
   } catch (error) {
-    if (error instanceof HttpError) {
+    if (error instanceof httpError) {
       console.error(`HTTP Error: ${error.status} - ${error.message}`, error.body);
     } else {
       console.error("Unexpected error:", error);

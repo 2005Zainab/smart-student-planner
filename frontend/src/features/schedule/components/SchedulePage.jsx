@@ -3,7 +3,7 @@ import { parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ScheduleList } from "./ScheduleList";
 import { TaskForm } from "../../tasks/components/TaskForm";
 import { toast } from "@/components/ui/toast";
@@ -29,11 +29,15 @@ import {
 import { useTasksContext } from "../../tasks/context/TasksContext";
 import { buildCreateTaskRequest } from "../../tasks/utils/build-create-task-request";
 import { useTaskUpdates } from "../../tasks/hooks/useTaskUpdates";
+import { ScopeDialog } from "../../tasks/components/ScopeDialog";
+import { needsScopeChoice } from "../../tasks/utils/occurrence-scope";
 
 function SchedulePage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
-  const { tasks, setTasks, isLoading, error } = useTasksContext();
-  const { patchTask, saveEdit } = useTaskUpdates(setTasks);
+  const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
+  const { patchTask, saveScopedEdit, updateFiles } = useTaskUpdates(setTasks);
+  const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
+  const seriesChangedRef = useRef(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -49,6 +53,7 @@ function SchedulePage() {
     status: "To Do",
     time: "",
     recurrence: null,
+    links: [],
   });
 
   const openEditor = (task = null, mode = task ? "edit" : "create") => {
@@ -67,6 +72,7 @@ function SchedulePage() {
         dueDate: undefined,
         time: "",
         recurrence: null,
+        links: [],
       };
 
       setEditingTaskId(newTask.id);
@@ -96,6 +102,9 @@ function SchedulePage() {
   };
 
   const closeEditor = () => {
+    const shouldRefetch = seriesChangedRef.current;
+    seriesChangedRef.current = false;
+
     if (formMode === "create" && editingTaskId !== null) {
       setTasks(current => current.filter(task => task.id !== editingTaskId));
     }
@@ -105,9 +114,11 @@ function SchedulePage() {
     setEditingTaskId(null);
     setEmptyTitleCheck(null);
     setSaveError(null);
+
+    if (shouldRefetch) refetch();
   };
 
-  const saveTask = async () => {
+  const saveTask = async (scope = null) => {
     //Blank title check, can't be empty or blank space
     if (!draft.title || draft.title.trim() === "") {
       setEmptyTitleCheck("Title Cannot Be Empty");
@@ -147,9 +158,14 @@ function SchedulePage() {
       //edit task sends to backend to check and save to firestore via PATCH route
       const original = tasks.find(task => task.id === editingTaskId) ?? { id: editingTaskId };
 
+      if (scope === null && needsScopeChoice(original, draft)) {
+        setScopeDialogOpen(true);
+        return;
+      }
+
       try {
         //Sends only the changed fields to the one-off task or recurring occurrence endpoint
-        const didSave = await saveEdit(original, draft);
+        const didSave = await saveScopedEdit(original, draft, scope);
 
         if (!didSave) {
           setEditorOpen(false);
@@ -157,11 +173,11 @@ function SchedulePage() {
           setEditingTaskId(null);
           return;
         }
+
+        if (scope === "future") seriesChangedRef.current = true;
       } catch (err) {
         console.log(err);
-
         setSaveError(err.message || "Failed to save task");
-
         return;
       }
     }
@@ -294,7 +310,7 @@ function SchedulePage() {
       </Card>
 
       <Dialog open={editorOpen} onOpenChange={open => (open ? setEditorOpen(true) : closeEditor())}>
-        <DialogContent>
+        <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-2xl">
           <DialogTitle>
             {formMode === "view" ? "View task" : formMode === "create" ? "Add task" : "Edit task"}
           </DialogTitle>
@@ -316,6 +332,7 @@ function SchedulePage() {
             requireDateAndTime={true}
             onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
             allowRecurrence={formMode === "create"}
+            onFilesChange={updateFiles}
           />
         </DialogContent>
       </Dialog>
@@ -349,10 +366,20 @@ function SchedulePage() {
               requireDateAndTime={true}
               onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
               allowRecurrence={formMode === "create"}
+              onFilesChange={updateFiles}
             />
           </div>
         </SheetContent>
       </Sheet>
+
+      <ScopeDialog
+        open={scopeDialogOpen}
+        onOpenChange={open => setScopeDialogOpen(open)}
+        onChoose={scope => {
+          setScopeDialogOpen(false);
+          saveTask(scope);
+        }}
+      />
 
       <AlertDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}>
         <AlertDialogContent>

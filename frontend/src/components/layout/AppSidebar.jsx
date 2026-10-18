@@ -1,3 +1,4 @@
+
 import {
   CalendarDays,
   CheckSquare,
@@ -6,6 +7,7 @@ import {
   List,
   Settings,
   User,
+  PanelLeft,
 } from "lucide-react";
 
 import {
@@ -18,6 +20,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
 import {
@@ -66,10 +69,11 @@ function AppSidebar() {
   const { user } = useAuth();
   const { error, isPending, logout } = useLogout();
   const navigate = useNavigate();
+  const { toggleSidebar } = useSidebar();
 
   const userName = user?.displayName ?? user?.email ?? "Student";
 
-  //Logs the user out
+  // Log the user out
   async function handleLogout() {
     try {
       await logout();
@@ -84,11 +88,16 @@ function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" tooltip="Smart Student Planner">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
-                S
-              </span>
+              {/* Smart Student Planner logo */}
+              <img
+                src="/favicon.svg"
+                alt="Smart Student Planner"
+                className="size-8 rounded-md"
+              />
 
-              <span className="truncate font-semibold">Smart Student Planner</span>
+              <span className="truncate font-semibold">
+                Smart Student Planner
+              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -96,6 +105,23 @@ function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
+          {/* Button to expand or minimize the sidebar */}
+          <div className="hidden md:block">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  className="cursor-pointer"
+                  onClick={toggleSidebar}
+                  tooltip="Expand Sidebar"
+                >
+                  <PanelLeft />
+                  <span>Minimize</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </div>
+
+          {/* Main navigation */}
           <SidebarMenu>
             {navigation.map(({ label, href, icon: Icon }) => (
               <SidebarMenuItem key={href}>
@@ -117,7 +143,9 @@ function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<SidebarMenuButton tooltip="Profile" />}>
+              <DropdownMenuTrigger
+                render={<SidebarMenuButton tooltip="Profile" />}
+              >
                 <User />
                 <span>{userName}</span>
               </DropdownMenuTrigger>
@@ -130,7 +158,10 @@ function AppSidebar() {
                   Settings
                 </DropdownMenuItem>
 
-                <DropdownMenuItem disabled={isPending} onClick={handleLogout}>
+                <DropdownMenuItem
+                  disabled={isPending}
+                  onClick={handleLogout}
+                >
                   {isPending ? "Signing out..." : "Sign out"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -140,7 +171,10 @@ function AppSidebar() {
 
         {error && (
           <p className="px-2 text-xs text-destructive" role="alert">
-            {getAuthErrorMessage(error, "We could not sign you out. Try again.")}
+            {getAuthErrorMessage(
+              error,
+              "We could not sign you out. Try again.",
+            )}
           </p>
         )}
       </SidebarFooter>
