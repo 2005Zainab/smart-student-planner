@@ -6,6 +6,8 @@ import remindersRoute from "./routes/reminders.js";
 import taskSeriesRoute from "./routes/taskSeries.js";
 import meRoute from "./routes/me.js";
 import taskFilesRoute from "./routes/taskFiles.js";
+import twofaRoute from "./routes/2fa.js";
+import cookieParser from "cookie-parser";
 
 const PORT = process.env.PORT || 3000;
 
@@ -18,6 +20,7 @@ app.use(
 );
 
 app.use(express.json());
+app.use(cookieParser());
 
 app.use((req, res, next) => {
   console.log(`req method is ${req.method} & req URL is ${req.url}`);
@@ -30,6 +33,7 @@ app.use("/api/settings", settingsRoute);
 app.use("/api/reminders", remindersRoute);
 app.use("/api/task-series", taskSeriesRoute);
 app.use("/api/me", meRoute);
+app.use("/api/2fa", twofaRoute);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
