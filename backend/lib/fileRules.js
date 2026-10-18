@@ -5,8 +5,9 @@ import path from "path";
 export const MAX_FILE_BYTES = 900 * 1024;
 export const MAX_FILES_PER_TASK = 5;
 
-export const FILE_TYPE_MESSAGE = "Only PDF, PNG, JPG, DOCX and PPTX files are allowed";
+export const FILE_TYPE_MESSAGE = "Only PDF, PNG, JPG, DOCX, PPTX and TXT files are allowed";
 export const FILE_SIZE_MESSAGE = "Files must be 900 KB or smaller";
+export const TEXT_ENCODING_MESSAGE = "Text files must be saved as UTF-8";
 
 const ZIP_START = [0x50, 0x4b, 0x03, 0x04]; // DOCX and PPTX files are zip files
 
@@ -24,6 +25,8 @@ const FILE_TYPES = {
     mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     start: ZIP_START,
   },
+  // Plain text has no magic number, so it has no start bytes. It is checked as UTF-8 instead.
+  ".txt": { mimeType: "text/plain; charset=utf-8" },
 };
 
 // Cleans the file name to be safe for storage in Firestore and on disk.
