@@ -11,6 +11,8 @@ import {
   cleanFileName,
   isAllowedFileName,
   getVerifiedMimeType,
+  isTextFileName,
+  TEXT_ENCODING_MESSAGE,
 } from "../lib/fileRules.js";
 
 // Mounted at /api/tasks/:id/files, so the task id is available as req.params.id
@@ -49,7 +51,8 @@ router.post("/", requireAuth, receiveFile, async (req, res) => {
   const mimeType = isAllowedFileName(name) ? getVerifiedMimeType(name, file.buffer) : null;
 
   if (!mimeType) {
-    return res.status(400).json({ message: FILE_TYPE_MESSAGE });
+    const message = isTextFileName(name) ? TEXT_ENCODING_MESSAGE : FILE_TYPE_MESSAGE;
+    return res.status(400).json({ message });
   }
 
   try {
