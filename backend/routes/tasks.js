@@ -168,6 +168,10 @@ router.delete("/:id", requireAuth, async (req, res) => {
       });
     }
 
+    // Delete the task's uploaded files first
+    const files = taskSnap.data().files ?? [];
+    await Promise.all(files.map(file => db.collection("taskFiles").doc(file.id).delete()));
+
     await taskDoc.delete();
 
     return res.status(200).json({
