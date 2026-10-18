@@ -679,6 +679,7 @@ function TaskForm({
                     <div className="space-y-1">
                       <div className="flex gap-2">
                         <Input
+                          autoFocus
                           placeholder="Paste a link"
                           maxLength={MAX_LINK_LENGTH}
                           value={linkInput}
