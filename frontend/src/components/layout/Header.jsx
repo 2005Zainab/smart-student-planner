@@ -1,4 +1,3 @@
-
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeToggle } from "./ThemeToggle";
 import { useLocation } from "react-router";

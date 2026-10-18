@@ -1,4 +1,3 @@
-
 import {
   CalendarDays,
   CheckSquare,
@@ -89,15 +88,9 @@ function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" tooltip="Smart Student Planner">
               {/* Smart Student Planner logo */}
-              <img
-                src="/favicon.svg"
-                alt="Smart Student Planner"
-                className="size-8 rounded-md"
-              />
+              <img src="/favicon.svg" alt="Smart Student Planner" className="size-8 rounded-md" />
 
-              <span className="truncate font-semibold">
-                Smart Student Planner
-              </span>
+              <span className="truncate font-semibold">Smart Student Planner</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -143,9 +136,7 @@ function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<SidebarMenuButton tooltip="Profile" />}
-              >
+              <DropdownMenuTrigger render={<SidebarMenuButton tooltip="Profile" />}>
                 <User />
                 <span>{userName}</span>
               </DropdownMenuTrigger>
@@ -158,10 +149,7 @@ function AppSidebar() {
                   Settings
                 </DropdownMenuItem>
 
-                <DropdownMenuItem
-                  disabled={isPending}
-                  onClick={handleLogout}
-                >
+                <DropdownMenuItem disabled={isPending} onClick={handleLogout}>
                   {isPending ? "Signing out..." : "Sign out"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -171,10 +159,7 @@ function AppSidebar() {
 
         {error && (
           <p className="px-2 text-xs text-destructive" role="alert">
-            {getAuthErrorMessage(
-              error,
-              "We could not sign you out. Try again.",
-            )}
+            {getAuthErrorMessage(error, "We could not sign you out. Try again.")}
           </p>
         )}
       </SidebarFooter>

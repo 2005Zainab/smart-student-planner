@@ -1,4 +1,3 @@
-
 import {
   addDays,
   differenceInCalendarDays,
@@ -35,10 +34,7 @@ function getTaskDateAndTime(task) {
 
   const [hours, minutes] = task.time.split(":").map(Number);
 
-  if (
-    !Number.isInteger(hours) ||
-    !Number.isInteger(minutes)
-  ) {
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) {
     return null;
   }
 
@@ -69,9 +65,7 @@ function withTaskDateTime(task) {
  * Earlier tasks will come first.
  */
 function sortByDateTime(firstTask, secondTask) {
-  return (
-    firstTask.parsedDateTime - secondTask.parsedDateTime
-  );
+  return firstTask.parsedDateTime - secondTask.parsedDateTime;
 }
 
 /**
@@ -94,10 +88,7 @@ function getUpcomingTasks(tasks, referenceDate = new Date()) {
     )
     .map(task => ({
       ...task,
-      daysUntilDue: differenceInCalendarDays(
-        startOfDay(task.parsedDateTime),
-        startDate,
-      ),
+      daysUntilDue: differenceInCalendarDays(startOfDay(task.parsedDateTime), startDate),
     }))
     .sort(sortByDateTime);
 }
@@ -110,12 +101,7 @@ function getOverDueTasks(tasks, referenceDate = new Date()) {
 
   return tasks
     .filter(
-      task =>
-        isIncomplete(task) &&
-        differenceInCalendarDays(
-          getTaskDate(task),
-          startDate,
-        ) < 0,
+      task => isIncomplete(task) && differenceInCalendarDays(getTaskDate(task), startDate) < 0,
     )
     .map(withTaskDateTime)
     .filter(
@@ -128,10 +114,7 @@ function getOverDueTasks(tasks, referenceDate = new Date()) {
     )
     .map(task => ({
       ...task,
-      daysUntilDue: differenceInCalendarDays(
-        startOfDay(task.parsedDateTime),
-        startDate,
-      ),
+      daysUntilDue: differenceInCalendarDays(startOfDay(task.parsedDateTime), startDate),
     }))
     .sort(sortByDateTime);
 }
@@ -147,18 +130,15 @@ function getWeeklySchedule(tasks, referenceDate = new Date()) {
 
   const weekEnd = endOfDay(addDays(weekStart, 6));
 
-  const weekDays = Array.from(
-    { length: 7 },
-    (_, index) => {
-      const date = addDays(weekStart, index);
+  const weekDays = Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(weekStart, index);
 
-      return {
-        date,
-        label: format(date, "EEEE, MMM d"),
-        tasks: [],
-      };
-    },
-  );
+    return {
+      date,
+      label: format(date, "EEEE, MMM d"),
+      tasks: [],
+    };
+  });
 
   tasks
     .filter(task => isIncomplete(task) && getTaskDate(task))
@@ -188,9 +168,7 @@ function getWeeklySchedule(tasks, referenceDate = new Date()) {
  * Get incomplete tasks that have no due date.
  */
 function getUndatedTasks(tasks) {
-  return tasks.filter(
-    task => isIncomplete(task) && !task.dueDate,
-  );
+  return tasks.filter(task => isIncomplete(task) && !task.dueDate);
 }
 
 /**
