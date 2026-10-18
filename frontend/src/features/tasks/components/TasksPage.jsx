@@ -29,13 +29,15 @@ import { useTasksContext } from "../context/TasksContext";
 import { httpClient } from "../../../shared/http-client";
 import { buildCreateTaskRequest } from "../utils/build-create-task-request";
 import { useTaskUpdates } from "../hooks/useTaskUpdates";
-import { isOccurrence } from "../utils/task-endpoints";
+import { createTempId } from "../utils/temp-id";
+import { getSeriesUrl, isOccurrence } from "../utils/task-endpoints"; // getOccurrenceChanges no longer used
+import { ScopeDialog } from "./ScopeDialog";
+import { needsScopeChoice, toNullableDateString } from "../utils/occurrence-scope";
 
 function TasksPage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
-  const { patchTask, saveEdit, setSeriesEnabled } = useTaskUpdates(setTasks);
-
+  const { patchTask, saveScopedEdit, setSeriesEnabled, updateFiles } = useTaskUpdates(setTasks);
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -45,6 +47,7 @@ function TasksPage() {
   const [saveError, setSaveError] = useState(null);
   const [previousStatusLookup, setPreviousStatusLookup] = useState({});
   const seriesChangedRef = useRef(false);
+  const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
 
   const [draft, setDraft] = useState({
     title: "",
@@ -68,7 +71,7 @@ function TasksPage() {
 
     if (mode === "create") {
       const newTask = {
-        id: `temp-${Date.now()}`,
+        id: createTempId(), // Use the createTempId function to generate a temporary ID. Lint errors occurred when using Date.now()
         title: "",
         description: "",
         subject: "",
@@ -98,8 +101,17 @@ function TasksPage() {
                 typeof task.reminderDate === "string"
                   ? parseISO(task.reminderDate)
                   : task.reminderDate,
-              recurrence: null,
+              recurrence: task.recurrence ?? null,
               repeatEnabled: task.series?.enabled,
+              ...(task.series?.rule
+                ? {
+                    seriesPattern: {
+                      rule: task.series.rule,
+                      endDate: task.series.endDate ? parseISO(task.series.endDate) : null,
+                      defaultWeekday: isoWeekday(parseISO(task.occurrenceDate)),
+                    },
+                  }
+                : {}),
             }
           : {
               title: "",
@@ -142,8 +154,33 @@ function TasksPage() {
     }
   };
 
+  const isoWeekday = date => (date.getDay() === 0 ? 7 : date.getDay());
+
+  // Order-insensitive, mirroring the server, so [3, 1] vs a stored [1, 3] isn't a change.
+  const canonicalRule = rule =>
+    JSON.stringify(
+      Object.keys(rule)
+        .sort()
+        .map(key => [key, key === "weekdays" ? [...rule[key]].sort((a, b) => a - b) : rule[key]]),
+    );
+
+  // Pattern is only editable while Repeat is ticked, so edits made before unticking are ignored.
+  function getPatternChanges(draft, original) {
+    const pattern = draft.seriesPattern;
+    const stored = original.series;
+    if (draft.repeatEnabled !== true || !pattern || !stored?.rule) return {};
+
+    const changes = {};
+    if (canonicalRule(pattern.rule) !== canonicalRule(stored.rule)) changes.rule = pattern.rule;
+
+    const endDate = toNullableDateString(pattern.endDate);
+    if (endDate !== (stored.endDate ?? null)) changes.endDate = endDate;
+
+    return changes;
+  }
+
   //Save a new task or edit an existing task
-  const saveTask = async () => {
+  const saveTask = async (scope = null) => {
     //Check title is not empty
     if (!draft.title || draft.title.trim() === "") {
       setEmptyTitleCheck("Title Cannot Be Empty");
@@ -161,9 +198,31 @@ function TasksPage() {
           method: "POST",
           body: JSON.stringify(createRequest.body),
         });
+
         const savedTask = createRequest.recurring ? savedResponse.firstOccurrence : savedResponse;
 
-        setTasks(current => current.map(task => (task.id === editingTaskId ? savedTask : task)));
+        const taskToInsert = createRequest.recurring
+          ? {
+              ...savedTask,
+              seriesPattern: {
+                rule: savedResponse.series?.rule ?? createRequest.body.rule,
+                endDate: savedResponse.series?.endDate
+                  ? parseISO(savedResponse.series.endDate)
+                  : createRequest.body.endDate
+                    ? parseISO(createRequest.body.endDate)
+                    : null,
+                defaultWeekday:
+                  savedTask.dueDate instanceof Date
+                    ? isoWeekday(savedTask.dueDate)
+                    : savedTask.dueDate
+                      ? isoWeekday(parseISO(savedTask.dueDate))
+                      : undefined,
+              },
+              repeatEnabled: savedResponse.series?.enabled ?? true,
+            }
+          : savedTask;
+
+        setTasks(current => current.map(task => (task.id === editingTaskId ? taskToInsert : task)));
 
         toast.add({
           title: "Task Added",
@@ -182,13 +241,62 @@ function TasksPage() {
         return;
       }
     } else {
-      const original = tasks.find(task => task.id === editingTaskId) ?? { id: editingTaskId };
+      const original = tasks.find(task => task.id === editingTaskId) ?? {
+        id: editingTaskId,
+      };
+
+      if (scope === null && needsScopeChoice(original, draft)) {
+        setScopeDialogOpen(true);
+        return;
+      }
+
+      const savedParts = [];
 
       try {
-        //Sends only the changed fields to the one-off task or recurring occurrence endpoint
-        const didSave = await saveEdit(original, draft);
-        let toggled = false;
+        // 1. Content: this occurrence only, or the series template ("future")
+        const didSave = await saveScopedEdit(original, draft, scope);
+        if (didSave && scope === "future") seriesChangedRef.current = true;
+        if (didSave) savedParts.push("content changes");
 
+        // 2. Repeat pattern (rule / end date), effective today
+        if (isOccurrence(original)) {
+          const patternChanges = getPatternChanges(draft, original);
+
+          if (Object.keys(patternChanges).length > 0) {
+            const savedSeries = await httpClient(getSeriesUrl(original.seriesId), {
+              method: "PATCH",
+              body: JSON.stringify(patternChanges),
+            });
+
+            seriesChangedRef.current = true;
+            savedParts.push("repeat pattern");
+
+            // Keep local series info current so a retry after a later failure diffs correctly
+            const openRule = savedSeries?.segments?.find(segment => segment.until === null)?.rule;
+            setTasks(current =>
+              current.map(task =>
+                task.seriesId === original.seriesId
+                  ? {
+                      ...task,
+                      series: {
+                        ...task.series,
+                        rule: openRule ?? task.series?.rule,
+                        endDate: savedSeries?.endDate ?? null,
+                      },
+                    }
+                  : task,
+              ),
+            );
+
+            toast.add({
+              title: "Repeat pattern updated",
+              description: "Applies from today",
+              type: "success",
+            });
+          }
+        }
+
+        // 3. Pause / resume (unchanged)
         if (
           isOccurrence(original) &&
           typeof draft.repeatEnabled === "boolean" &&
@@ -201,22 +309,18 @@ function TasksPage() {
             !draft.repeatEnabled && openPause?.from
               ? format(parseISO(openPause.from), "d MMM")
               : null;
-          toggled = true;
           toast.add({
             title: draft.repeatEnabled ? "Repeat resumed" : "Repeat paused",
             ...(pausedFrom ? { description: `From ${pausedFrom}` } : {}),
             type: "success",
           });
         }
-
-        if (!didSave && !toggled) {
-          closeEditor();
-          return;
-        }
       } catch (err) {
         console.log(err);
 
-        setSaveError(err.message || "Failed to save task");
+        const savedNote =
+          savedParts.length > 0 ? ` Already saved: ${savedParts.join(" and ")}.` : "";
+        setSaveError(`${err.message || "Failed to save task"}${savedNote}`);
 
         return;
       }
@@ -387,7 +491,9 @@ function TasksPage() {
             saveError={saveError}
             onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
             allowRecurrence={formMode === "create"}
+            allowSeriesControls={true}
             seriesEnabled={editingTask?.series?.enabled}
+            onFilesChange={updateFiles}
           />
         </DialogContent>
       </Dialog>
@@ -422,11 +528,22 @@ function TasksPage() {
               saveError={saveError}
               onToggleChecklistItem={itemId => toggleChecklistItem(editingTaskId, itemId)}
               allowRecurrence={formMode === "create"}
+              allowSeriesControls={true}
               seriesEnabled={editingTask?.series?.enabled}
+              onFilesChange={updateFiles}
             />
           </div>
         </SheetContent>
       </Sheet>
+
+      <ScopeDialog
+        open={scopeDialogOpen}
+        onOpenChange={open => setScopeDialogOpen(open)}
+        onChoose={scope => {
+          setScopeDialogOpen(false);
+          saveTask(scope);
+        }}
+      />
 
       <AlertDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}>
         <AlertDialogContent>

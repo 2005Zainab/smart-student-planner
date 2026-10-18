@@ -98,7 +98,8 @@ function CalendarPage() {
   };
 
   const [draft, setDraft] = useState(emptyDraft);
-  const { saveEdit } = useTaskUpdates(setCalendarTasks);
+  const { saveEdit, updateFiles: updateCalendarFiles } = useTaskUpdates(setCalendarTasks);
+  const { updateFiles: updateGlobalFiles } = useTaskUpdates(setGlobalTasks);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -239,7 +240,13 @@ function CalendarPage() {
 
             return current.map(task =>
               task.id === editingTaskId
-                ? { ...task, ...draft, title: draft.title.trim(), dueDate: formattedDueDate }
+                ? {
+                    ...task,
+                    ...draft,
+                    files: task.files,
+                    title: draft.title.trim(),
+                    dueDate: formattedDueDate,
+                  }
                 : task,
             );
           });
@@ -421,6 +428,10 @@ function CalendarPage() {
             titleError={titleError}
             saveError={saveError}
             allowRecurrence={formMode === "create"}
+            onFilesChange={(taskId, update) => {
+              updateCalendarFiles(taskId, update);
+              updateGlobalFiles(taskId, update);
+            }}
           />
         </DialogContent>
       </Dialog>

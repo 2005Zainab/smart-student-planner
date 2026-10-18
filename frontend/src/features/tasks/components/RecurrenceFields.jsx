@@ -14,7 +14,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-function RecurrenceFields({ recurrence, dueDate, onChange, onRuleChange }) {
+function RecurrenceFields({
+  recurrence,
+  dueDate,
+  onChange,
+  onRuleChange,
+  showReminder = true,
+  readOnly = false,
+}) {
   if (!recurrence) return null;
 
   return (
@@ -23,6 +30,7 @@ function RecurrenceFields({ recurrence, dueDate, onChange, onRuleChange }) {
         <div className="space-y-2">
           <Label htmlFor="recurrence-type">Repeat type</Label>
           <Select
+            disabled={readOnly}
             value={recurrence.rule.type}
             onValueChange={type => {
               if (type === "daily") {
@@ -56,6 +64,7 @@ function RecurrenceFields({ recurrence, dueDate, onChange, onRuleChange }) {
         <div className="space-y-2">
           <Label htmlFor="recurrence-interval">Every</Label>
           <Input
+            disabled={readOnly}
             id="recurrence-interval"
             min="1"
             max="30"
@@ -70,7 +79,6 @@ function RecurrenceFields({ recurrence, dueDate, onChange, onRuleChange }) {
           />
         </div>
       </div>
-
       {recurrence.rule.type === "weekly" && (
         <div className="space-y-2">
           <Label>Weekdays</Label>
@@ -88,6 +96,7 @@ function RecurrenceFields({ recurrence, dueDate, onChange, onRuleChange }) {
               return (
                 <Button
                   key={day}
+                  disabled={readOnly}
                   onClick={() => {
                     if (selected && recurrence.rule.weekdays.length === 1) return;
                     onRuleChange({
@@ -107,13 +116,12 @@ function RecurrenceFields({ recurrence, dueDate, onChange, onRuleChange }) {
           </div>
         </div>
       )}
-
       {recurrence.rule.type === "monthly" && (
         <div className="space-y-3">
           <div className="space-y-2">
             <Label htmlFor="recurrence-month-day">Day of month</Label>
             <Input
-              disabled={recurrence.rule.useLastDayOfMonth === true}
+              disabled={readOnly || recurrence.rule.useLastDayOfMonth === true}
               id="recurrence-month-day"
               max="31"
               min="1"
@@ -131,6 +139,7 @@ function RecurrenceFields({ recurrence, dueDate, onChange, onRuleChange }) {
           <div className="flex items-center gap-2">
             <Checkbox
               checked={recurrence.rule.useLastDayOfMonth === true}
+              disabled={readOnly}
               id="recurrence-last-day"
               onCheckedChange={checked =>
                 onRuleChange(
@@ -152,7 +161,6 @@ function RecurrenceFields({ recurrence, dueDate, onChange, onRuleChange }) {
           </div>
         </div>
       )}
-
       <div className="space-y-2">
         <Label htmlFor="recurrence-end-date">End date</Label>
         <div className="flex gap-2">
@@ -161,6 +169,7 @@ function RecurrenceFields({ recurrence, dueDate, onChange, onRuleChange }) {
               render={
                 <Button
                   className="flex-1 justify-start font-normal"
+                  disabled={readOnly}
                   id="recurrence-end-date"
                   type="button"
                   variant="outline"
@@ -178,40 +187,47 @@ function RecurrenceFields({ recurrence, dueDate, onChange, onRuleChange }) {
               />
             </PopoverContent>
           </Popover>
-          {recurrence.endDate && (
+          {recurrence.endDate && !readOnly && (
             <Button onClick={() => onChange({ endDate: null })} type="button" variant="outline">
               Never
             </Button>
           )}
         </div>
       </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="recurrence-reminder-offset">Remind me days before</Label>
-          <Input
-            id="recurrence-reminder-offset"
-            min="0"
-            onChange={event =>
-              onChange({
-                reminderOffsetDays: event.target.value === "" ? null : Number(event.target.value),
-              })
-            }
-            type="number"
-            value={recurrence.reminderOffsetDays ?? ""}
-          />
+      {showReminder && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="recurrence-reminder-offset">Remind me days before</Label>
+            <Input
+              disabled={readOnly}
+              id="recurrence-reminder-offset"
+              min="0"
+              onChange={event =>
+                onChange({
+                  reminderOffsetDays: event.target.value === "" ? null : Number(event.target.value),
+                })
+              }
+              type="number"
+              value={recurrence.reminderOffsetDays ?? ""}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="recurrence-reminder-time">At</Label>
+            <Input
+              disabled={readOnly}
+              id="recurrence-reminder-time"
+              onChange={event => onChange({ reminderTime: event.target.value })}
+              type="time"
+              value={recurrence.reminderTime || ""}
+            />
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="recurrence-reminder-time">At</Label>
-          <Input
-            id="recurrence-reminder-time"
-            onChange={event => onChange({ reminderTime: event.target.value })}
-            type="time"
-            value={recurrence.reminderTime || ""}
-          />
-        </div>
-      </div>
-      <p className="text-sm text-muted-foreground">Applies from today</p>
+      )}
+      {!readOnly && (
+        <p className="text-sm text-muted-foreground">
+          Applies from {dueDate == null ? "(selected due date)" : format(dueDate, "PPP")}
+        </p>
+      )}
     </div>
   );
 }
