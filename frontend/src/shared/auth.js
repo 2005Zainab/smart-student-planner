@@ -1,5 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+import { getAI, GoogleAIBackend } from "firebase/ai";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_API_KEY,
@@ -14,4 +16,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-export { auth };
+// Initialize App Check
+self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+initializeAppCheck(app, {
+  // if we were to deploy this to an actual live website, we would need to replace this with a real site key
+  // For development purposes, we can use a placeholder key, but it will not work in production.
+  provider: new ReCaptchaV3Provider("placeholder-site-key"),
+  isTokenAutoRefreshEnabled: true,
+});
+
+// Initialize the Gemini Developer API backend service.
+const ai = getAI(app, { backend: new GoogleAIBackend() });
+
+export { auth, ai };
