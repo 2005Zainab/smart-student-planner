@@ -784,7 +784,7 @@ function TaskForm({
           </div>
         )}
       </div>
-      
+
       {/* Files */}
       <TaskFilesCard taskFiles={taskFiles} readOnly={readOnly} />
 
