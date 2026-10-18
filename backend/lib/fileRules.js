@@ -43,10 +43,30 @@ export function isAllowedFileName(fileName) {
   return Object.hasOwn(FILE_TYPES, path.extname(fileName).toLowerCase());
 }
 
-// Check the file's magic number to verify the file type matches the extension
+// Plain text has no magic number, so check that the bytes decode as valid UTF-8.
+// An empty file is valid. The fatal decoder throws on bytes that aren't UTF-8,
+// which rejects binary files and older encodings such as UTF-16 or Windows-1252.
+function isValidUtf8(buffer) {
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Lets the upload route give text files their own error message
+export function isTextFileName(fileName) {
+  return path.extname(fileName).toLowerCase() === ".txt";
+}
+
+// Check the file's magic number to verify the file type matches the extension.
+// Text files have no magic number, so they are checked as UTF-8 instead.
 export function getVerifiedMimeType(fileName, buffer) {
   const type = FILE_TYPES[path.extname(fileName).toLowerCase()];
   if (!type || !Buffer.isBuffer(buffer)) return null;
+
+  if (!type.start) return isValidUtf8(buffer) ? type.mimeType : null;
 
   const matches = type.start.every((byte, index) => buffer[index] === byte);
   return matches ? type.mimeType : null;
