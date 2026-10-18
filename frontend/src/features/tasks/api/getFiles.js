@@ -5,7 +5,7 @@ const API_BASE = "http://localhost:3000/api";
 
 const filesUrl = taskId => `${API_BASE}/tasks/${taskId}/files`;
 
-// Files a browser can show in a tab. (DOCX, PPTX) is downloaded instead.
+// Files a browser can show in a tab. (DOCX, PPTX, TXT) is downloaded instead.
 const OPENS_IN_TAB = new Set(["application/pdf", "image/png", "image/jpeg"]);
 
 // httpClient always sends JSON, which would break a file upload, so uploads and downloads

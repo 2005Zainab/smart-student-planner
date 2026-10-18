@@ -6,7 +6,7 @@ import { getTaskUrl, isOccurrence } from "../utils/task-endpoints";
 // These match the limits on firestore
 export const MAX_FILE_BYTES = 900 * 1024;
 export const MAX_FILES_PER_TASK = 5;
-export const ACCEPTED_EXTENSIONS = [".pdf", ".png", ".jpg", ".jpeg", ".docx", ".pptx"];
+export const ACCEPTED_EXTENSIONS = [".pdf", ".png", ".jpg", ".jpeg", ".docx", ".pptx", ".txt"];
 
 const getExtension = fileName => {
   const dot = fileName.lastIndexOf(".");
@@ -47,7 +47,7 @@ function useTaskFiles(task, onFilesChange) {
       }
 
       if (!ACCEPTED_EXTENSIONS.includes(getExtension(file.name))) {
-        problems.push(`${file.name}: only PDF, PNG, JPG, DOCX and PPTX files are allowed`);
+        problems.push(`${file.name}: only PDF, PNG, JPG, DOCX, PPTX and TXT files are allowed`);
       } else if (file.size > MAX_FILE_BYTES) {
         problems.push(`${file.name}: files must be 900 KB or smaller`);
       } else if (total >= MAX_FILES_PER_TASK) {
