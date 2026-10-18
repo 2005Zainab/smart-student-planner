@@ -100,15 +100,10 @@ function TaskForm({
   const handleSave = async event => {
     event.preventDefault();
 
-    // A file upload is still running, so ignore a second click
-    if (taskFiles.isBusy) return;
+    // Ignore a second click while a file upload or a save is still running
+    if (taskFiles.isBusy || taskSaving) return;
 
     setDateError("");
-
-    //Ignores task submit requests if the current task is being save
-    if (taskSaving) {
-      return;
-    }
 
     if ((requireDateAndTime || draft.recurrence) && !draft.dueDate) {
       setDateError("Due date is required for adding task to schedule.");
@@ -155,7 +150,6 @@ function TaskForm({
       return;
     }
 
-    onSave();
     //Disables submit when saving, re-enables after waiting for save to finish, re-enables if save fails
     setTaskSaving(true);
     try {
@@ -633,8 +627,7 @@ function TaskForm({
             Cancel
           </Button>
 
-          <Button type="submit" disabled={taskFiles.isBusy}>
-          <Button type="submit" disabled={taskSaving}>
+          <Button type="submit" disabled={taskFiles.isBusy || taskSaving}>
             Save task
           </Button>
         </div>
