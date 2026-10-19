@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/shared/auth-provider";
 import { getSettings, saveEmailReminders, savePasswordLessEnabled } from "../api/settings-api";
-import { disabled2fA, generate2FA, verify2FASetup } from "../api/mfa-api";
+import { disable2fA, generate2FA, verify2FASetup } from "../api/mfa-api";
 import { useTheme } from "@/theme/theme-provider";
 import {
   Select,
@@ -62,7 +62,7 @@ function SettingsPage() {
         setIsPasswordLessEnabled(data.passwordLessEnabled === true);
 
         const tokenResult = await user.getIdTokenResult();
-        setIs2FAEnabled(tokenResult.claims.twoFactorEnabled === true);
+        setIs2FAEnabled(tokenResult?.claims.twoFactorEnabled === true);
       } catch (err) {
         console.error("Failed to fetch user settings", err);
       } finally {
@@ -117,7 +117,7 @@ function SettingsPage() {
   const handleDisable2FA = async () => {
     setIsMfaLoading(true);
     try {
-      await disabled2fA();
+      await disable2fA();
 
       await user.getIdToken(true);
       const tokenResult = await user.getIdTokenResult();
