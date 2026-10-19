@@ -24,20 +24,19 @@ import {
 } from "@/components/ui/alert-dialog";
 import { TaskForm } from "./TaskForm";
 import { TaskList } from "./TaskList";
-//import { useTasks } from '../hooks/useTasks';
 import { useTasksContext } from "../context/TasksContext";
 import { httpClient } from "../../../shared/http-client";
 import { buildCreateTaskRequest } from "../utils/build-create-task-request";
 import { useTaskUpdates } from "../hooks/useTaskUpdates";
 import { createTempId } from "../utils/temp-id";
-import { getSeriesUrl, isOccurrence } from "../utils/task-endpoints"; // getOccurrenceChanges no longer used
+import { getSeriesUrl, isOccurrence } from "../utils/task-endpoints";
 import { ScopeDialog } from "./ScopeDialog";
 import { needsScopeChoice, toNullableDateString } from "../utils/occurrence-scope";
 
 function TasksPage() {
-  //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
   const { patchTask, saveScopedEdit, setSeriesEnabled, updateFiles } = useTaskUpdates(setTasks);
+
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -49,11 +48,13 @@ function TasksPage() {
   const seriesChangedRef = useRef(false);
   const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
 
+  // Information entered in the task form
   const [draft, setDraft] = useState({
     title: "",
     description: "",
     subject: "",
     priority: "Low",
+    timerMinutes: null,
     status: "To Do",
     dueDate: undefined,
     time: "",
@@ -63,7 +64,7 @@ function TasksPage() {
     links: [],
   });
 
-  //Open the task form
+  // Open the form to create, edit, or view a task
   const openEditor = (task = null, mode = task ? "edit" : "create") => {
     setFormMode(mode);
     setEmptyTitleCheck(null);
@@ -71,11 +72,12 @@ function TasksPage() {
 
     if (mode === "create") {
       const newTask = {
-        id: createTempId(), // Use the createTempId function to generate a temporary ID. Lint errors occurred when using Date.now()
+        id: createTempId(),
         title: "",
         description: "",
         subject: "",
         priority: "Low",
+        timerMinutes: null,
         status: "To Do",
         dueDate: undefined,
         time: "",
@@ -95,6 +97,7 @@ function TasksPage() {
         task
           ? {
               ...task,
+              timerMinutes: task.timerMinutes ?? null,
               dueDate: typeof task.dueDate === "string" ? parseISO(task.dueDate) : task.dueDate,
               time: task.time || "",
               reminderDate:
@@ -118,6 +121,7 @@ function TasksPage() {
               description: "",
               subject: "",
               priority: "Low",
+              timerMinutes: null,
               status: "To Do",
               dueDate: undefined,
               time: "",
@@ -134,7 +138,7 @@ function TasksPage() {
     }
   };
 
-  //Close the task form
+  // Close the task form
   const closeEditor = () => {
     const shouldRefetch = seriesChangedRef.current;
     seriesChangedRef.current = false;
@@ -156,7 +160,7 @@ function TasksPage() {
 
   const isoWeekday = date => (date.getDay() === 0 ? 7 : date.getDay());
 
-  // Order-insensitive, mirroring the server, so [3, 1] vs a stored [1, 3] isn't a change.
+  // Compare repeat rules without depending on the order of weekdays
   const canonicalRule = rule =>
     JSON.stringify(
       Object.keys(rule)
@@ -164,24 +168,32 @@ function TasksPage() {
         .map(key => [key, key === "weekdays" ? [...rule[key]].sort((a, b) => a - b) : rule[key]]),
     );
 
-  // Pattern is only editable while Repeat is ticked, so edits made before unticking are ignored.
+  // Find changes made to a recurring task's repeat pattern
   function getPatternChanges(draft, original) {
     const pattern = draft.seriesPattern;
     const stored = original.series;
-    if (draft.repeatEnabled !== true || !pattern || !stored?.rule) return {};
+
+    if (draft.repeatEnabled !== true || !pattern || !stored?.rule) {
+      return {};
+    }
 
     const changes = {};
-    if (canonicalRule(pattern.rule) !== canonicalRule(stored.rule)) changes.rule = pattern.rule;
+
+    if (canonicalRule(pattern.rule) !== canonicalRule(stored.rule)) {
+      changes.rule = pattern.rule;
+    }
 
     const endDate = toNullableDateString(pattern.endDate);
-    if (endDate !== (stored.endDate ?? null)) changes.endDate = endDate;
+
+    if (endDate !== (stored.endDate ?? null)) {
+      changes.endDate = endDate;
+    }
 
     return changes;
   }
 
-  //Save a new task or edit an existing task
+  // Save a new task or edit an existing task
   const saveTask = async (scope = null) => {
-    //Check title is not empty
     if (!draft.title || draft.title.trim() === "") {
       setEmptyTitleCheck("Title Cannot Be Empty");
       return;
@@ -230,7 +242,6 @@ function TasksPage() {
         });
       } catch (err) {
         console.log(err);
-
         setSaveError(err.message || "Failed to add task");
 
         toast.add({
@@ -253,12 +264,18 @@ function TasksPage() {
       const savedParts = [];
 
       try {
-        // 1. Content: this occurrence only, or the series template ("future")
+        // Save changes to this task or a recurring-task series
         const didSave = await saveScopedEdit(original, draft, scope);
-        if (didSave && scope === "future") seriesChangedRef.current = true;
-        if (didSave) savedParts.push("content changes");
 
-        // 2. Repeat pattern (rule / end date), effective today
+        if (didSave && scope === "future") {
+          seriesChangedRef.current = true;
+        }
+
+        if (didSave) {
+          savedParts.push("content changes");
+        }
+
+        // Update the repeat pattern if needed
         if (isOccurrence(original)) {
           const patternChanges = getPatternChanges(draft, original);
 
@@ -271,8 +288,8 @@ function TasksPage() {
             seriesChangedRef.current = true;
             savedParts.push("repeat pattern");
 
-            // Keep local series info current so a retry after a later failure diffs correctly
             const openRule = savedSeries?.segments?.find(segment => segment.until === null)?.rule;
+
             setTasks(current =>
               current.map(task =>
                 task.seriesId === original.seriesId
@@ -296,19 +313,22 @@ function TasksPage() {
           }
         }
 
-        // 3. Pause / resume (unchanged)
+        // Pause or resume recurring tasks if the user changes the setting
         if (
           isOccurrence(original) &&
           typeof draft.repeatEnabled === "boolean" &&
           draft.repeatEnabled !== original.series?.enabled
         ) {
           seriesChangedRef.current = true;
+
           const saved = await setSeriesEnabled(original.seriesId, draft.repeatEnabled);
           const openPause = saved?.pauses?.find(pause => pause.until === null);
+
           const pausedFrom =
             !draft.repeatEnabled && openPause?.from
               ? format(parseISO(openPause.from), "d MMM")
               : null;
+
           toast.add({
             title: draft.repeatEnabled ? "Repeat resumed" : "Repeat paused",
             ...(pausedFrom ? { description: `From ${pausedFrom}` } : {}),
@@ -320,8 +340,8 @@ function TasksPage() {
 
         const savedNote =
           savedParts.length > 0 ? ` Already saved: ${savedParts.join(" and ")}.` : "";
-        setSaveError(`${err.message || "Failed to save task"}${savedNote}`);
 
+        setSaveError(`${err.message || "Failed to save task"}${savedNote}`);
         return;
       }
     }
@@ -331,9 +351,10 @@ function TasksPage() {
 
   const editingTask = tasks.find(task => task.id === editingTaskId);
 
-  //Save task status when checkbox is clicked
+  // Update task status when a checkbox is clicked
   const toggleTask = async id => {
     const task = tasks.find(existingTask => existingTask.id === id);
+    if (!task) return;
 
     const originalStatus = task.status;
 
@@ -346,29 +367,25 @@ function TasksPage() {
         [id]: originalStatus,
       }));
     }
-    // If the task is being marked as completed, clear the reminder date and time
+
     const patchBody =
       newStatus === "Completed"
         ? { status: newStatus, reminderDate: null, reminderTime: null }
         : { status: newStatus };
-    // Update the task status in the backend and update the local state
+
     try {
       await patchTask(task, patchBody);
 
-      //Show undo option when task is completed
       if (newStatus === "Completed") {
         const toastId = toast.add({
           title: "Task Completed",
           description: task.title,
           type: "success",
           timeout: 10000,
-
           actionProps: {
             children: "Undo",
-
             onClick: () => {
               undoCompleted(id, previousStatusLookup[id] ?? originalStatus);
-
               toast.close(toastId);
             },
           },
@@ -379,7 +396,7 @@ function TasksPage() {
     }
   };
 
-  //Change completed task back to previous status
+  // Restore the previous task status
   const undoCompleted = async (id, originalStatus) => {
     const task = tasks.find(existingTask => existingTask.id === id);
 
@@ -394,7 +411,7 @@ function TasksPage() {
     }
   };
 
-  //Toggles a checklists item completeion state and also saves the checklist
+  // Mark a checklist item complete or incomplete
   const toggleChecklistItem = async (taskId, itemId) => {
     const task = tasks.find(existingTask => existingTask.id === taskId);
 
@@ -418,7 +435,7 @@ function TasksPage() {
     }
   };
 
-  //Deletes tasks from Firestore using Express API route then updates local UI
+  // Delete a task
   const deleteTask = async id => {
     try {
       await httpClient(`http://localhost:3000/api/tasks/${id}`, {
@@ -467,6 +484,7 @@ function TasksPage() {
         </CardContent>
       </Card>
 
+      {/* Task form for desktop */}
       <Dialog open={editorOpen} onOpenChange={open => (open ? setEditorOpen(true) : closeEditor())}>
         <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-2xl">
           <DialogTitle>
@@ -498,6 +516,7 @@ function TasksPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Task form for mobile */}
       <Sheet
         open={mobileEditorOpen}
         onOpenChange={open => (open ? setMobileEditorOpen(true) : closeEditor())}
@@ -536,6 +555,7 @@ function TasksPage() {
         </SheetContent>
       </Sheet>
 
+      {/* Let the user choose which recurring tasks to update */}
       <ScopeDialog
         open={scopeDialogOpen}
         onOpenChange={open => setScopeDialogOpen(open)}
@@ -545,6 +565,7 @@ function TasksPage() {
         }}
       />
 
+      {/* Confirm before deleting a task */}
       <AlertDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -558,13 +579,7 @@ function TasksPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
 
-            <AlertDialogAction
-              onClick={() => {
-                deleteTask(deleteId);
-              }}
-            >
-              Delete
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => deleteTask(deleteId)}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

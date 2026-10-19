@@ -12,8 +12,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { differenceInCalendarDays } from "date-fns";
 import { isOccurrence } from "../utils/task-endpoints";
 
+// Import the Focus Timer component
+import { FocusTimer } from "./FocusTimer";
+
 function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
-  //Show loading layout while tasks are loading
+  // Show placeholders while tasks are loading
   if (isLoading) {
     return (
       <div className="flex items-start gap-3 p-4">
@@ -34,11 +37,18 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
   const taskDueDate = task.dueDate ? new Date(task.dueDate) : null;
   const today = new Date();
 
+  // Check if this task has a timer
+  const hasTimer =
+    Number.isInteger(task.timerMinutes) && task.timerMinutes >= 1 && task.timerMinutes <= 180;
+
   return (
     <div
       className="flex cursor-pointer items-start gap-3 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={onView}
       onKeyDown={event => {
+        // Only open the task when the task row itself receives the keyboard event
+        if (event.target !== event.currentTarget) return;
+
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onView();
@@ -66,10 +76,22 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
         >
           {task.title}
         </p>
+
         <p className="mt-1 text-sm text-muted-foreground">
           {isOccurrence(task) && <Badge variant="ghost">Recurring Task</Badge>}{" "}
           {task.subject && ` ${task.subject}`}
         </p>
+
+        {/* Show the Focus Timer inside the task */}
+        {hasTimer && (
+          <div
+            className="mt-3 max-w-sm"
+            onClick={event => event.stopPropagation()}
+            onKeyDown={event => event.stopPropagation()}
+          >
+            <FocusTimer key={`${task.id}-${task.timerMinutes}`} minutes={task.timerMinutes} />
+          </div>
+        )}
       </div>
 
       {/* Overdue indicator */}
@@ -77,7 +99,7 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
         <Badge variant="high">Overdue</Badge>
       )}
 
-      {/* Priority colour changes depending on priority */}
+      {/* Priority badge */}
       <Badge
         variant={
           task.priority === "High"
@@ -92,17 +114,18 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
         {task.priority}
       </Badge>
 
-      {/* Checklist progress indicator */}
+      {/* Checklist progress */}
       {task.checklist && task.checklist.length > 0 && (
         <Badge variant="outline" className="flex items-center gap-1 text-muted-foreground">
           <CheckSquare className="h-3.5 w-3.5" />
+
           <span>
-            {task.checklist.filter(i => i.completed).length}/{task.checklist.length}
+            {task.checklist.filter(item => item.completed).length}/{task.checklist.length}
           </span>
         </Badge>
       )}
 
-      {/* Attached files indicator */}
+      {/* Attached files */}
       {task.files && task.files.length > 0 && (
         <Badge
           variant="outline"
@@ -114,8 +137,10 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
         </Badge>
       )}
 
+      {/* Task status */}
       <Badge variant="outline">{task.status}</Badge>
 
+      {/* Due date */}
       <Badge variant="outline">{task.dueDate || "No due date"}</Badge>
 
       {/* Edit and delete menu */}
@@ -135,7 +160,6 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
           onKeyDown={event => event.stopPropagation()}
         >
           <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
-
           <DropdownMenuItem onClick={onDelete}>Delete</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
