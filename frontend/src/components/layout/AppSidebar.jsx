@@ -21,6 +21,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
+import { SidebarSearch } from "./SidebarSearch";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -107,6 +109,7 @@ function AppSidebar() {
               </SidebarMenuItem>
             </SidebarMenu>
           </div>
+          <SidebarSearch />
           <SidebarMenu>
             {navigation.map(({ label, href, icon: Icon }) => (
               <SidebarMenuItem key={href}>
