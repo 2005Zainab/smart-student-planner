@@ -783,10 +783,10 @@ function TaskForm({
             )}
           </div>
         )}
-      </div>
 
-      {/* Files */}
-      <TaskFilesCard taskFiles={taskFiles} readOnly={readOnly} />
+        {/* Files */}
+        <TaskFilesCard taskFiles={taskFiles} readOnly={readOnly} />
+      </div>
 
       {saveError && <p className="text-sm text-destructive">{saveError}</p>}
 
