@@ -30,6 +30,7 @@ import {
   rulesEqual,
 } from "../lib/taskSeriesHelper.js";
 import { addExceptionUpdate, hasException } from "../lib/exceptions.js";
+import { deleteQueryInBatches } from "../lib/batchDelete.js";
 
 const router = express.Router();
 
@@ -605,6 +606,31 @@ router.delete("/:seriesId/occurrences/:date", requireAuth, async (req, res) => {
   } catch (err) {
     console.log(err);
     return res.status(500).json({ message: "Failed to delete task occurrence" });
+  }
+});
+
+// Delete the WHOLE series: every materialized occurrence (including hidden ones) and
+// then the series doc.
+router.delete("/:seriesId", requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  const { seriesId } = req.params;
+
+  try {
+    const seriesRef = db.collection("task_series").doc(seriesId);
+    const seriesSnap = await seriesRef.get();
+
+    if (!seriesSnap.exists) return res.status(404).json({ message: "Task series not found" });
+    if (seriesSnap.data().userId !== uid) return res.status(403).json({ message: "Unauthorized" });
+
+    // The series doc goes last, in its own commit. If an occurrence batch fails, the series still
+    // exists and the user can simply retry, instead of being left with invisible orphan documents.
+    await deleteQueryInBatches(db.collection("tasks").where("seriesId", "==", seriesId));
+    await seriesRef.delete();
+
+    return res.status(200).json({ message: "Series deleted" });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Failed to delete task series" });
   }
 });
 

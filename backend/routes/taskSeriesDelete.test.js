@@ -2,6 +2,7 @@ import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import app from "../app.js";
 import { db } from "../shared/firebase.js";
+import { deleteQueryInBatches } from "../lib/batchDelete.js";
 
 vi.mock("../middleware/auth.js", () => ({
   requireAuth: (req, res, next) => {
@@ -42,7 +43,10 @@ const WEEKLY_THURSDAY = [
   { from: "2026-10-01", until: null, rule: { type: "weekly", interval: 1, weekdays: [4] } },
 ];
 
+// ---------------------------------------------------------------------------------------------
+// Mock for single-occurrence delete (and DELETE /tasks/:id).
 // series: null simulates a missing series. task: null means no materialized doc.
+// ---------------------------------------------------------------------------------------------
 function mockStore({ series = seriesData(), task = null, timezone = "UTC" } = {}) {
   const seriesRef = {
     get: vi
@@ -74,7 +78,64 @@ function mockStore({ series = seriesData(), task = null, timezone = "UTC" } = {}
   return { seriesRef, taskRef, batch };
 }
 
+// ---------------------------------------------------------------------------------------------
+// Mock for whole-series delete. The tasks collection is queried via where().limit().get().
+// pageSizes: how many docs each successive query page returns; after that the query is empty.
+// series: null simulates a missing series.
+// ---------------------------------------------------------------------------------------------
+function makeSnapshot(count) {
+  return {
+    empty: count === 0,
+    size: count,
+    docs: Array.from({ length: count }, (_, index) => ({ ref: { id: `doc-${index}` } })),
+  };
+}
+
+function mockSeriesDelete({
+  series = { userId: "test-user-1" },
+  pageSizes = [],
+  failCommit = false,
+} = {}) {
+  const events = [];
+  const pages = [...pageSizes];
+
+  const seriesRef = {
+    get: vi
+      .fn()
+      .mockResolvedValue(series ? { exists: true, data: () => series } : { exists: false }),
+    delete: vi.fn().mockImplementation(async () => {
+      events.push("series.delete");
+    }),
+  };
+
+  const get = vi.fn().mockImplementation(async () => makeSnapshot(pages.shift() ?? 0));
+  const limit = vi.fn().mockReturnValue({ get });
+  const where = vi.fn().mockReturnValue({ limit });
+
+  const batches = [];
+  db.batch.mockImplementation(() => {
+    const batch = {
+      delete: vi.fn(),
+      commit: vi.fn().mockImplementation(async () => {
+        if (failCommit) throw new Error("commit failed");
+        events.push("batch.commit");
+      }),
+    };
+    batches.push(batch);
+    return batch;
+  });
+
+  db.collection.mockImplementation(name => {
+    if (name === "task_series") return { doc: vi.fn().mockReturnValue(seriesRef) };
+    if (name === "tasks") return { where };
+    return {};
+  });
+
+  return { seriesRef, where, limit, batches, events };
+}
+
 const occurrenceUrl = date => `/api/task-series/${SERIES_ID}/occurrences/${date}`;
+const seriesUrl = `/api/task-series/${SERIES_ID}`;
 
 describe("DELETE /api/task-series/:seriesId/occurrences/:date", () => {
   beforeEach(() => {
@@ -213,6 +274,102 @@ describe("DELETE /api/task-series/:seriesId/occurrences/:date", () => {
     const res = await request(app).delete(occurrenceUrl("2026-10-03"));
 
     expect(res.status).toBe(500);
+  });
+});
+
+describe("DELETE /api/task-series/:seriesId", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  it("deletes the series document when it has no materialized occurrences", async () => {
+    const { seriesRef, batches } = mockSeriesDelete();
+
+    const res = await request(app).delete(seriesUrl);
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe("Series deleted");
+    expect(batches).toHaveLength(0);
+    expect(seriesRef.delete).toHaveBeenCalledTimes(1);
+  });
+
+  it("queries materialized occurrences by seriesId", async () => {
+    const { where } = mockSeriesDelete({ pageSizes: [3] });
+
+    await request(app).delete(seriesUrl);
+
+    expect(where).toHaveBeenCalledWith("seriesId", "==", SERIES_ID);
+  });
+
+  it("deletes occurrences in commits of at most 500, then the series in its own final step", async () => {
+    const { limit, batches, events } = mockSeriesDelete({ pageSizes: [500, 500, 120] });
+
+    const res = await request(app).delete(seriesUrl);
+
+    expect(res.status).toBe(200);
+    expect(limit).toHaveBeenCalledWith(500);
+    expect(batches.map(batch => batch.delete.mock.calls.length)).toEqual([500, 500, 120]);
+    expect(events).toEqual(["batch.commit", "batch.commit", "batch.commit", "series.delete"]);
+  });
+
+  it("returns 404 when the recurring task does not exist", async () => {
+    const { seriesRef, where, batches } = mockSeriesDelete({ series: null });
+
+    const res = await request(app).delete(seriesUrl);
+
+    expect(res.status).toBe(404);
+    expect(where).not.toHaveBeenCalled();
+    expect(batches).toHaveLength(0);
+    expect(seriesRef.delete).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 and deletes nothing when the series belongs to another user", async () => {
+    const { seriesRef, where, batches } = mockSeriesDelete({
+      series: { userId: "someone-else" },
+      pageSizes: [3],
+    });
+
+    const res = await request(app).delete(seriesUrl);
+
+    expect(res.status).toBe(403);
+    expect(where).not.toHaveBeenCalled();
+    expect(batches).toHaveLength(0);
+    expect(seriesRef.delete).not.toHaveBeenCalled();
+  });
+
+  it("keeps the series document and returns 500 when an occurrence batch fails", async () => {
+    const { seriesRef } = mockSeriesDelete({ pageSizes: [3], failCommit: true });
+
+    const res = await request(app).delete(seriesUrl);
+
+    expect(res.status).toBe(500);
+    expect(seriesRef.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteQueryInBatches", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("pages through the query until it is empty and returns the total deleted", async () => {
+    const { limit, batches } = mockSeriesDelete({ pageSizes: [2, 2, 1] });
+    const query = db.collection("tasks").where("seriesId", "==", SERIES_ID);
+
+    const deleted = await deleteQueryInBatches(query, 2);
+
+    expect(deleted).toBe(5);
+    expect(limit).toHaveBeenCalledWith(2);
+    expect(batches.map(batch => batch.delete.mock.calls.length)).toEqual([2, 2, 1]);
+  });
+
+  it("commits nothing for an empty query", async () => {
+    const { batches } = mockSeriesDelete();
+    const query = db.collection("tasks").where("seriesId", "==", SERIES_ID);
+
+    expect(await deleteQueryInBatches(query)).toBe(0);
+    expect(batches).toHaveLength(0);
   });
 });
 

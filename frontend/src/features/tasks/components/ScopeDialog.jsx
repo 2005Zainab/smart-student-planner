@@ -19,7 +19,6 @@ function ScopeDialog({
   occurrenceLabel = "This occurrence only",
   seriesLabel = "Apply to future occurrences",
   seriesScope = "future", // value passed to onChoose for the series option
-  seriesDisabled = false,
   destructive = false, // styles the series option
 }) {
   return (
@@ -48,7 +47,6 @@ function ScopeDialog({
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : ""
             }`}
-            disabled={seriesDisabled}
             onClick={event => {
               event.preventDefault();
               onChoose(seriesScope);

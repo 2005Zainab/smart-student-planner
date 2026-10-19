@@ -45,7 +45,7 @@ function SchedulePage() {
   const [formMode, setFormMode] = useState("create");
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
-  const { deleteTask, deleteSeries, canDeleteSeries } = useTaskDeletion(setTasks, refetch);
+  const { deleteTask, deleteSeries } = useTaskDeletion(setTasks, refetch);
   const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [draft, setDraft] = useState({
@@ -215,6 +215,7 @@ function SchedulePage() {
   const deletingOccurrence = isOccurrence(deletingTask);
   const confirmDelete = async scope => {
     const task = deletingTask;
+    setDeleteId(null);
 
     try {
       if (task) {
@@ -417,7 +418,6 @@ function SchedulePage() {
         occurrenceLabel="Delete this occurrence"
         seriesLabel="Delete all occurrences"
         seriesScope="series"
-        seriesDisabled={!canDeleteSeries}
         destructive
       />
     </main>

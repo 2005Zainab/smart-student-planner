@@ -49,7 +49,7 @@ function TasksPage() {
   const [previousStatusLookup, setPreviousStatusLookup] = useState({});
   const seriesChangedRef = useRef(false);
   const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
-  const { deleteTask, deleteSeries, canDeleteSeries } = useTaskDeletion(setTasks, refetch);
+  const { deleteTask, deleteSeries } = useTaskDeletion(setTasks, refetch);
 
   const [draft, setDraft] = useState({
     title: "",
@@ -426,6 +426,7 @@ function TasksPage() {
 
   const confirmDelete = async scope => {
     const task = deletingTask;
+    setDeleteId(null); // close before the task disappears from `tasks`
 
     try {
       if (task) {
@@ -579,7 +580,6 @@ function TasksPage() {
         occurrenceLabel="Delete this occurrence"
         seriesLabel="Delete all occurrences"
         seriesScope="series"
-        seriesDisabled={!canDeleteSeries}
         destructive
       />
     </main>
