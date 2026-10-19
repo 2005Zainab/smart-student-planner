@@ -70,31 +70,42 @@ function AppSidebar() {
   const navigate = useNavigate();
   const { toggleSidebar } = useSidebar();
 
-  const [profilePicture, setProfilePicture] = useState(null);
+  // Store the picture together with the user's ID
+  const [pictureData, setPictureData] = useState({
+    userId: null,
+    picture: null,
+  });
 
+  const userId = user?.uid;
   const userName = user?.displayName ?? user?.email ?? "Student";
 
-  // Load the profile picture for the logged-in user
-  useEffect(() => {
-    let cancelled = false;
+  // Only show the picture for the current user
+  const profilePicture = pictureData.userId === userId ? pictureData.picture : null;
 
-    if (!user?.uid) {
-      setProfilePicture(null);
-      return;
-    }
+  // Load the saved picture when the user signs in
+  useEffect(() => {
+    if (!userId) return;
+
+    let cancelled = false;
 
     async function loadProfilePicture() {
       try {
         const result = await getProfilePicture();
 
         if (!cancelled) {
-          setProfilePicture(result.profilePicture || null);
+          setPictureData({
+            userId,
+            picture: result.profilePicture || null,
+          });
         }
       } catch (err) {
         console.error("Could not load profile picture:", err);
 
         if (!cancelled) {
-          setProfilePicture(null);
+          setPictureData({
+            userId,
+            picture: null,
+          });
         }
       }
     }
@@ -104,20 +115,23 @@ function AppSidebar() {
     return () => {
       cancelled = true;
     };
-  }, [user?.uid]);
+  }, [userId]);
 
-  // Update the picture when the user changes it in Settings
+  // Reload the picture after the user saves or removes it
   useEffect(() => {
+    if (!userId) return;
+
     let cancelled = false;
 
     async function updateProfilePicture() {
-      if (!user?.uid) return;
-
       try {
         const result = await getProfilePicture();
 
         if (!cancelled) {
-          setProfilePicture(result.profilePicture || null);
+          setPictureData({
+            userId,
+            picture: result.profilePicture || null,
+          });
         }
       } catch (err) {
         console.error("Could not refresh profile picture:", err);
@@ -128,9 +142,10 @@ function AppSidebar() {
 
     return () => {
       cancelled = true;
+
       window.removeEventListener("profile-picture-updated", updateProfilePicture);
     };
-  }, [user?.uid]);
+  }, [userId]);
 
   // Log the user out
   async function handleLogout() {
@@ -190,7 +205,7 @@ function AppSidebar() {
             ))}
           </SidebarMenu>
 
-          {/* Keep the sidebar search feature from main */}
+          {/* Sidebar search feature from main */}
           <SidebarSearch />
         </SidebarGroup>
       </SidebarContent>
@@ -200,7 +215,7 @@ function AppSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger render={<SidebarMenuButton tooltip="Profile" />}>
-                {/* Show the user's saved picture or the default icon */}
+                {/* Show the saved picture or default icon */}
                 {profilePicture ? (
                   <img
                     src={profilePicture}
