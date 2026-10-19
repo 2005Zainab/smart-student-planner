@@ -60,16 +60,14 @@ describe("MFA Backend Routes", () => {
     };
 
     const settingsCollectionMock = {
-      doc: vi.fn((docId) => (docId === "MFA" ? mfaDocMock : {})),
+      doc: vi.fn(docId => (docId === "MFA" ? mfaDocMock : {})),
     };
 
     const userDocMock = {
-      collection: vi.fn((colName) =>
-        colName === "settings" ? settingsCollectionMock : {}
-      ),
+      collection: vi.fn(colName => (colName === "settings" ? settingsCollectionMock : {})),
     };
 
-    db.collection.mockImplementation((colName) => {
+    db.collection.mockImplementation(colName => {
       if (colName === "users") {
         return { doc: vi.fn(() => userDocMock) };
       }
@@ -97,7 +95,7 @@ describe("MFA Backend Routes", () => {
 
       expect(mfaDocMock.set).toHaveBeenCalledWith(
         { tempTwoFactorSecret: "MOCK_SECRET_123" },
-        { merge: true }
+        { merge: true },
       );
     });
   });
@@ -112,9 +110,7 @@ describe("MFA Backend Routes", () => {
         data: () => ({}),
       });
 
-      const res = await request(app)
-        .post("/api/mfa/verify-setup")
-        .send({ token: "123456" });
+      const res = await request(app).post("/api/mfa/verify-setup").send({ token: "123456" });
 
       expect(res.status).toBe(400);
       expect(res.body.message).toMatch(/generation must be called first/i);
@@ -127,9 +123,7 @@ describe("MFA Backend Routes", () => {
       });
       verify.mockResolvedValue({ valid: false });
 
-      const res = await request(app)
-        .post("/api/mfa/verify-setup")
-        .send({ token: "000000" });
+      const res = await request(app).post("/api/mfa/verify-setup").send({ token: "000000" });
 
       expect(res.status).toBe(401);
       expect(res.body.message).toMatch(/invalid pin/i);
@@ -142,9 +136,7 @@ describe("MFA Backend Routes", () => {
       });
       verify.mockResolvedValue({ valid: true });
 
-      const res = await request(app)
-        .post("/api/mfa/verify-setup")
-        .send({ token: "123456" });
+      const res = await request(app).post("/api/mfa/verify-setup").send({ token: "123456" });
 
       expect(res.status).toBe(200);
       expect(res.body.message).toMatch(/enabled successfully/i);
@@ -156,7 +148,7 @@ describe("MFA Backend Routes", () => {
           twoFactorEnabled: true,
           tempTwoFactorSecret: null,
         },
-        { merge: true }
+        { merge: true },
       );
 
       // Verify custom claims updated in Firebase Auth
@@ -169,7 +161,7 @@ describe("MFA Backend Routes", () => {
       const cookies = res.headers["set-cookie"];
       expect(cookies).toBeDefined();
 
-      const mfaCookieStr = cookies.find((c) => c.startsWith("mfa_verified="));
+      const mfaCookieStr = cookies.find(c => c.startsWith("mfa_verified="));
       expect(mfaCookieStr).toBeDefined();
 
       const rawToken = mfaCookieStr.split("mfa_verified=")[1].split(";")[0];
@@ -196,9 +188,7 @@ describe("MFA Backend Routes", () => {
         data: () => ({ twoFactorEnabled: false }),
       });
 
-      const res = await request(app)
-        .post("/api/mfa/login-verify")
-        .send({ token: "123456" });
+      const res = await request(app).post("/api/mfa/login-verify").send({ token: "123456" });
 
       expect(res.status).toBe(400);
       expect(res.body.message).toMatch(/not enabled/i);
@@ -210,9 +200,7 @@ describe("MFA Backend Routes", () => {
         data: () => ({ twoFactorEnabled: true, twoFactorSecret: null }),
       });
 
-      const res = await request(app)
-        .post("/api/mfa/login-verify")
-        .send({ token: "123456" });
+      const res = await request(app).post("/api/mfa/login-verify").send({ token: "123456" });
 
       expect(res.status).toBe(400);
       expect(res.body.message).toMatch(/secret not found/i);
@@ -228,9 +216,7 @@ describe("MFA Backend Routes", () => {
       });
       verify.mockResolvedValue({ valid: true });
 
-      const res = await request(app)
-        .post("/api/mfa/login-verify")
-        .send({ token: "123456" });
+      const res = await request(app).post("/api/mfa/login-verify").send({ token: "123456" });
 
       expect(res.status).toBe(200);
       expect(res.body.message).toMatch(/login successful/i);
@@ -239,7 +225,7 @@ describe("MFA Backend Routes", () => {
       const cookies = res.headers["set-cookie"];
       expect(cookies).toBeDefined();
 
-      const mfaCookieStr = cookies.find((c) => c.startsWith("mfa_verified="));
+      const mfaCookieStr = cookies.find(c => c.startsWith("mfa_verified="));
       expect(mfaCookieStr).toBeDefined();
 
       const rawToken = mfaCookieStr.split("mfa_verified=")[1].split(";")[0];
@@ -266,7 +252,7 @@ describe("MFA Backend Routes", () => {
           twoFactorEnabled: false,
           tempTwoFactorSecret: null,
         },
-        { merge: true }
+        { merge: true },
       );
 
       // Verify custom claims updated in Firebase Auth to false
@@ -278,7 +264,7 @@ describe("MFA Backend Routes", () => {
       // Verify mfa_verified cookie is cleared
       const cookies = res.headers["set-cookie"];
       expect(cookies).toBeDefined();
-      const clearCookieStr = cookies.find((c) => c.startsWith("mfa_verified="));
+      const clearCookieStr = cookies.find(c => c.startsWith("mfa_verified="));
       expect(clearCookieStr).toMatch(/mfa_verified=;/);
     });
   });
