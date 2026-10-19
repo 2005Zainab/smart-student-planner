@@ -70,7 +70,7 @@ router.post("/verify-setup", requireAuth, async (req, res) => {
       twoFactorEnabled: true,
     });
 
-    res.status(201).json({ message: "2FA enabled successfully" });
+    res.status(200).json({ message: "2FA enabled successfully" });
   } else {
     res.status(401).json({ message: "Invalid PIN code" });
   }
@@ -129,7 +129,7 @@ router.post("/disable", requireAuth, async (req, res) => {
 
     res.clearCookie("mfa_verified");
 
-    return res.status(201).json({ message: "2FA disabled successfully" });
+    return res.status(200).json({ message: "2FA disabled successfully" });
   } catch (err) {
     console.error("Disabled 2FA error:", err);
     return res.status(500).json({ message: "Failed to disable 2FA" });
