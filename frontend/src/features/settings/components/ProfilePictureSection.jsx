@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { UserRound } from "lucide-react";
 
@@ -28,11 +27,7 @@ function drawCrop(canvas, image, zoom, horizontal, vertical) {
   const size = canvas.width;
 
   // Make sure the picture fills the square
-  const scale =
-    Math.max(
-      size / image.naturalWidth,
-      size / image.naturalHeight,
-    ) * zoom;
+  const scale = Math.max(size / image.naturalWidth, size / image.naturalHeight) * zoom;
 
   const imageWidth = image.naturalWidth * scale;
   const imageHeight = image.naturalHeight * scale;
@@ -52,13 +47,7 @@ function drawCrop(canvas, image, zoom, horizontal, vertical) {
   context.fillRect(0, 0, size, size);
 
   // Draw the selected crop
-  context.drawImage(
-    image,
-    x,
-    y,
-    imageWidth,
-    imageHeight,
-  );
+  context.drawImage(image, x, y, imageWidth, imageHeight);
 }
 
 // Resize and compress the picture before saving
@@ -79,34 +68,20 @@ function makeSmallPicture(previewCanvas) {
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, size, size);
 
-    context.drawImage(
-      previewCanvas,
-      0,
-      0,
-      size,
-      size,
-    );
+    context.drawImage(previewCanvas, 0, 0, size, size);
 
     // Try different image quality levels
     for (const quality of [0.85, 0.7, 0.55, 0.4]) {
-      const picture = canvas.toDataURL(
-        "image/jpeg",
-        quality,
-      );
+      const picture = canvas.toDataURL("image/jpeg", quality);
 
       // Keep the data small enough for the backend
-      if (
-        picture.startsWith("data:image/jpeg;base64,") &&
-        picture.length < 70000
-      ) {
+      if (picture.startsWith("data:image/jpeg;base64,") && picture.length < 70000) {
         return picture;
       }
     }
   }
 
-  throw new Error(
-    "The picture could not be made small enough.",
-  );
+  throw new Error("The picture could not be made small enough.");
 }
 
 function ProfilePictureSection() {
@@ -165,13 +140,7 @@ function ProfilePictureSection() {
 
   // Update the crop preview when the image or sliders change
   useEffect(() => {
-    drawCrop(
-      previewRef.current,
-      image,
-      zoom,
-      horizontal,
-      vertical,
-    );
+    drawCrop(previewRef.current, image, zoom, horizontal, vertical);
   }, [image, zoom, horizontal, vertical]);
 
   // Check the picture selected by the user
@@ -210,10 +179,7 @@ function ProfilePictureSection() {
     selectedImage.onload = () => {
       URL.revokeObjectURL(objectUrl);
 
-      if (
-        selectedImage.naturalWidth === 0 ||
-        selectedImage.naturalHeight === 0
-      ) {
+      if (selectedImage.naturalWidth === 0 || selectedImage.naturalHeight === 0) {
         setError("This picture could not be opened.");
         return;
       }
@@ -227,9 +193,7 @@ function ProfilePictureSection() {
 
     selectedImage.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      setError(
-        "Unable to open this picture. Please try another.",
-      );
+      setError("Unable to open this picture. Please try another.");
     };
 
     selectedImage.src = objectUrl;
@@ -245,9 +209,7 @@ function ProfilePictureSection() {
 
     try {
       // Create a small JPEG from the crop preview
-      const smallPicture = makeSmallPicture(
-        previewRef.current,
-      );
+      const smallPicture = makeSmallPicture(previewRef.current);
 
       // Save it using our existing backend API
       await saveProfilePicture(smallPicture);
@@ -258,9 +220,7 @@ function ProfilePictureSection() {
 
       setMessage("Profile picture saved successfully!");
     } catch (err) {
-      setError(
-        err.message || "Unable to save your profile picture.",
-      );
+      setError(err.message || "Unable to save your profile picture.");
     } finally {
       setIsSaving(false);
     }
@@ -298,9 +258,7 @@ function ProfilePictureSection() {
 
   return (
     <div className="rounded-xl border bg-card p-6">
-      <h3 className="text-lg font-semibold">
-        Profile Picture
-      </h3>
+      <h3 className="text-lg font-semibold">Profile Picture</h3>
 
       <p className="mt-1 text-sm text-muted-foreground">
         Add a picture to personalise your planner.
@@ -324,11 +282,7 @@ function ProfilePictureSection() {
         </div>
 
         <div className="space-y-1">
-          <p className="font-medium">
-            {user?.displayName ||
-              user?.email ||
-              "Student"}
-          </p>
+          <p className="font-medium">{user?.displayName || user?.email || "Student"}</p>
 
           <p className="text-sm text-muted-foreground">
             {isLoading
@@ -342,9 +296,7 @@ function ProfilePictureSection() {
 
       {/* Upload a new picture */}
       <div className="mt-5 space-y-2">
-        <Label htmlFor="profile-picture-file">
-          Choose a new picture
-        </Label>
+        <Label htmlFor="profile-picture-file">Choose a new picture</Label>
 
         <input
           id="profile-picture-file"
@@ -356,21 +308,17 @@ function ProfilePictureSection() {
         />
 
         <p className="text-xs text-muted-foreground">
-          Supported formats: JPG, PNG and WebP.
-          Maximum file size: 5 MB.
+          Supported formats: JPG, PNG and WebP. Maximum file size: 5 MB.
         </p>
       </div>
 
       {/* Show cropping tools after selecting an image */}
       {image && (
         <div className="mt-5 space-y-4 rounded-lg border p-4">
-          <h4 className="font-medium">
-            Crop your picture
-          </h4>
+          <h4 className="font-medium">Crop your picture</h4>
 
           <p className="text-sm text-muted-foreground">
-            Adjust the sliders to resize and position
-            your picture before saving.
+            Adjust the sliders to resize and position your picture before saving.
           </p>
 
           {/* Circular image preview */}
@@ -384,9 +332,7 @@ function ProfilePictureSection() {
 
           {/* Zoom slider */}
           <div className="space-y-2">
-            <Label htmlFor="picture-zoom">
-              Zoom: {zoom.toFixed(1)}x
-            </Label>
+            <Label htmlFor="picture-zoom">Zoom: {zoom.toFixed(1)}x</Label>
 
             <input
               id="picture-zoom"
@@ -396,18 +342,14 @@ function ProfilePictureSection() {
               step="0.1"
               value={zoom}
               disabled={isSaving}
-              onChange={event =>
-                setZoom(Number(event.target.value))
-              }
+              onChange={event => setZoom(Number(event.target.value))}
               className="w-full"
             />
           </div>
 
           {/* Horizontal position */}
           <div className="space-y-2">
-            <Label htmlFor="picture-horizontal">
-              Move left or right
-            </Label>
+            <Label htmlFor="picture-horizontal">Move left or right</Label>
 
             <input
               id="picture-horizontal"
@@ -416,18 +358,14 @@ function ProfilePictureSection() {
               max="100"
               value={horizontal}
               disabled={isSaving}
-              onChange={event =>
-                setHorizontal(Number(event.target.value))
-              }
+              onChange={event => setHorizontal(Number(event.target.value))}
               className="w-full"
             />
           </div>
 
           {/* Vertical position */}
           <div className="space-y-2">
-            <Label htmlFor="picture-vertical">
-              Move up or down
-            </Label>
+            <Label htmlFor="picture-vertical">Move up or down</Label>
 
             <input
               id="picture-vertical"
@@ -436,31 +374,18 @@ function ProfilePictureSection() {
               max="100"
               value={vertical}
               disabled={isSaving}
-              onChange={event =>
-                setVertical(Number(event.target.value))
-              }
+              onChange={event => setVertical(Number(event.target.value))}
               className="w-full"
             />
           </div>
 
           {/* Save or cancel */}
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving}
-            >
-              {isSaving
-                ? "Saving..."
-                : "Save Picture"}
+            <Button type="button" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save Picture"}
             </Button>
 
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isSaving}
-            >
+            <Button type="button" variant="outline" onClick={handleCancel} disabled={isSaving}>
               Cancel
             </Button>
           </div>
@@ -476,28 +401,20 @@ function ProfilePictureSection() {
           disabled={isSaving}
           onClick={handleRemove}
         >
-          {isSaving
-            ? "Removing..."
-            : "Remove Picture"}
+          {isSaving ? "Removing..." : "Remove Picture"}
         </Button>
       )}
 
       {/* Error message */}
       {error && (
-        <p
-          role="alert"
-          className="mt-4 text-sm text-destructive"
-        >
+        <p role="alert" className="mt-4 text-sm text-destructive">
           {error}
         </p>
       )}
 
       {/* Success message */}
       {message && (
-        <p
-          role="status"
-          className="mt-4 text-sm text-green-600"
-        >
+        <p role="status" className="mt-4 text-sm text-green-600">
           {message}
         </p>
       )}
