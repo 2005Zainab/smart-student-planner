@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
+import { useSearchParams } from "react-router";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,10 +35,14 @@ import { getSeriesUrl, isOccurrence } from "../utils/task-endpoints"; // getOccu
 import { ScopeDialog } from "./ScopeDialog";
 import { needsScopeChoice, toNullableDateString } from "../utils/occurrence-scope";
 
+const isoWeekday = date => (date.getDay() === 0 ? 7 : date.getDay());
+
 function TasksPage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
   const { patchTask, saveScopedEdit, setSeriesEnabled, updateFiles } = useTaskUpdates(setTasks);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [handledViewId, setHandledViewId] = useState(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -149,12 +154,34 @@ function TasksPage() {
     setEmptyTitleCheck(null);
     setSaveError(null);
 
+    // Drop ?view= so the URL matches the closed dialog and the same task can be reopened
+    if (searchParams.has("view")) {
+      setSearchParams(
+        previous => {
+          const next = new URLSearchParams(previous);
+          next.delete("view");
+          return next;
+        },
+        { replace: true },
+      );
+    }
+
     if (shouldRefetch) {
       refetch();
     }
   };
 
-  const isoWeekday = date => (date.getDay() === 0 ? 7 : date.getDay());
+  // Open the view dialog when the URL has ?view=<taskId> (set by the sidebar search).
+  // This adjusts state during render
+  const viewId = searchParams.get("view");
+  if (viewId !== handledViewId && (!viewId || !isLoading)) {
+    setHandledViewId(viewId);
+
+    const taskToView = viewId ? tasks.find(task => task.id === viewId) : undefined;
+    if (taskToView) {
+      openEditor(taskToView, "view");
+    }
+  }
 
   // Order-insensitive, mirroring the server, so [3, 1] vs a stored [1, 3] isn't a change.
   const canonicalRule = rule =>
