@@ -11,13 +11,13 @@ import {
   deleteProfilePicture,
 } from "../api/profile-picture-api";
 
-// Maximum original picture size: 5 MB
+// Maximum original picture size is 5 MB
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-// Picture formats users can upload
+// Picture formats students can upload
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
-// Draw the cropped picture on a square canvas
+// Draw the cropped picture inside the preview
 function drawCrop(canvas, image, zoom, horizontal, vertical) {
   if (!canvas || !image) return;
 
@@ -26,35 +26,35 @@ function drawCrop(canvas, image, zoom, horizontal, vertical) {
 
   const size = canvas.width;
 
-  // Make sure the picture fills the square
+  // Make sure the image fills the crop area
   const scale = Math.max(size / image.naturalWidth, size / image.naturalHeight) * zoom;
 
   const imageWidth = image.naturalWidth * scale;
   const imageHeight = image.naturalHeight * scale;
 
-  // Calculate how much the picture can move
+  // Calculate how far the image can move
   const extraWidth = imageWidth - size;
   const extraHeight = imageHeight - size;
 
   const x = -extraWidth * (horizontal / 100);
   const y = -extraHeight * (vertical / 100);
 
-  // Clear the old preview
+  // Clear the previous preview
   context.clearRect(0, 0, size, size);
 
-  // Add a white background for transparent images
+  // White background for transparent pictures
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, size, size);
 
-  // Draw the selected crop
+  // Draw the cropped picture
   context.drawImage(image, x, y, imageWidth, imageHeight);
 }
 
-// Resize and compress the picture before saving
+// Make the cropped picture small enough to save
 function makeSmallPicture(previewCanvas) {
   const canvas = document.createElement("canvas");
 
-  // Try a smaller image if the result is too large
+  // Try different sizes
   for (const size of [160, 128, 96]) {
     canvas.width = size;
     canvas.height = size;
@@ -70,11 +70,11 @@ function makeSmallPicture(previewCanvas) {
 
     context.drawImage(previewCanvas, 0, 0, size, size);
 
-    // Try different image quality levels
+    // Try different image qualities
     for (const quality of [0.85, 0.7, 0.55, 0.4]) {
       const picture = canvas.toDataURL("image/jpeg", quality);
 
-      // Keep the data small enough for the backend
+      // Keep it within the backend limit
       if (picture.startsWith("data:image/jpeg;base64,") && picture.length < 70000) {
         return picture;
       }
@@ -88,6 +88,7 @@ function ProfilePictureSection() {
   const { user } = useAuth();
 
   const previewRef = useRef(null);
+  const imageRequestRef = useRef(0);
 
   // Saved profile picture
   const [savedPicture, setSavedPicture] = useState(null);
@@ -95,7 +96,7 @@ function ProfilePictureSection() {
   // Newly selected picture
   const [image, setImage] = useState(null);
 
-  // Crop settings
+  // Picture crop settings
   const [zoom, setZoom] = useState(1);
   const [horizontal, setHorizontal] = useState(50);
   const [vertical, setVertical] = useState(50);
@@ -106,11 +107,13 @@ function ProfilePictureSection() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  // Load the saved picture when the user opens Settings
+  // Load the saved profile picture for this user
   useEffect(() => {
-    if (!user?.uid) return;
-
     let cancelled = false;
+
+    if (!user?.uid) {
+      return;
+    }
 
     async function loadPicture() {
       try {
@@ -132,18 +135,17 @@ function ProfilePictureSection() {
 
     loadPicture();
 
-    // Ignore old requests if the user changes
     return () => {
       cancelled = true;
     };
   }, [user?.uid]);
 
-  // Update the crop preview when the image or sliders change
+  // Update the picture preview when sliders move
   useEffect(() => {
     drawCrop(previewRef.current, image, zoom, horizontal, vertical);
   }, [image, zoom, horizontal, vertical]);
 
-  // Check the picture selected by the user
+  // Choose and check a new picture
   function handleChoosePicture(event) {
     const file = event.target.files?.[0];
 
@@ -152,16 +154,14 @@ function ProfilePictureSection() {
 
     if (!file) return;
 
-    // Allow the same file to be selected again
+    // Allow choosing the same file again
     event.target.value = "";
 
-    // Check image type
     if (!ALLOWED_TYPES.includes(file.type)) {
       setError("Please choose a JPG, PNG or WebP picture.");
       return;
     }
 
-    // Check original image size
     if (file.size > MAX_FILE_SIZE) {
       setError("Your picture must be 5 MB or smaller.");
       return;
@@ -172,19 +172,24 @@ function ProfilePictureSection() {
       return;
     }
 
-    // Open the picture in the browser
+    const requestId = ++imageRequestRef.current;
+
+    // Open the selected image
     const objectUrl = URL.createObjectURL(file);
     const selectedImage = new Image();
 
     selectedImage.onload = () => {
       URL.revokeObjectURL(objectUrl);
 
+      // Ignore an older image if another one was selected
+      if (requestId !== imageRequestRef.current) return;
+
       if (selectedImage.naturalWidth === 0 || selectedImage.naturalHeight === 0) {
         setError("This picture could not be opened.");
         return;
       }
 
-      // Set the new image and reset crop controls
+      // Show new picture and reset the sliders
       setImage(selectedImage);
       setZoom(1);
       setHorizontal(50);
@@ -193,6 +198,9 @@ function ProfilePictureSection() {
 
     selectedImage.onerror = () => {
       URL.revokeObjectURL(objectUrl);
+
+      if (requestId !== imageRequestRef.current) return;
+
       setError("Unable to open this picture. Please try another.");
     };
 
@@ -208,15 +216,18 @@ function ProfilePictureSection() {
     setMessage("");
 
     try {
-      // Create a small JPEG from the crop preview
+      // Compress the cropped image
       const smallPicture = makeSmallPicture(previewRef.current);
 
-      // Save it using our existing backend API
+      // Wait until the backend saves it successfully
       await saveProfilePicture(smallPicture);
 
-      // Update the displayed picture
+      // Show the new saved picture
       setSavedPicture(smallPicture);
       setImage(null);
+
+      // Tell the sidebar to reload the profile picture
+      window.dispatchEvent(new Event("profile-picture-updated"));
 
       setMessage("Profile picture saved successfully!");
     } catch (err) {
@@ -226,7 +237,7 @@ function ProfilePictureSection() {
     }
   }
 
-  // Remove the user's saved picture
+  // Remove the saved picture
   async function handleRemove() {
     if (isSaving) return;
 
@@ -235,22 +246,26 @@ function ProfilePictureSection() {
     setMessage("");
 
     try {
+      // Delete it from the backend
       await deleteProfilePicture();
 
-      // Return to the default avatar
       setSavedPicture(null);
       setImage(null);
 
+      // Tell the sidebar to show the default avatar
+      window.dispatchEvent(new Event("profile-picture-updated"));
+
       setMessage("Profile picture removed successfully!");
-    } catch {
-      setError("Unable to remove your profile picture.");
+    } catch (err) {
+      setError(err.message || "Unable to remove your profile picture.");
     } finally {
       setIsSaving(false);
     }
   }
 
-  // Cancel selecting a new picture
+  // Cancel cropping the selected picture
   function handleCancel() {
+    imageRequestRef.current += 1;
     setImage(null);
     setError("");
     setMessage("");
@@ -294,7 +309,7 @@ function ProfilePictureSection() {
         </div>
       </div>
 
-      {/* Upload a new picture */}
+      {/* Choose a new picture */}
       <div className="mt-5 space-y-2">
         <Label htmlFor="profile-picture-file">Choose a new picture</Label>
 
@@ -312,16 +327,16 @@ function ProfilePictureSection() {
         </p>
       </div>
 
-      {/* Show cropping tools after selecting an image */}
+      {/* Crop picture after choosing an image */}
       {image && (
         <div className="mt-5 space-y-4 rounded-lg border p-4">
           <h4 className="font-medium">Crop your picture</h4>
 
           <p className="text-sm text-muted-foreground">
-            Adjust the sliders to resize and position your picture before saving.
+            Use the sliders to zoom and move the picture.
           </p>
 
-          {/* Circular image preview */}
+          {/* Picture crop preview */}
           <canvas
             ref={previewRef}
             width={200}
@@ -343,39 +358,41 @@ function ProfilePictureSection() {
               value={zoom}
               disabled={isSaving}
               onChange={event => setZoom(Number(event.target.value))}
-              className="w-full"
+              className="w-full cursor-pointer accent-primary disabled:cursor-not-allowed"
             />
           </div>
 
-          {/* Horizontal position */}
+          {/* Move image left or right */}
           <div className="space-y-2">
-            <Label htmlFor="picture-horizontal">Move left or right</Label>
+            <Label htmlFor="picture-horizontal">Move left or right: {horizontal}%</Label>
 
             <input
               id="picture-horizontal"
               type="range"
               min="0"
               max="100"
+              step="1"
               value={horizontal}
               disabled={isSaving}
               onChange={event => setHorizontal(Number(event.target.value))}
-              className="w-full"
+              className="w-full cursor-pointer accent-primary disabled:cursor-not-allowed"
             />
           </div>
 
-          {/* Vertical position */}
+          {/* Move image up or down */}
           <div className="space-y-2">
-            <Label htmlFor="picture-vertical">Move up or down</Label>
+            <Label htmlFor="picture-vertical">Move up or down: {vertical}%</Label>
 
             <input
               id="picture-vertical"
               type="range"
               min="0"
               max="100"
+              step="1"
               value={vertical}
               disabled={isSaving}
               onChange={event => setVertical(Number(event.target.value))}
-              className="w-full"
+              className="w-full cursor-pointer accent-primary disabled:cursor-not-allowed"
             />
           </div>
 
@@ -392,7 +409,7 @@ function ProfilePictureSection() {
         </div>
       )}
 
-      {/* Remove saved profile picture */}
+      {/* Remove saved picture */}
       {savedPicture && !image && (
         <Button
           type="button"

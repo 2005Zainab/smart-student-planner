@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 import {
   CalendarDays,
   CheckSquare,
@@ -33,7 +35,9 @@ import { NavLink, useLocation, useNavigate } from "react-router";
 import { useLogout } from "@/features/auth/hooks/use-logout";
 import { useAuth } from "@/shared/auth-provider";
 import { getAuthErrorMessage } from "@/features/auth/utils/get-auth-error-message";
+import { getProfilePicture } from "@/features/settings/api/profile-picture-api";
 
+// Main navigation links
 const navigation = [
   {
     label: "Dashboard",
@@ -64,9 +68,62 @@ function AppSidebar() {
   const navigate = useNavigate();
   const { toggleSidebar } = useSidebar();
 
+  const [profilePicture, setProfilePicture] = useState(null);
+
   const userName = user?.displayName ?? user?.email ?? "Student";
 
-  //Logs the user out
+  // Load the profile picture for the logged-in user
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!user?.uid) {
+      return;
+    }
+
+    async function loadProfilePicture() {
+      try {
+        const result = await getProfilePicture();
+
+        if (!cancelled) {
+          setProfilePicture(result.profilePicture || null);
+        }
+      } catch (err) {
+        console.error("Could not load profile picture:", err);
+
+        if (!cancelled) {
+          setProfilePicture(null);
+        }
+      }
+    }
+
+    loadProfilePicture();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid]);
+
+  // Reload the picture when it changes in Settings
+  useEffect(() => {
+    async function updateProfilePicture() {
+      if (!user?.uid) return;
+
+      try {
+        const result = await getProfilePicture();
+        setProfilePicture(result.profilePicture || null);
+      } catch (err) {
+        console.error("Could not refresh profile picture:", err);
+      }
+    }
+
+    window.addEventListener("profile-picture-updated", updateProfilePicture);
+
+    return () => {
+      window.removeEventListener("profile-picture-updated", updateProfilePicture);
+    };
+  }, [user?.uid]);
+
+  // Log the user out
   async function handleLogout() {
     try {
       await logout();
@@ -92,7 +149,7 @@ function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          {/* Sidebar toggle inside sidebar to prevent moving when collapsed */}
+          {/* Button to minimize the sidebar */}
           <div className="hidden md:block">
             <SidebarMenu>
               <SidebarMenuItem>
@@ -107,6 +164,8 @@ function AppSidebar() {
               </SidebarMenuItem>
             </SidebarMenu>
           </div>
+
+          {/* Navigation links */}
           <SidebarMenu>
             {navigation.map(({ label, href, icon: Icon }) => (
               <SidebarMenuItem key={href}>
@@ -129,12 +188,25 @@ function AppSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger render={<SidebarMenuButton tooltip="Profile" />}>
-                <User />
+                {/* Show the saved picture or the default icon */}
+                {profilePicture ? (
+                  <img
+                    src={profilePicture}
+                    alt="Your profile picture"
+                    className="size-6 shrink-0 rounded-full object-cover"
+                  />
+                ) : (
+                  <User />
+                )}
+
                 <span>{userName}</span>
               </DropdownMenuTrigger>
 
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>Profile</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/settings")}>
+                  <User />
+                  Profile
+                </DropdownMenuItem>
 
                 <DropdownMenuItem onClick={() => navigate("/settings")}>
                   <Settings />
