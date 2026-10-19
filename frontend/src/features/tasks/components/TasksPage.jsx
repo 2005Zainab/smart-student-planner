@@ -321,8 +321,8 @@ function TasksPage() {
         console.log(err);
 
         const savedNote =
-          savedParts.length > 0 ? ` Already saved: ${savedParts.join(" and ")}.` : "";
-        setSaveError(`${err.message || "Failed to save task"}${savedNote}`);
+          savedParts.length > 0 ? `Already saved: ${savedParts.join(" and ")}.` : "";
+        setSaveError([err.message || "Failed to save task", savedNote].filter(Boolean).join("\n"));
 
         return;
       }
