@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/shared/auth-provider";
 import { getSettings, saveEmailReminders, savePasswordLessEnabled } from "../api/settings-api";
-import { generate2FA, verify2FASetup } from "../api/mfa-api";
+import { disabled2fA, generate2FA, verify2FASetup } from "../api/mfa-api";
 import { useTheme } from "@/theme/theme-provider";
 import {
   Select,
@@ -109,6 +109,30 @@ function SettingsPage() {
       setIs2FADialogOpen(false);
     } catch {
       setMfaError("Invalid PIN. Please check your app and try again.");
+    } finally {
+      setIsMfaLoading(false);
+    }
+  };
+
+  const handleDisable2FA = async () => {
+    setIsMfaLoading(true);
+    try {
+      await disabled2fA();
+
+      await user.getIdToken(true);
+      const tokenResult = await user.getIdTokenResult();
+      setIs2FAEnabled(tokenResult.claims.twoFactorEnabled === true);
+
+      toast.add({
+        title: "Two-Factor Authentication disabled!",
+        type: "success",
+      });
+    } catch (err) {
+      console.error("Disable 2FA error:", err);
+      toast.add({
+        title: "Failed to disable 2FA",
+        type: "error",
+      });
     } finally {
       setIsMfaLoading(false);
     }
@@ -307,8 +331,8 @@ function SettingsPage() {
           {isLoadingSettings ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
           ) : is2FAEnabled ? (
-            <Button variant="outline" disabled>
-              Enabled
+            <Button variant="destructive" onClick={handleDisable2FA} disabled={isMfaLoading}>
+              {isMfaLoading ? "Disabling..." : "Disable 2FA"}
             </Button>
           ) : (
             <Button onClick={start2FAEnrollment}>Enable 2FA</Button>

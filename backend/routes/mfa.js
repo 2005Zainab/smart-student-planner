@@ -28,7 +28,7 @@ router.post("/generate", requireAuth, async (req, res) => {
       .doc("MFA")
       .set({ tempTwoFactorSecret: secret }, { merge: true });
 
-    res.json({ qrCodeUrl, secret });
+    res.status(200).json({ qrCodeUrl, secret });
   } catch (err) {
     res.status(500).json({ message: "Failed to generate QR code", err });
   }
@@ -70,7 +70,7 @@ router.post("/verify-setup", requireAuth, async (req, res) => {
       twoFactorEnabled: true,
     });
 
-    res.status(200).json({ message: "2FA enabled successfully" });
+    res.status(201).json({ message: "2FA enabled successfully" });
   } else {
     res.status(401).json({ message: "Invalid PIN code" });
   }
@@ -95,10 +95,44 @@ router.post("/login-verify", requireAuth, async (req, res) => {
   const result = await verify({ token, secret: twoFactorSecret });
 
   if (result.valid) {
-    res.cookie("mfa_verified", "true", { httpOnly: true, secure: true });
+    res.cookie("mfa_verified", "true", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // cuz http isn't secure but in a real production environment we'd set this to true.
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    });
     res.status(200).json({ message: "Login successful" });
   } else {
     res.status(401).json({ message: "Invalid 2FA code" });
+  }
+});
+
+// removes the 2fa/mfa from the user's account
+router.post("/disable", requireAuth, async (req, res) => {
+  try {
+    await db.collection("users").doc(req.user.uid).collection("settings").doc("MFA").set(
+      {
+        twoFactorSecret: null,
+        twoFactorEnabled: false,
+        tempTwoFactorSecret: null,
+      },
+      { merge: true },
+    );
+
+    const userRecord = await getAuth().getUser(req.user.uid);
+    const currentClaims = userRecord.customClaims || {};
+
+    await getAuth().setCustomUserClaims(req.user.uid, {
+      ...currentClaims,
+      twoFactorEnabled: false,
+    });
+
+    res.clearCookie("mfa_verified");
+
+    return res.status(201).json({ message: "2FA disabled successfully" });
+  } catch (err) {
+    console.error("Disabled 2FA error:", err);
+    return res.status(500).json({ message: "Failed to disable 2FA" });
   }
 });
 

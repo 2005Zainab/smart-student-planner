@@ -17,3 +17,9 @@ export async function verify2FALogin(token) {
     body: JSON.stringify({ token }),
   });
 }
+
+export async function disabled2fA() {
+  return httpClient("http://localhost:3000/api/mfa/disable", {
+    method: "POST",
+  });
+}
