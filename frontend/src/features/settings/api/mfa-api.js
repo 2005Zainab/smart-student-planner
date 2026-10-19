@@ -1,26 +1,19 @@
-import { auth } from "../../../shared/auth";
+import { httpClient } from "../../../shared/http-client";
 
 export async function generate2FA() {
-  const token = await auth.currentUser.getIdToken();
-  const res = await fetch("/api/mfa/generate", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error("Failed to generate 2FA");
-  return res.json();
+  return httpClient("http://localhost:3000/api/mfa/generate", { method: "POST" });
 }
 
-export async function verify2FASetup(pin) {
-  const token = await auth.currentUser.getIdToken();
-  const res = await fetch("/api/mfa/verify-setup", {
+export async function verify2FASetup(token) {
+  return httpClient("http://localhost:3000/api/mfa/verify-setup", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ token: pin }),
+    body: JSON.stringify({ token }),
   });
+}
 
-  if (!res.ok) throw new Error("Invalid PIN");
-  return res.json();
+export async function verify2FALogin(token) {
+  return httpClient("http://localhost:3000/api/mfa/login-verify", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
 }
