@@ -456,7 +456,7 @@ function SettingsPage() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isMfaLoading || mfaPin.length !== 6}>
+              <Button type="submit" disabled={isMfaLoading || mfaPin?.length !== 6}>
                 {isMfaLoading ? "Verifying..." : "Verify & Enable"}
               </Button>
             </div>

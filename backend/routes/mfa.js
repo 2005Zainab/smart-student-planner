@@ -78,7 +78,7 @@ router.post("/verify-setup", requireAuth, async (req, res) => {
 
 // verifies the pin from the user and responds with the mfa cookie if it is correct
 router.post("/login-verify", requireAuth, async (req, res) => {
-  const { pin } = req.body;
+  const { token } = req.body;
 
   const userDoc = await db
     .collection("users")
@@ -92,7 +92,7 @@ router.post("/login-verify", requireAuth, async (req, res) => {
     return res.status(400).json({ message: "2FA is not enabled" });
   }
 
-  const result = await verify({ pin, secret: twoFactorSecret });
+  const result = await verify({ token, secret: twoFactorSecret });
 
   if (result.valid) {
     res.cookie("mfa_verified", "true", { httpOnly: true, secure: true });

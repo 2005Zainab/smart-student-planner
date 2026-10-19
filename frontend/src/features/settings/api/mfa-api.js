@@ -11,9 +11,9 @@ export async function verify2FASetup(token) {
   });
 }
 
-export async function verify2FALogin(pin) {
+export async function verify2FALogin(token) {
   return httpClient("http://localhost:3000/api/mfa/login-verify", {
     method: "POST",
-    body: JSON.stringify({ pin }),
+    body: JSON.stringify({ token }),
   });
 }
