@@ -1,5 +1,5 @@
 import express from "express";
-import { TOTP, NobleCryptoPlugin, ScureBase32Plugin } from "otplib";
+import { generateSecret, verify, generateURI } from "otplib";
 import QRCode from "qrcode";
 import { db } from "../shared/firebase.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -7,16 +7,11 @@ import { getAuth } from "firebase-admin/auth";
 
 const router = express.Router();
 
-const totp = new TOTP({
-  crypto: new NobleCryptoPlugin(),
-  base32: new ScureBase32Plugin(),
-});
-
 // generates the secret key used for 2fa and makes a qr code url for it.
 router.post("/generate", requireAuth, async (req, res) => {
   const email = req.user.email;
-  const secret = totp.generateSecret();
-  const otpauthurl = totp.generateURI({
+  const secret = generateSecret();
+  const otpauthurl = generateURI({
     issuer: "Smart Student Planner",
     accountName: email,
     secret: secret,
@@ -38,16 +33,16 @@ router.post("/verify-setup", requireAuth, async (req, res) => {
   const { token } = req.body;
 
   const userDoc = await db.collection("users").doc(req.user.uid).get();
-  const { tempTwoFactorSecret } = userDoc.data();
+  const { tempTwoFactorSecret } = userDoc.data() || {};
 
   if (!tempTwoFactorSecret) {
     return res.status(400).json({ message: "2FA generation must be called first" });
   }
 
-  const isValid = totp.verify({ token, secret: tempTwoFactorSecret });
+  const result = await verify({ token, secret: tempTwoFactorSecret });
 
-  if (isValid) {
-    await db.collection("users").doc(req.user.uid).update({
+  if (result.valid) {
+    await db.collection("users").doc(req.user.uid).collection("settings").doc("MFA").update({
       twoFactorSecret: tempTwoFactorSecret,
       twoFactorEnabled: true,
       tempTwoFactorSecret: null,
@@ -72,15 +67,15 @@ router.post("/login-verify", requireAuth, async (req, res) => {
   const { token } = req.body;
 
   const userDoc = await db.collection("users").doc(req.user.uid).get();
-  const { twoFactorSecret, twoFactorEnabled } = userDoc.data();
+  const { twoFactorSecret, twoFactorEnabled } = userDoc.data() || {};
 
-  if (!twoFactorEnabled) {
+  if (!twoFactorEnabled || !twoFactorSecret) {
     return res.status(400).json({ message: "2FA is not enabled" });
   }
 
-  const isValid = totp.verify({ token, secret: twoFactorSecret });
+  const result = await verify({ token, secret: twoFactorSecret });
 
-  if (isValid) {
+  if (result.valid) {
     res.cookie("mfa_verified", "true", { httpOnly: true, secure: true });
     res.status(200).json({ message: "Login successful" });
   } else {

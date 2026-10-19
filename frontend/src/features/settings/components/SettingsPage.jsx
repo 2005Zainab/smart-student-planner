@@ -311,7 +311,7 @@ function SettingsPage() {
               Enabled
             </Button>
           ) : (
-            <Button onClick={start2FAEnrollment}>Enabled 2FA</Button>
+            <Button onClick={start2FAEnrollment}>Enable 2FA</Button>
           )}
         </div>
       </div>
@@ -407,7 +407,7 @@ function SettingsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={is2FADialogOpen} onChange={setIs2FADialogOpen}>
+      <Dialog open={is2FADialogOpen} onOpenChange={setIs2FADialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogTitle>Set up Two-Factor Authentication</DialogTitle>
           <DialogDescription>
@@ -456,7 +456,7 @@ function SettingsPage() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isMfaLoading || mfaPin.maxLength !== 6}>
+              <Button type="submit" disabled={isMfaLoading || mfaPin.length !== 6}>
                 {isMfaLoading ? "Verifying..." : "Verify & Enable"}
               </Button>
             </div>
