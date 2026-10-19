@@ -137,7 +137,9 @@ router.post("/login-verify", requireAuth, async (req, res) => {
 // removes the 2fa/mfa from the user's account
 router.post("/disable", requireAuth, async (req, res) => {
   try {
-    await db.collection("users").doc(req.user.uid).collection("settings").doc("MFA").set(
+    const uid = req.user.uid;
+
+    await db.collection("users").doc(uid).collection("settings").doc("MFA").set(
       {
         twoFactorSecret: null,
         twoFactorEnabled: false,
@@ -145,6 +147,14 @@ router.post("/disable", requireAuth, async (req, res) => {
       },
       { merge: true },
     );
+
+    const userRecord = await getAuth().getUser(uid);
+    const currentClaims = userRecord.customClaims || {};
+
+    await getAuth().setCustomUserClaims(uid, {
+      ...currentClaims,
+      twoFactorEnabled: false,
+    });
 
     res.clearCookie("mfa_verified", {
       httpOnly: true,

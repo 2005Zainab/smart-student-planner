@@ -77,13 +77,18 @@ function SettingsPage() {
     setIsMfaLoading(true);
     setMfaError("");
     setMfaPin("");
+    setQrCodeUrl("");
+    setMfaSecret("");
 
     try {
+      await user.getIdToken(true);
+
       const { qrCodeUrl, secret } = await generate2FA();
       setQrCodeUrl(qrCodeUrl);
       setMfaSecret(secret);
     } catch (err) {
-      setMfaError("Failed to load QR code. Please try again.", err);
+      console.error("Failed to generate 2FA:", err);
+      setMfaError("Failed to load QR code. Please try again.");
     } finally {
       setIsMfaLoading(false);
     }
@@ -98,8 +103,8 @@ function SettingsPage() {
       await verify2FASetup(mfaPin);
 
       await user.getIdToken(true);
-      const tokenResult = await user.getIdTokenResult();
-      setIs2FAEnabled(tokenResult.claims.twoFactorEnabled === true);
+      const tokenResult = await user.getIdTokenResult(true);
+      setIs2FAEnabled(tokenResult?.claims?.twoFactorEnabled === true);
 
       toast.add({
         title: "Two-Factor Authentication enabled!",
@@ -119,9 +124,10 @@ function SettingsPage() {
     try {
       await disable2FA();
 
+      setIs2FAEnabled(false);
+
       await user.getIdToken(true);
-      const tokenResult = await user.getIdTokenResult();
-      setIs2FAEnabled(tokenResult.claims.twoFactorEnabled === true);
+      await user.getIdTokenResult(true);
 
       toast.add({
         title: "Two-Factor Authentication disabled!",
