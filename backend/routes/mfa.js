@@ -4,8 +4,11 @@ import QRCode from "qrcode";
 import { db } from "../shared/firebase.js";
 import { requireAuth } from "../middleware/auth.js";
 import { getAuth } from "firebase-admin/auth";
+import jwt from "jsonwebtoken";
 
 const router = express.Router();
+
+const MFA_SECRET_KEY = process.env.JWT_SECRET || "";
 
 // generates the secret key used for 2fa and makes a qr code url for it.
 router.post("/generate", requireAuth, async (req, res) => {
@@ -37,13 +40,9 @@ router.post("/generate", requireAuth, async (req, res) => {
 // verify the pin received and enable 2fa
 router.post("/verify-setup", requireAuth, async (req, res) => {
   const { token } = req.body;
+  const uid = req.user.uid;
 
-  const userDoc = await db
-    .collection("users")
-    .doc(req.user.uid)
-    .collection("settings")
-    .doc("MFA")
-    .get();
+  const userDoc = await db.collection("users").doc(uid).collection("settings").doc("MFA").get();
   const { tempTwoFactorSecret } = userDoc.data() || {};
 
   if (!tempTwoFactorSecret) {
@@ -62,12 +61,23 @@ router.post("/verify-setup", requireAuth, async (req, res) => {
       { merge: true },
     );
 
-    const userRecord = await getAuth().getUser(req.user.uid);
+    const userRecord = await getAuth().getUser(uid);
     const currentClaims = userRecord.customClaims || {};
 
     await getAuth().setCustomUserClaims(req.user.uid, {
       ...currentClaims,
       twoFactorEnabled: true,
+    });
+
+    const mfaCookie = jwt.sign({ uid, mfaVerified: true }, process.env.JWT_SECRET, {
+      expiresIn: "12h",
+    });
+
+    res.cookie("mfa_verified", mfaCookie, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 12 * 60 * 60 * 1000, // 12 hours
     });
 
     res.status(200).json({ message: "2FA enabled successfully" });
@@ -78,32 +88,49 @@ router.post("/verify-setup", requireAuth, async (req, res) => {
 
 // verifies the pin from the user and responds with the mfa cookie if it is correct
 router.post("/login-verify", requireAuth, async (req, res) => {
-  const { token } = req.body;
+  try {
+    const { token } = req.body;
+    const uid = req.user.uid;
 
-  const userDoc = await db
-    .collection("users")
-    .doc(req.user.uid)
-    .collection("settings")
-    .doc("MFA")
-    .get();
-  const { twoFactorSecret, twoFactorEnabled } = userDoc.data() || {};
+    if (!token) {
+      return res.status(400).json({ message: "2FA token is required" });
+    }
 
-  if (!twoFactorEnabled || !twoFactorSecret) {
-    return res.status(400).json({ message: "2FA is not enabled" });
-  }
+    const userDoc = await db.collection("users").doc(uid).collection("settings").doc("MFA").get();
+    if (!userDoc.exists || !userDoc.data().twoFactorEnabled) {
+      return res.status(400).json({ message: "2FA is not enabled for this account" });
+    }
 
-  const result = await verify({ token, secret: twoFactorSecret });
+    const { twoFactorSecret } = userDoc.data() || {};
 
-  if (result.valid) {
-    res.cookie("mfa_verified", "true", {
+    if (!twoFactorSecret) {
+      return res.status(400).json({ message: "Secret not found" });
+    }
+
+    const result = await verify({ token, secret: twoFactorSecret });
+
+    if (result.valid) {
+      res.cookie("mfa_verified", "true", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production", // cuz http isn't secure but in a real production environment we'd set this to true.
+        sameSite: "lax",
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      });
+    }
+
+    const mfaCookie = jwt.sign({ uid, mfaVerified: true }, MFA_SECRET_KEY, { expiresIn: "12h" });
+
+    res.cookie("mfa_verified", mfaCookie, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // cuz http isn't secure but in a real production environment we'd set this to true.
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 12 * 60 * 60 * 1000, // 12 hours
     });
-    res.status(200).json({ message: "Login successful" });
-  } else {
-    res.status(401).json({ message: "Invalid 2FA code" });
+
+    return res.json({ message: "2FA login successful" });
+  } catch (err) {
+    console.error("Login verification error:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 
@@ -119,15 +146,11 @@ router.post("/disable", requireAuth, async (req, res) => {
       { merge: true },
     );
 
-    const userRecord = await getAuth().getUser(req.user.uid);
-    const currentClaims = userRecord.customClaims || {};
-
-    await getAuth().setCustomUserClaims(req.user.uid, {
-      ...currentClaims,
-      twoFactorEnabled: false,
+    res.clearCookie("mfa_verified", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
     });
-
-    res.clearCookie("mfa_verified");
 
     return res.status(200).json({ message: "2FA disabled successfully" });
   } catch (err) {

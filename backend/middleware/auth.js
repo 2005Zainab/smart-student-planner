@@ -1,4 +1,5 @@
 import { getAuth } from "firebase-admin/auth";
+import jwt from "jsonwebtoken";
 
 export async function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -17,12 +18,26 @@ export async function requireAuth(req, res, next) {
       req.originalUrl.includes("/api/mfa/verify-setup");
 
     if (req.user.twoFactorEnabled === true && !isMfaEndPoint) {
-      const mfaCookie = req.cookies ? req.cookies.mfa_verified : null;
+      const mfaCookie = req.cookies?.mfa_verified;
 
-      if (mfaCookie !== "true") {
+      if (!mfaCookie) {
         return res
           .status(403)
           .json({ code: "auth/mfa-required", message: "Multi-factor authentication required" });
+      }
+
+      try {
+        const decoded = jwt.verify(mfaCookie, process.env.JWT_SECRET);
+
+        if (decoded.uid !== req.user.uid || decoded.mfaVerified !== true) {
+          return res
+            .status(403)
+            .json({ code: "auth/mfa-required", message: "MFA session invalid for this user" });
+        }
+      } catch (jwtErr) {
+        return res
+          .status(403)
+          .json({ code: "auth/mfa-required", message: "MFA token expired or tampered", jwtErr });
       }
     }
     next();
