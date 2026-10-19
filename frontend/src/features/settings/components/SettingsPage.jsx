@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/shared/auth-provider";
 import { getSettings, saveEmailReminders, savePasswordLessEnabled } from "../api/settings-api";
-import { disable2fA, generate2FA, verify2FASetup } from "../api/mfa-api";
+import { disable2FA, generate2FA, verify2FASetup } from "../api/mfa-api";
 import { useTheme } from "@/theme/theme-provider";
 import {
   Select,
@@ -117,7 +117,7 @@ function SettingsPage() {
   const handleDisable2FA = async () => {
     setIsMfaLoading(true);
     try {
-      await disable2fA();
+      await disable2FA();
 
       await user.getIdToken(true);
       const tokenResult = await user.getIdTokenResult();
