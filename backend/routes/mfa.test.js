@@ -1,11 +1,10 @@
+const TEST_JWT_SECRET = "test-secret-key-12345";
 import request from "supertest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import jwt from "jsonwebtoken";
 import app from "../app.js";
 import { db } from "../shared/firebase.js";
 import { verify } from "otplib";
-
-const TEST_JWT_SECRET = "test-secret-key-12345";
 
 // Mock auth middleware
 vi.mock("../middleware/auth.js", () => ({

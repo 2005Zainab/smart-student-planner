@@ -8,7 +8,7 @@ import jwt from "jsonwebtoken";
 
 const router = express.Router();
 
-const MFA_SECRET_KEY = process.env.JWT_SECRET || "";
+const getJwtSecret = () => process.env.JWT_SECRET || "default-dev-mfa-secret-key";
 
 // generates the secret key used for 2fa and makes a qr code url for it.
 router.post("/generate", requireAuth, async (req, res) => {
@@ -109,16 +109,12 @@ router.post("/login-verify", requireAuth, async (req, res) => {
 
     const result = await verify({ token, secret: twoFactorSecret });
 
-    if (result.valid) {
-      res.cookie("mfa_verified", "true", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production", // cuz http isn't secure but in a real production environment we'd set this to true.
-        sameSite: "lax",
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      });
+    if (!result.valid) {
+      return res.status(401).json({ message: "Invalid 2FA code" });
     }
 
-    const mfaCookie = jwt.sign({ uid, mfaVerified: true }, MFA_SECRET_KEY, { expiresIn: "12h" });
+    const secret = getJwtSecret();
+    const mfaCookie = jwt.sign({ uid, mfaVerified: true }, secret, { expiresIn: "12h" });
 
     res.cookie("mfa_verified", mfaCookie, {
       httpOnly: true,
