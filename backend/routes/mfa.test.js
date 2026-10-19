@@ -24,7 +24,7 @@ vi.mock("firebase-admin/auth", () => ({
 }));
 
 // Mock otplib's verify function
-vi.mock("otplib", async (importOriginal) => {
+vi.mock("otplib", async importOriginal => {
   const actual = await importOriginal();
   return {
     ...actual,
@@ -52,16 +52,14 @@ describe("MFA Backend Routes", () => {
     };
 
     const settingsCollectionMock = {
-      doc: vi.fn((docId) => (docId === "MFA" ? mfaDocMock : {})),
+      doc: vi.fn(docId => (docId === "MFA" ? mfaDocMock : {})),
     };
 
     const userDocMock = {
-      collection: vi.fn((colName) =>
-        colName === "settings" ? settingsCollectionMock : {}
-      ),
+      collection: vi.fn(colName => (colName === "settings" ? settingsCollectionMock : {})),
     };
 
-    db.collection.mockImplementation((colName) => {
+    db.collection.mockImplementation(colName => {
       if (colName === "users") {
         return {
           doc: vi.fn(() => userDocMock),
@@ -90,7 +88,7 @@ describe("MFA Backend Routes", () => {
 
       expect(mfaDocMock.set).toHaveBeenCalledWith(
         { tempTwoFactorSecret: res.body.secret },
-        { merge: true }
+        { merge: true },
       );
     });
   });
@@ -105,9 +103,7 @@ describe("MFA Backend Routes", () => {
         data: () => ({}),
       });
 
-      const res = await request(app)
-        .post("/api/mfa/verify-setup")
-        .send({ token: "123456" });
+      const res = await request(app).post("/api/mfa/verify-setup").send({ token: "123456" });
 
       expect(res.status).toBe(400);
       expect(res.body.message).toMatch(/generation must be called first/i);
@@ -120,9 +116,7 @@ describe("MFA Backend Routes", () => {
       });
       verify.mockResolvedValue({ valid: false });
 
-      const res = await request(app)
-        .post("/api/mfa/verify-setup")
-        .send({ token: "000000" });
+      const res = await request(app).post("/api/mfa/verify-setup").send({ token: "000000" });
 
       expect(res.status).toBe(401);
       expect(res.body.message).toMatch(/invalid pin/i);
@@ -135,9 +129,7 @@ describe("MFA Backend Routes", () => {
       });
       verify.mockResolvedValue({ valid: true });
 
-      const res = await request(app)
-        .post("/api/mfa/verify-setup")
-        .send({ token: "123456" });
+      const res = await request(app).post("/api/mfa/verify-setup").send({ token: "123456" });
 
       expect(res.status).toBe(200);
       expect(res.body.message).toMatch(/enabled successfully/i);
@@ -149,7 +141,7 @@ describe("MFA Backend Routes", () => {
           twoFactorEnabled: true,
           tempTwoFactorSecret: null,
         },
-        { merge: true }
+        { merge: true },
       );
 
       // Verify Firebase custom claim set
@@ -170,9 +162,7 @@ describe("MFA Backend Routes", () => {
         data: () => ({ twoFactorEnabled: false }),
       });
 
-      const res = await request(app)
-        .post("/api/mfa/login-verify")
-        .send({ token: "123456" });
+      const res = await request(app).post("/api/mfa/login-verify").send({ token: "123456" });
 
       expect(res.status).toBe(400);
       expect(res.body.message).toMatch(/2FA is not enabled/i);
@@ -188,9 +178,7 @@ describe("MFA Backend Routes", () => {
       });
       verify.mockResolvedValue({ valid: false });
 
-      const res = await request(app)
-        .post("/api/mfa/login-verify")
-        .send({ token: "999999" });
+      const res = await request(app).post("/api/mfa/login-verify").send({ token: "999999" });
 
       expect(res.status).toBe(401);
       expect(res.body.message).toMatch(/invalid 2fa code/i);
@@ -206,9 +194,7 @@ describe("MFA Backend Routes", () => {
       });
       verify.mockResolvedValue({ valid: true });
 
-      const res = await request(app)
-        .post("/api/mfa/login-verify")
-        .send({ token: "123456" });
+      const res = await request(app).post("/api/mfa/login-verify").send({ token: "123456" });
 
       expect(res.status).toBe(200);
       expect(res.body.message).toMatch(/login successful/i);
@@ -238,7 +224,7 @@ describe("MFA Backend Routes", () => {
           twoFactorEnabled: false,
           tempTwoFactorSecret: null,
         },
-        { merge: true }
+        { merge: true },
       );
 
       // Verify custom claim updated to false
