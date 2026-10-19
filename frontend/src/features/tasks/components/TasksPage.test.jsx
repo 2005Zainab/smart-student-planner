@@ -85,18 +85,18 @@ describe("TasksPage", () => {
   });
 
   it("renders existing tasks", () => {
-    render(<TasksPage />);
+    renderPage();
     expect(screen.getByText("Finish essay")).toBeInTheDocument();
   });
 
   it("opens the editor when Add task is clicked", async () => {
-    render(<TasksPage />);
+    renderPage();
     await userEvent.click(screen.getByRole("button", { name: /add task/i }));
     expect(screen.getByTestId("task-form")).toBeInTheDocument();
   });
 
   it("shows a title error and does not call the API when saving a blank title", async () => {
-    render(<TasksPage />);
+    renderPage();
     await userEvent.click(screen.getByRole("button", { name: /add task/i }));
     await userEvent.clear(screen.getByLabelText("title"));
     await userEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -108,7 +108,7 @@ describe("TasksPage", () => {
   it("creates a task via the API and displays it on success", async () => {
     httpClient.mockResolvedValue({ id: "task-2", title: "Read chapter 4", status: "To Do" });
 
-    render(<TasksPage />);
+    renderPage();
     await userEvent.click(screen.getByRole("button", { name: /add task/i }));
     await userEvent.type(screen.getByLabelText("title"), "Read chapter 4");
     await userEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -125,7 +125,7 @@ describe("TasksPage", () => {
   it("shows a save error and keeps the editor open when the API call fails", async () => {
     httpClient.mockRejectedValue(new Error("Failed to fetch"));
 
-    render(<TasksPage />);
+    renderPage();
     await userEvent.click(screen.getByRole("button", { name: /add task/i }));
     await userEvent.type(screen.getByLabelText("title"), "Read chapter 4");
     await userEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -136,7 +136,7 @@ describe("TasksPage", () => {
   it("deletes a task after confirming", async () => {
     httpClient.mockResolvedValue({});
 
-    render(<TasksPage />);
+    renderPage();
     await userEvent.click(screen.getByRole("button", { name: "delete" }));
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
 
@@ -152,7 +152,7 @@ describe("TasksPage", () => {
   it("marks a task completed when toggled", async () => {
     httpClient.mockResolvedValue({});
 
-    render(<TasksPage />);
+    renderPage();
     await userEvent.click(screen.getByRole("button", { name: "toggle" }));
 
     await waitFor(() => expect(httpClient).toHaveBeenCalled());
@@ -170,7 +170,7 @@ describe("TasksPage", () => {
   it("edits a one-off task through /api/tasks/:id", async () => {
     httpClient.mockResolvedValue({ id: "task-1", title: "Finish essay now", status: "To Do" });
 
-    render(<TasksPage />);
+    renderPage();
     await userEvent.click(screen.getByRole("button", { name: "edit" }));
     await userEvent.type(screen.getByLabelText("title"), " now");
     await userEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -237,7 +237,7 @@ describe("TasksPage", () => {
     it("toggles status through the occurrence endpoint", async () => {
       httpClient.mockResolvedValue({});
 
-      render(<TasksPage />);
+      renderPage();
       await userEvent.click(screen.getByRole("button", { name: "toggle" }));
 
       await waitFor(() => expect(httpClient).toHaveBeenCalled());
@@ -255,7 +255,7 @@ describe("TasksPage", () => {
     it("sends only the changed field when editing", async () => {
       httpClient.mockResolvedValue({ title: "Study hard" });
 
-      render(<TasksPage />);
+      renderPage();
       await userEvent.click(screen.getByRole("button", { name: "edit" }));
       await userEvent.type(screen.getByLabelText("title"), " hard");
       await userEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -269,7 +269,7 @@ describe("TasksPage", () => {
     });
 
     it("sends no request when an untouched occurrence is saved", async () => {
-      render(<TasksPage />);
+      renderPage();
       await userEvent.click(screen.getByRole("button", { name: "edit" }));
       await userEvent.click(screen.getByRole("button", { name: /save/i }));
 
@@ -284,7 +284,7 @@ describe("TasksPage", () => {
         pauses: [{ from: "2026-10-08", until: null }],
       });
 
-      render(<TasksPage />);
+      renderPage();
       await userEvent.click(screen.getByRole("button", { name: "edit" }));
       await userEvent.type(screen.getByLabelText("title"), " hard");
       await userEvent.click(screen.getByRole("button", { name: "toggle repeat" }));
@@ -311,7 +311,7 @@ describe("TasksPage", () => {
         virtual: false,
       });
 
-      render(<TasksPage />);
+      renderPage();
       await userEvent.click(screen.getByRole("button", { name: "edit" }));
       await userEvent.type(screen.getByLabelText("title"), " hard");
       await userEvent.click(screen.getByRole("button", { name: /save/i }));
