@@ -7,6 +7,7 @@ export const OCCURRENCE_CONTENT_FIELDS = new Set([
   "subject",
   "time",
   "checklist",
+  "links",
   "reminderDate",
   "reminderTime",
 ]);
@@ -22,6 +23,7 @@ export function getOccurrenceDraftChanges(draft, original) {
       time: draft.time || null,
       reminderTime: draft.reminderTime || null,
       checklist: draft.checklist || [],
+      links: draft.links || [],
     },
     original,
   );
@@ -30,7 +32,7 @@ export function getOccurrenceDraftChanges(draft, original) {
 export function getTemplateChanges(changes, draft, original) {
   const templateChanges = {};
 
-  for (const field of ["title", "description", "subject", "time", "checklist"]) {
+  for (const field of ["title", "description", "subject", "time", "checklist", "links"]) {
     if (Object.hasOwn(changes, field)) {
       templateChanges[field] = field === "time" ? changes[field] || null : changes[field];
     }
