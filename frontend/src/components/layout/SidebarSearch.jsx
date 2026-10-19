@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { useNavigate } from "react-router";
 
@@ -19,15 +19,17 @@ function SidebarSearch() {
 
   const searchText = query.trim().toLowerCase();
 
-  // Active tasks only, matched on title or subject (each checked separately)
-  const results = searchText
-    ? tasks
-        .filter(task => task.status !== "Completed")
-        .filter(task =>
-          [task.title, task.subject].some(field => field?.toLowerCase().includes(searchText)),
-        )
-    : [];
+  // Active tasks only checked by title/subject
+  // useMemo to optimise performance
+  const results = useMemo(() => {
+    if (!searchText) return [];
 
+    return tasks.filter(
+      task =>
+        task.status !== "Completed" &&
+        [task.title, task.subject].some(field => field?.toLowerCase().includes(searchText)),
+    );
+  }, [tasks, searchText]);
   function handleSelect(task) {
     navigate(`/tasks?view=${encodeURIComponent(task.id)}`);
     setQuery("");
