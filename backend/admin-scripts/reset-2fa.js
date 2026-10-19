@@ -45,11 +45,7 @@ async function reset2FA(identifier) {
     console.log("  [1/3] Removed 2FA custom claim from Firebase Auth");
 
     // 2. Delete or reset the MFA document in Firestore
-    const mfaRef = db
-      .collection("users")
-      .doc(user.uid)
-      .collection("settings")
-      .doc("MFA");
+    const mfaRef = db.collection("users").doc(user.uid).collection("settings").doc("MFA");
 
     await mfaRef.delete();
     console.log("  [2/3] Deleted Firestore users/{uid}/settings/MFA document");
