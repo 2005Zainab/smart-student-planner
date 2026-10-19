@@ -207,3 +207,23 @@
   --medium-priority: oklch(0.78 0.15 90);
   --low-priority: oklch(0.7 0.14 155);
 }
+
+/* Show the background pattern or image for custom themes */
+:root[data-custom-theme="true"] body,
+:root[data-custom-theme="true"] main {
+  background-image: var(--custom-theme-wallpaper);
+  background-size: var(--custom-theme-wallpaper-size);
+  background-position: center;
+  background-repeat: repeat;
+}
+
+/* A background image should fill the page */
+:root[data-custom-theme="true"] body:has(main),
+:root[data-custom-theme="true"] main {
+  background-attachment: fixed;
+}
+
+/* Keep patterns light so text stays readable */
+:root[data-custom-theme="true"] main {
+  background-blend-mode: normal;
+}

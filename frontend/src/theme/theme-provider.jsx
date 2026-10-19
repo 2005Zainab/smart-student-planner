@@ -1,37 +1,71 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { themes as defaultThemes } from "./themes";
 
-// Keys used to save theme settings in the browser
+// Save theme settings in the browser
 const THEME_STORAGE_KEY = "smart-student-planner-theme";
 const CUSTOM_THEMES_KEY = "smart-student-planner-custom-themes";
 
 const ThemeContext = createContext(null);
 
-// Load custom themes that the user previously saved
+// Load the custom themes saved by the user
 function getSavedCustomThemes() {
   try {
     const saved = localStorage.getItem(CUSTOM_THEMES_KEY);
     const parsed = saved ? JSON.parse(saved) : {};
 
-    // Make sure the saved data is an object
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed;
     }
 
     return {};
   } catch {
-    // Return an empty object if there is a problem loading themes
     return {};
   }
+}
+
+// Check whether the user uploaded a valid image data URL
+function isImageDataUrl(image) {
+  return (
+    typeof image === "string" &&
+    /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(image)
+  );
+}
+
+// Get the background pattern or uploaded image
+function getBackgroundPattern(pattern, image) {
+  // Use the uploaded image first if one exists
+  if (isImageDataUrl(image)) {
+    return `url("${image}")`;
+  }
+
+  // Dots pattern
+  if (pattern === "dots") {
+    return "radial-gradient(circle, var(--custom-pattern-colour) 1px, transparent 1px)";
+  }
+
+  // Grid pattern
+  if (pattern === "grid") {
+    return [
+      "linear-gradient(to right, var(--custom-pattern-colour) 1px, transparent 1px)",
+      "linear-gradient(to bottom, var(--custom-pattern-colour) 1px, transparent 1px)",
+    ].join(", ");
+  }
+
+  // Stripes pattern
+  if (pattern === "stripes") {
+    return "repeating-linear-gradient(45deg, var(--custom-pattern-colour) 0px, var(--custom-pattern-colour) 1px, transparent 1px, transparent 20px)";
+  }
+
+  return "none";
 }
 
 function ThemeProvider({ children }) {
   const [customThemes, setCustomThemes] = useState(getSavedCustomThemes);
 
-  // Get the last selected theme, or use Light by default
+  // Remember the last selected theme
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_STORAGE_KEY) || "light");
 
-  // Combine the existing themes with the user's custom themes
+  // Combine existing themes with saved custom themes
   const themes = useMemo(
     () => ({
       ...defaultThemes,
@@ -40,15 +74,15 @@ function ThemeProvider({ children }) {
     [customThemes],
   );
 
-  // If the selected theme does not exist, use Light
+  // Use the Light theme if the selected theme no longer exists
   const currentTheme = themes[theme] ? theme : "light";
 
-  // Apply the selected theme to the website
+  // Apply the selected theme to the whole website
   useEffect(() => {
     const selectedTheme = themes[currentTheme];
     const root = document.documentElement;
 
-    // These colours may be changed by a custom theme
+    // List of colours that custom themes can change
     const colourVariables = [
       "--background",
       "--foreground",
@@ -62,20 +96,24 @@ function ThemeProvider({ children }) {
       "--sidebar-primary-foreground",
     ];
 
-    // Remove colours from the previous custom theme
-    // This allows the existing themes to work normally
+    // Remove the previous custom theme colours
     colourVariables.forEach(variable => {
       root.style.removeProperty(variable);
     });
 
-    // Use the normal styling for existing themes
-    // Custom themes start with the Light theme styling
-    root.dataset.theme = selectedTheme.custom ? "light" : currentTheme;
+    // Remove any previous custom background
+    root.style.removeProperty("--custom-theme-wallpaper");
+    root.style.removeProperty("--custom-theme-wallpaper-size");
+    root.style.removeProperty("--custom-theme-wallpaper-repeat");
+    root.style.removeProperty("--custom-pattern-colour");
 
-    // Keep dark mode working for existing dark themes
+    delete root.dataset.customTheme;
+
+    // Keep the original built-in themes working
+    root.dataset.theme = selectedTheme.custom ? "light" : currentTheme;
     root.classList.toggle("dark", selectedTheme.dark);
 
-    // Apply the user's chosen colours for a custom theme
+    // Apply custom theme styling
     if (selectedTheme.custom) {
       const colours = {
         "--background": selectedTheme.background,
@@ -90,26 +128,50 @@ function ThemeProvider({ children }) {
         "--sidebar-primary-foreground": selectedTheme.primaryText,
       };
 
-      // Update the website colours
+      // Apply the custom colours
       Object.entries(colours).forEach(([variable, value]) => {
         if (value) {
           root.style.setProperty(variable, value);
         }
       });
+
+      // Check whether the theme has an uploaded image
+      const hasImage = isImageDataUrl(selectedTheme.backgroundImage);
+
+      // Choose the pattern or image
+      const wallpaper = getBackgroundPattern(selectedTheme.pattern, selectedTheme.backgroundImage);
+
+      root.dataset.customTheme = "true";
+
+      root.style.setProperty("--custom-theme-wallpaper", wallpaper);
+
+      // Set different background sizes for images and patterns
+      root.style.setProperty("--custom-theme-wallpaper-size", hasImage ? "cover" : "24px 24px");
+
+      root.style.setProperty("--custom-theme-wallpaper-repeat", hasImage ? "no-repeat" : "repeat");
+
+      // Make pattern lines slightly transparent
+      root.style.setProperty(
+        "--custom-pattern-colour",
+        "color-mix(in srgb, var(--foreground) 10%, transparent)",
+      );
     }
 
-    // Remember which theme the user selected
+    // Save the currently selected theme
     localStorage.setItem(THEME_STORAGE_KEY, currentTheme);
   }, [currentTheme, themes]);
 
   // Save custom themes whenever they change
   useEffect(() => {
-    localStorage.setItem(CUSTOM_THEMES_KEY, JSON.stringify(customThemes));
+    try {
+      localStorage.setItem(CUSTOM_THEMES_KEY, JSON.stringify(customThemes));
+    } catch (error) {
+      console.error("Could not save custom themes", error);
+    }
   }, [customThemes]);
 
-  // Create and save a new custom theme
+  // Create a new custom theme
   function saveCustomTheme(newTheme) {
-    // Give each custom theme a unique ID
     const id = `custom-${crypto.randomUUID()}`;
 
     const savedTheme = {
@@ -118,7 +180,7 @@ function ThemeProvider({ children }) {
       dark: false,
     };
 
-    // Add the new custom theme without removing existing ones
+    // Add the new theme to the saved custom themes
     setCustomThemes(previous => ({
       ...previous,
       [id]: savedTheme,
@@ -127,27 +189,48 @@ function ThemeProvider({ children }) {
     return id;
   }
 
-  // Change the currently selected theme
+  // Delete a custom theme
+  function deleteCustomTheme(themeId) {
+    // Only allow custom themes to be deleted
+    if (!Object.hasOwn(customThemes, themeId)) {
+      return;
+    }
+
+    // If the deleted theme is selected, change back to Light
+    if (currentTheme === themeId) {
+      setTheme("light");
+    }
+
+    // Remove the selected theme without deleting the others
+    setCustomThemes(previous => {
+      const updatedThemes = { ...previous };
+      delete updatedThemes[themeId];
+
+      return updatedThemes;
+    });
+  }
+
+  // Change to another existing theme
   function changeTheme(nextTheme) {
-    // Only allow themes that exist
     if (themes[nextTheme]) {
       setTheme(nextTheme);
     }
   }
 
-  // Make the theme functions available to other components
+  // Allow other components to use the theme settings
   const value = {
     theme: currentTheme,
     setTheme: changeTheme,
     themes,
     customThemes,
     saveCustomTheme,
+    deleteCustomTheme,
   };
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
-// Hook used by components to access the theme settings
+// Hook used to access themes in other components
 function useTheme() {
   const context = useContext(ThemeContext);
 
