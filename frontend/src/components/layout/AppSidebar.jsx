@@ -23,6 +23,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
+import { SidebarSearch } from "./SidebarSearch";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,6 +79,7 @@ function AppSidebar() {
     let cancelled = false;
 
     if (!user?.uid) {
+      setProfilePicture(null);
       return;
     }
 
@@ -103,14 +106,19 @@ function AppSidebar() {
     };
   }, [user?.uid]);
 
-  // Reload the picture when it changes in Settings
+  // Update the picture when the user changes it in Settings
   useEffect(() => {
+    let cancelled = false;
+
     async function updateProfilePicture() {
       if (!user?.uid) return;
 
       try {
         const result = await getProfilePicture();
-        setProfilePicture(result.profilePicture || null);
+
+        if (!cancelled) {
+          setProfilePicture(result.profilePicture || null);
+        }
       } catch (err) {
         console.error("Could not refresh profile picture:", err);
       }
@@ -119,6 +127,7 @@ function AppSidebar() {
     window.addEventListener("profile-picture-updated", updateProfilePicture);
 
     return () => {
+      cancelled = true;
       window.removeEventListener("profile-picture-updated", updateProfilePicture);
     };
   }, [user?.uid]);
@@ -149,7 +158,7 @@ function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          {/* Button to minimize the sidebar */}
+          {/* Minimize the sidebar */}
           <div className="hidden md:block">
             <SidebarMenu>
               <SidebarMenuItem>
@@ -165,7 +174,7 @@ function AppSidebar() {
             </SidebarMenu>
           </div>
 
-          {/* Navigation links */}
+          {/* Main navigation links */}
           <SidebarMenu>
             {navigation.map(({ label, href, icon: Icon }) => (
               <SidebarMenuItem key={href}>
@@ -180,6 +189,9 @@ function AppSidebar() {
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
+
+          {/* Keep the sidebar search feature from main */}
+          <SidebarSearch />
         </SidebarGroup>
       </SidebarContent>
 
@@ -188,7 +200,7 @@ function AppSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger render={<SidebarMenuButton tooltip="Profile" />}>
-                {/* Show the saved picture or the default icon */}
+                {/* Show the user's saved picture or the default icon */}
                 {profilePicture ? (
                   <img
                     src={profilePicture}

@@ -212,3 +212,38 @@ export function validateTaskFields(fields, { partial = false } = {}) {
 
   return { clean };
 }
+
+export function validateRecurringTaskReminderFields(body) {
+  const hasOffset = body.reminderOffsetDays !== undefined && body.reminderOffsetDays !== null;
+  const hasTime =
+    body.reminderTime !== undefined && body.reminderTime !== null && body.reminderTime !== "";
+
+  if (hasOffset !== hasTime) {
+    return { message: "Reminder offset and time must be set together" };
+  }
+
+  if (hasOffset && (!Number.isInteger(body.reminderOffsetDays) || body.reminderOffsetDays < 0)) {
+    return { message: "Reminder offset days must be a non-negative integer" };
+  }
+
+  const reminderValidation = validateTaskFields(
+    {
+      title: "placeholder",
+      description: "",
+      subject: "",
+      status: "to do",
+      reminderTime: hasTime ? body.reminderTime : null,
+    },
+    { partial: false },
+  );
+  if (reminderValidation.message) {
+    return { message: reminderValidation.message };
+  }
+
+  return {
+    clean: {
+      reminderOffsetDays: hasOffset ? body.reminderOffsetDays : null,
+      reminderTime: hasTime ? reminderValidation.clean.reminderTime : null,
+    },
+  };
+}

@@ -1,5 +1,4 @@
 import express from "express";
-import { randomUUID } from "crypto";
 import { FieldValue } from "firebase-admin/firestore";
 import { db } from "../shared/firebase.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -9,157 +8,31 @@ import {
   shouldRenderMaterialized,
   validateRule,
   buildOccurrenceChecklist,
+  isoWeekday,
 } from "../lib/recurrence.js";
+import { offsetDate } from "../lib/dateHelper.js";
 import { getUserToday } from "../lib/userTime.js";
-import { normalizeStatus, validateDate, validateTaskFields } from "../lib/taskValidation.js";
+import {
+  normalizeStatus,
+  validateDate,
+  validateTaskFields,
+  validateRecurringTaskReminderFields,
+} from "../lib/taskValidation.js";
+import {
+  applyPause,
+  applyResume,
+  materializeChecklist,
+  getReminderFields,
+  getOccurrenceFields,
+  withOccurrenceResponse,
+  has,
+  compareSegmentsByFrom,
+  rulesEqual,
+} from "../lib/taskSeriesHelper.js";
+import { addExceptionUpdate, hasException } from "../lib/exceptions.js";
+import { deleteQueryInBatches } from "../lib/batchDelete.js";
 
 const router = express.Router();
-
-function validateReminderFields(body) {
-  const hasOffset = body.reminderOffsetDays !== undefined && body.reminderOffsetDays !== null;
-  const hasTime =
-    body.reminderTime !== undefined && body.reminderTime !== null && body.reminderTime !== "";
-
-  if (hasOffset !== hasTime) {
-    return { message: "Reminder offset and time must be set together" };
-  }
-
-  if (hasOffset && (!Number.isInteger(body.reminderOffsetDays) || body.reminderOffsetDays < 0)) {
-    return { message: "Reminder offset days must be a non-negative integer" };
-  }
-
-  const reminderValidation = validateTaskFields(
-    {
-      title: "placeholder",
-      description: "",
-      subject: "",
-      status: "to do",
-      reminderTime: hasTime ? body.reminderTime : null,
-    },
-    { partial: false },
-  );
-  if (reminderValidation.message) {
-    return { message: reminderValidation.message };
-  }
-
-  return {
-    clean: {
-      reminderOffsetDays: hasOffset ? body.reminderOffsetDays : null,
-      reminderTime: hasTime ? reminderValidation.clean.reminderTime : null,
-    },
-  };
-}
-
-function offsetDate(dateStr, days) {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-function getReminderFields(template, occurrenceDate, today) {
-  const isCurrentOrFuture = occurrenceDate >= today;
-  const hasReminder =
-    template.reminderOffsetDays !== null && template.reminderOffsetDays !== undefined;
-
-  return {
-    reminderDate:
-      isCurrentOrFuture && hasReminder
-        ? offsetDate(occurrenceDate, -template.reminderOffsetDays)
-        : null,
-    reminderTime: isCurrentOrFuture ? (template.reminderTime ?? null) : null,
-  };
-}
-
-function getOccurrenceFields(body) {
-  const fields = {};
-  for (const field of [
-    "title",
-    "description",
-    "subject",
-    "status",
-    "dueDate",
-    "time",
-    "checklist",
-    "reminderDate",
-    "reminderTime",
-    "links",
-  ]) {
-    if (Object.prototype.hasOwnProperty.call(body, field)) fields[field] = body[field];
-  }
-  return fields;
-}
-
-function materializeChecklist(checklist) {
-  return (checklist ?? []).map(item => ({
-    id: randomUUID(),
-    text: item.text,
-    completed: false,
-  }));
-}
-
-function withOccurrenceResponse(data, id, today) {
-  return {
-    id,
-    ...data,
-    virtual: false,
-    priority: getPriorityFromDueDate(data.dueDate ?? data.occurrenceDate, today),
-  };
-}
-
-// Series-level fields that belong to other PATCH branches (template edit, pattern change,
-// end date) or are occurrence-level. They must not be silently ignored next to `enabled`.
-const NON_PAUSE_SERIES_FIELDS = [
-  "rule",
-  "endDate",
-  "title",
-  "description",
-  "subject",
-  "time",
-  "checklist",
-  "links",
-  "reminderOffsetDays",
-  "reminderTime",
-  "status",
-  "dueDate",
-];
-
-function comparePausesByFrom(first, second) {
-  return first.from < second.from ? -1 : first.from > second.from ? 1 : 0;
-}
-
-/**
- * Pause: effective TOMORROW (the only "tomorrow" operation).
- * Returns the new { pauses, enabled } or null when already paused (no-op).
- */
-function applyPause(series, today) {
-  const pauses = series.pauses ?? [];
-  if (pauses.some(pause => pause.until === null)) return null;
-
-  return {
-    pauses: [...pauses, { from: offsetDate(today, 1), until: null }].sort(comparePausesByFrom),
-    enabled: false,
-  };
-}
-
-/**
- * Resume: effective TODAY. The open pause is closed at dayBefore(today). If that would
- * leave until < from (the pause never took effect), the entry is deleted instead of being
- * stored inverted. Returns null when no pause is open (no-op).
- */
-function applyResume(series, today) {
-  const pauses = series.pauses ?? [];
-  const open = pauses.find(pause => pause.until === null);
-  if (!open) return null;
-
-  const closeAt = offsetDate(today, -1);
-  const nextPauses =
-    closeAt < open.from
-      ? pauses.filter(pause => pause !== open)
-      : pauses.map(pause => (pause === open ? { ...pause, until: closeAt } : pause));
-
-  return { pauses: nextPauses, enabled: true };
-}
 
 router.post("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
@@ -196,7 +69,7 @@ router.post("/", requireAuth, async (req, res) => {
     return res.status(400).json({ message: ruleValidation.errors[0] });
   }
 
-  const reminderValidation = validateReminderFields(body);
+  const reminderValidation = validateRecurringTaskReminderFields(body);
   if (reminderValidation.message) {
     return res.status(400).json({ message: reminderValidation.message });
   }
@@ -265,6 +138,23 @@ router.post("/", requireAuth, async (req, res) => {
   }
 });
 
+// Series-level fields that belong to other PATCH branches (template edit, pattern change,
+// end date) or are occurrence-level. They must not be silently ignored next to `enabled`.
+const NON_PAUSE_SERIES_FIELDS = [
+  "rule",
+  "endDate",
+  "title",
+  "description",
+  "subject",
+  "time",
+  "checklist",
+  "links",
+  "reminderOffsetDays",
+  "reminderTime",
+  "status",
+  "dueDate",
+];
+
 // Series-level edits ---------------------------------------------------------------------
 //
 // Body shape determines intent. Exactly one intent per request, except that `rule` and
@@ -280,42 +170,10 @@ const TEMPLATE_FIELDS = [
   "subject",
   "time",
   "checklist",
+  "links",
   "reminderOffsetDays",
   "reminderTime",
 ];
-
-function has(body, field) {
-  return Object.prototype.hasOwnProperty.call(body, field);
-}
-
-// ISO weekday: 1 = Monday ... 7 = Sunday. Date.getUTCDay() is 0-based from Sunday, so it is
-// converted here at the boundary and never reaches `weekdays`.
-function isoWeekday(dateStr) {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const jsDay = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-  return jsDay === 0 ? 7 : jsDay;
-}
-
-function compareSegmentsByFrom(first, second) {
-  return first.from < second.from ? -1 : first.from > second.from ? 1 : 0;
-}
-
-// Order-insensitive comparison so a form that resubmits [3, 1] for a stored [1, 3] is
-// recognised as "unchanged".
-function canonicalRule(rule) {
-  const canonical = {};
-  for (const key of Object.keys(rule).sort()) {
-    canonical[key] =
-      key === "weekdays" && Array.isArray(rule[key])
-        ? [...rule[key]].sort((first, second) => first - second)
-        : rule[key];
-  }
-  return JSON.stringify(canonical);
-}
-
-function rulesEqual(first, second) {
-  return canonicalRule(first) === canonicalRule(second);
-}
 
 /**
  * Runs `build(series)` against the series inside a transaction. `build` returns one of
@@ -529,7 +387,7 @@ function buildTemplateFields(body) {
   }
 
   const contentFields = {};
-  for (const field of ["title", "description", "subject", "checklist"]) {
+  for (const field of ["title", "description", "subject", "checklist", "links"]) {
     if (has(body, field)) contentFields[field] = body[field];
   }
   if (has(body, "time")) {
@@ -557,7 +415,7 @@ function buildTemplateFields(body) {
   }
 
   if (hasOffset) {
-    const reminderValidation = validateReminderFields(body);
+    const reminderValidation = validateRecurringTaskReminderFields(body);
     if (reminderValidation.message) return { error: reminderValidation.message };
     Object.assign(clean, reminderValidation.clean);
   }
@@ -702,6 +560,78 @@ router.patch("/:seriesId/occurrences/:date", requireAuth, async (req, res) => {
   } catch (err) {
     console.log(err);
     return res.status(500).json({ message: "Failed to update task occurrence" });
+  }
+});
+
+// Delete ONE occurrence ("Delete this occurrence"): tombstone the date in series.exceptions and
+// remove its materialized doc, if any, in one atomic batch.
+router.delete("/:seriesId/occurrences/:date", requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  const { seriesId, date } = req.params;
+
+  const dateError = validateDate(date, "Occurrence date");
+  if (dateError) return res.status(400).json({ message: dateError });
+
+  try {
+    const today = await getUserToday(uid);
+    const seriesRef = db.collection("task_series").doc(seriesId);
+    const seriesSnap = await seriesRef.get();
+
+    if (!seriesSnap.exists) return res.status(404).json({ message: "Task series not found" });
+
+    const series = { id: seriesSnap.id, ...seriesSnap.data() };
+    if (series.userId !== uid) return res.status(403).json({ message: "Unauthorized" });
+    if (hasException(series, date)) {
+      return res.status(410).json({ message: "This occurrence was deleted" });
+    }
+
+    const taskRef = db.collection("tasks").doc(`${seriesId}_${date}`);
+    const taskSnap = await taskRef.get();
+    const existing = taskSnap.exists ? taskSnap.data() : null;
+
+    const scheduled = expandSeries(series, date, date).length > 0;
+    if (!scheduled && (!existing || !shouldRenderMaterialized(existing, series, today))) {
+      return res.status(400).json({ message: "Date is not a valid occurrence" });
+    }
+
+    // Concurrent deletes of the same date are harmless: arrayUnion is idempotent.
+    const batch = db.batch();
+    batch.update(seriesRef, {
+      ...addExceptionUpdate(date),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    if (existing) batch.delete(taskRef);
+    await batch.commit();
+
+    return res.status(200).json({ message: "Occurrence deleted" });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Failed to delete task occurrence" });
+  }
+});
+
+// Delete the WHOLE series: every materialized occurrence (including hidden ones) and
+// then the series doc.
+router.delete("/:seriesId", requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  const { seriesId } = req.params;
+
+  try {
+    const seriesRef = db.collection("task_series").doc(seriesId);
+    const seriesSnap = await seriesRef.get();
+
+    if (!seriesSnap.exists) return res.status(404).json({ message: "Task series not found" });
+    if (seriesSnap.data().userId !== uid) return res.status(403).json({ message: "Unauthorized" });
+
+    // The series doc goes last, in its own commit. If an occurrence batch fails, the series still
+    // exists and the user can simply retry, instead of being left with invisible orphan documents.
+    await deleteQueryInBatches(db.collection("tasks").where("seriesId", "==", seriesId));
+    await seriesRef.delete();
+
+    return res.status(200).json({ message: "Series deleted" });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Failed to delete task series" });
   }
 });
 
