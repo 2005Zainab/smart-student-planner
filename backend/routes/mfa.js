@@ -10,17 +10,23 @@ const router = express.Router();
 // generates the secret key used for 2fa and makes a qr code url for it.
 router.post("/generate", requireAuth, async (req, res) => {
   const email = req.user.email;
+  const appName = "Smart Student Planner";
   const secret = generateSecret();
   const otpauthurl = generateURI({
-    issuer: "Smart Student Planner",
-    accountName: email,
+    issuer: appName,
+    label: email,
     secret: secret,
   });
 
   try {
     const qrCodeUrl = await QRCode.toDataURL(otpauthurl);
 
-    await db.collection("users").doc(req.user.uid).update({ tempTwoFactorSecret: secret });
+    await db
+      .collection("users")
+      .doc(req.user.uid)
+      .collection("settings")
+      .doc("MFA")
+      .set({ tempTwoFactorSecret: secret }, { merge: true });
 
     res.json({ qrCodeUrl, secret });
   } catch (err) {
@@ -32,7 +38,12 @@ router.post("/generate", requireAuth, async (req, res) => {
 router.post("/verify-setup", requireAuth, async (req, res) => {
   const { token } = req.body;
 
-  const userDoc = await db.collection("users").doc(req.user.uid).get();
+  const userDoc = await db
+    .collection("users")
+    .doc(req.user.uid)
+    .collection("settings")
+    .doc("MFA")
+    .get();
   const { tempTwoFactorSecret } = userDoc.data() || {};
 
   if (!tempTwoFactorSecret) {
@@ -42,13 +53,16 @@ router.post("/verify-setup", requireAuth, async (req, res) => {
   const result = await verify({ token, secret: tempTwoFactorSecret });
 
   if (result.valid) {
-    await db.collection("users").doc(req.user.uid).collection("settings").doc("MFA").update({
-      twoFactorSecret: tempTwoFactorSecret,
-      twoFactorEnabled: true,
-      tempTwoFactorSecret: null,
-    });
+    await db.collection("users").doc(req.user.uid).collection("settings").doc("MFA").set(
+      {
+        twoFactorSecret: tempTwoFactorSecret,
+        twoFactorEnabled: true,
+        tempTwoFactorSecret: null,
+      },
+      { merge: true },
+    );
 
-    const userRecord = await getAuth.getUser(req.user.uid);
+    const userRecord = await getAuth().getUser(req.user.uid);
     const currentClaims = userRecord.customClaims || {};
 
     await getAuth().setCustomUserClaims(req.user.uid, {
@@ -64,16 +78,21 @@ router.post("/verify-setup", requireAuth, async (req, res) => {
 
 // verifies the pin from the user and responds with the mfa cookie if it is correct
 router.post("/login-verify", requireAuth, async (req, res) => {
-  const { token } = req.body;
+  const { pin } = req.body;
 
-  const userDoc = await db.collection("users").doc(req.user.uid).get();
+  const userDoc = await db
+    .collection("users")
+    .doc(req.user.uid)
+    .collection("settings")
+    .doc("MFA")
+    .get();
   const { twoFactorSecret, twoFactorEnabled } = userDoc.data() || {};
 
   if (!twoFactorEnabled || !twoFactorSecret) {
     return res.status(400).json({ message: "2FA is not enabled" });
   }
 
-  const result = await verify({ token, secret: twoFactorSecret });
+  const result = await verify({ pin, secret: twoFactorSecret });
 
   if (result.valid) {
     res.cookie("mfa_verified", "true", { httpOnly: true, secure: true });

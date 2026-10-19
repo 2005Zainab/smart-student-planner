@@ -165,7 +165,7 @@ function LoginPage() {
                     placeholder="000000"
                     maxLength={6}
                     value={mfaPin}
-                    onChang={e => setMfaPin(e.target.value.replace(/\D/g, ""))}
+                    onChange={e => setMfaPin(e.target.value.replace(/\D/g, ""))}
                     disabled={isMfaVerifying}
                     className="text-center font-mono text-lg tracking-widest"
                     autoFocus
