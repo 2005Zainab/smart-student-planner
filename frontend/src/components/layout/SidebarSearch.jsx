@@ -54,7 +54,7 @@ function SidebarSearch() {
   }
 
   return (
-    <div className="flex flex-col gap-1 pb-2">
+    <div className="flex flex-col gap-1 pt-2">
       <SidebarInput
         type="search"
         value={query}

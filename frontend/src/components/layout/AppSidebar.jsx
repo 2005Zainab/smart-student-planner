@@ -109,7 +109,7 @@ function AppSidebar() {
               </SidebarMenuItem>
             </SidebarMenu>
           </div>
-          <SidebarSearch />
+
           <SidebarMenu>
             {navigation.map(({ label, href, icon: Icon }) => (
               <SidebarMenuItem key={href}>
@@ -124,6 +124,7 @@ function AppSidebar() {
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
+          <SidebarSearch />
         </SidebarGroup>
       </SidebarContent>
 
