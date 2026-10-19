@@ -43,7 +43,7 @@ function compareDates(first, second) {
   return first < second ? -1 : first > second ? 1 : 0;
 }
 
-function isoWeekday(dateStr) {
+export function isoWeekday(dateStr) {
   const dayFromEpoch = dateToOrdinal(dateStr);
   return ((((dayFromEpoch + 3) % 7) + 7) % 7) + 1;
 }
@@ -175,7 +175,7 @@ export function expandSegment(segment, isSeedSegment, rangeFromStr, rangeToStr) 
   return dates;
 }
 
-function isDateInRange(dateStr, fromStr, toStr) {
+export function isDateInRange(dateStr, fromStr, toStr) {
   return compareDates(dateStr, fromStr) >= 0 && compareDates(dateStr, toStr) <= 0;
 }
 

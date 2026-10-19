@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { Plus } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
@@ -22,12 +23,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
 import { TaskForm } from "./TaskForm";
 import { TaskList } from "./TaskList";
 import { useTasksContext } from "../context/TasksContext";
 import { httpClient } from "../../../shared/http-client";
 import { buildCreateTaskRequest } from "../utils/build-create-task-request";
 import { useTaskUpdates } from "../hooks/useTaskUpdates";
+import { useTaskDeletion } from "../hooks/useTaskDeletion";
 import { createTempId } from "../utils/temp-id";
 import { getSeriesUrl, isOccurrence } from "../utils/task-endpoints";
 import { ScopeDialog } from "./ScopeDialog";
@@ -35,6 +38,7 @@ import { needsScopeChoice, toNullableDateString } from "../utils/occurrence-scop
 
 function TasksPage() {
   const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
+
   const { patchTask, saveScopedEdit, setSeriesEnabled, updateFiles } = useTaskUpdates(setTasks);
 
   const [editorOpen, setEditorOpen] = useState(false);
@@ -45,8 +49,12 @@ function TasksPage() {
   const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [previousStatusLookup, setPreviousStatusLookup] = useState({});
+
   const seriesChangedRef = useRef(false);
   const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
+
+  // Keep the new task deletion hook from main
+  const { deleteTask, deleteSeries } = useTaskDeletion(setTasks, refetch);
 
   // Information entered in the task form
   const [draft, setDraft] = useState({
@@ -160,7 +168,7 @@ function TasksPage() {
 
   const isoWeekday = date => (date.getDay() === 0 ? 7 : date.getDay());
 
-  // Compare repeat rules without depending on the order of weekdays
+  // Compare repeat rules even if weekdays are in a different order
   const canonicalRule = rule =>
     JSON.stringify(
       Object.keys(rule)
@@ -168,7 +176,7 @@ function TasksPage() {
         .map(key => [key, key === "weekdays" ? [...rule[key]].sort((a, b) => a - b) : rule[key]]),
     );
 
-  // Find changes made to a recurring task's repeat pattern
+  // Find changes to the recurring task's repeat pattern
   function getPatternChanges(draft, original) {
     const pattern = draft.seriesPattern;
     const stored = original.series;
@@ -264,7 +272,7 @@ function TasksPage() {
       const savedParts = [];
 
       try {
-        // Save changes to this task or a recurring-task series
+        // Save changes to this task or its recurring series
         const didSave = await saveScopedEdit(original, draft, scope);
 
         if (didSave && scope === "future") {
@@ -313,7 +321,7 @@ function TasksPage() {
           }
         }
 
-        // Pause or resume recurring tasks if the user changes the setting
+        // Pause or resume recurring tasks
         if (
           isOccurrence(original) &&
           typeof draft.repeatEnabled === "boolean" &&
@@ -322,6 +330,7 @@ function TasksPage() {
           seriesChangedRef.current = true;
 
           const saved = await setSeriesEnabled(original.seriesId, draft.repeatEnabled);
+
           const openPause = saved?.pauses?.find(pause => pause.until === null);
 
           const pausedFrom =
@@ -331,17 +340,23 @@ function TasksPage() {
 
           toast.add({
             title: draft.repeatEnabled ? "Repeat resumed" : "Repeat paused",
-            ...(pausedFrom ? { description: `From ${pausedFrom}` } : {}),
+            ...(pausedFrom
+              ? {
+                  description: `From ${pausedFrom}`,
+                }
+              : {}),
             type: "success",
           });
         }
       } catch (err) {
         console.log(err);
 
+        // Show what was already saved if another step failed
         const savedNote =
-          savedParts.length > 0 ? ` Already saved: ${savedParts.join(" and ")}.` : "";
+          savedParts.length > 0 ? `Already saved: ${savedParts.join(" and ")}.` : "";
 
-        setSaveError(`${err.message || "Failed to save task"}${savedNote}`);
+        setSaveError([err.message || "Failed to save task", savedNote].filter(Boolean).join("\n"));
+
         return;
       }
     }
@@ -351,9 +366,10 @@ function TasksPage() {
 
   const editingTask = tasks.find(task => task.id === editingTaskId);
 
-  // Update task status when a checkbox is clicked
+  // Update task status when the checkbox is clicked
   const toggleTask = async id => {
     const task = tasks.find(existingTask => existingTask.id === id);
+
     if (!task) return;
 
     const originalStatus = task.status;
@@ -370,8 +386,14 @@ function TasksPage() {
 
     const patchBody =
       newStatus === "Completed"
-        ? { status: newStatus, reminderDate: null, reminderTime: null }
-        : { status: newStatus };
+        ? {
+            status: newStatus,
+            reminderDate: null,
+            reminderTime: null,
+          }
+        : {
+            status: newStatus,
+          };
 
     try {
       await patchTask(task, patchBody);
@@ -405,7 +427,9 @@ function TasksPage() {
     }
 
     try {
-      await patchTask(task, { status: originalStatus });
+      await patchTask(task, {
+        status: originalStatus,
+      });
     } catch (err) {
       console.log(err);
     }
@@ -420,11 +444,18 @@ function TasksPage() {
     }
 
     const updateChecklist = task.checklist.map(item =>
-      item.id === itemId ? { ...item, completed: !item.completed } : item,
+      item.id === itemId
+        ? {
+            ...item,
+            completed: !item.completed,
+          }
+        : item,
     );
 
     try {
-      const saved = await patchTask(task, { checklist: updateChecklist });
+      const saved = await patchTask(task, {
+        checklist: updateChecklist,
+      });
 
       setDraft(prev => ({
         ...prev,
@@ -435,21 +466,33 @@ function TasksPage() {
     }
   };
 
-  // Delete a task
-  const deleteTask = async id => {
+  // Find the task that the user wants to delete
+  const deletingTask = tasks.find(task => task.id === deleteId);
+
+  const deletingOccurrence = isOccurrence(deletingTask);
+
+  // Delete one task or the entire recurring series
+  const confirmDelete = async scope => {
+    const task = deletingTask;
+
+    // Close the dialog before the task disappears
+    setDeleteId(null);
+
     try {
-      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
-        method: "DELETE",
-      });
-
-      setTasks(current => current.filter(task => task.id !== id));
-
-      toast.add({
-        title: "Task Deleted",
-        type: "success",
-      });
+      if (task) {
+        if (scope === "series") {
+          await deleteSeries(task);
+        } else {
+          await deleteTask(task);
+        }
+      }
     } catch (err) {
       console.log(err);
+
+      toast.add({
+        title: "Failed to delete task",
+        type: "error",
+      });
     } finally {
       setDeleteId(null);
     }
@@ -555,7 +598,7 @@ function TasksPage() {
         </SheetContent>
       </Sheet>
 
-      {/* Let the user choose which recurring tasks to update */}
+      {/* Choose which recurring tasks to update */}
       <ScopeDialog
         open={scopeDialogOpen}
         onOpenChange={open => setScopeDialogOpen(open)}
@@ -565,8 +608,11 @@ function TasksPage() {
         }}
       />
 
-      {/* Confirm before deleting a task */}
-      <AlertDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}>
+      {/* Delete dialog for one-off tasks */}
+      <AlertDialog
+        open={deleteId !== null && !deletingOccurrence}
+        onOpenChange={open => !open && setDeleteId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete task?</AlertDialogTitle>
@@ -579,10 +625,25 @@ function TasksPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
 
-            <AlertDialogAction onClick={() => deleteTask(deleteId)}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={() => confirmDelete("occurrence")}>
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete dialog for recurring tasks */}
+      <ScopeDialog
+        open={deleteId !== null && deletingOccurrence}
+        onOpenChange={open => !open && setDeleteId(null)}
+        onChoose={confirmDelete}
+        title="Delete recurring task"
+        description="Delete just this occurrence, or the whole series. Deleting the series also removes its completed occurrences."
+        occurrenceLabel="Delete this occurrence"
+        seriesLabel="Delete all occurrences"
+        seriesScope="series"
+        destructive
+      />
     </main>
   );
 }

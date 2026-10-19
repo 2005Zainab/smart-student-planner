@@ -835,7 +835,7 @@ function TaskForm({
       {/* Attachments */}
       <TaskFilesCard taskFiles={taskFiles} readOnly={readOnly} />
 
-      {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+      {saveError && <p className="whitespace-pre-line text-sm text-destructive">{saveError}</p>}
 
       {/* Save and cancel buttons */}
       {!readOnly && (
