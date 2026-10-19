@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useState } from "react";
+import { MemoryRouter, useLocation } from "react-router";
 import { TasksPage } from "./TasksPage";
 import { httpClient } from "../../../shared/http-client";
 
@@ -57,6 +58,25 @@ vi.mock("./TaskList", () => ({
     </div>
   ),
 }));
+
+function LocationProbe() {
+  const location = useLocation();
+  return (
+    <p data-testid="location">
+      {location.pathname}
+      {location.search}
+    </p>
+  );
+}
+
+function renderPage(route = "/tasks") {
+  return render(
+    <MemoryRouter initialEntries={[route]}>
+      <TasksPage />
+      <LocationProbe />
+    </MemoryRouter>,
+  );
+}
 
 describe("TasksPage", () => {
   beforeEach(() => {
@@ -161,6 +181,31 @@ describe("TasksPage", () => {
     expect(url).toBe("http://localhost:3000/api/tasks/task-1");
     expect(options.method).toBe("PATCH");
     expect(JSON.parse(options.body)).toMatchObject({ title: "Finish essay now" });
+  });
+
+  it("opens the task's view dialog when the URL has ?view=<id>", async () => {
+    renderPage("/tasks?view=task-1");
+
+    expect(await screen.findByTestId("task-form")).toBeInTheDocument();
+    expect(screen.getByLabelText("title")).toHaveValue("Finish essay");
+  });
+
+  it("opens nothing when ?view= does not match a task", () => {
+    renderPage("/tasks?view=does-not-exist");
+
+    expect(screen.queryByTestId("task-form")).not.toBeInTheDocument();
+  });
+
+  it("removes ?view= from the URL when the dialog is closed", async () => {
+    renderPage("/tasks?view=task-1");
+
+    expect(await screen.findByTestId("task-form")).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent("view=task-1");
+
+    await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    await waitFor(() => expect(screen.queryByTestId("task-form")).not.toBeInTheDocument());
+    expect(screen.getByTestId("location")).not.toHaveTextContent("view=");
   });
 
   describe("recurring occurrences", () => {
