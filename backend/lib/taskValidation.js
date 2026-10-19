@@ -8,6 +8,9 @@ export const STATUS_DISPLAY = {
   completed: "Completed",
 };
 
+const MAX_LINKS = 10;
+const MAX_LINK_LENGTH = 500;
+
 export function normalizeStatus(status) {
   if (typeof status !== "string") return null;
   return STATUS_DISPLAY[status.trim().toLowerCase()] ?? null;
@@ -100,6 +103,51 @@ export function validateChecklist(checklist) {
   return { cleanChecklist };
 }
 
+//Validates links: Text only, allows valid http/https URL within the length and count limits
+export function validateLinks(links) {
+  if (!Array.isArray(links)) {
+    return { message: "Links must be an Array" };
+  }
+
+  if (links.length > MAX_LINKS) {
+    return { message: `Too many links added. Max is ${MAX_LINKS}` };
+  }
+
+  const cleanLinks = [];
+
+  for (const link of links) {
+    if (typeof link !== "string") {
+      return { message: "Invalid data type. Links must be a string" };
+    }
+
+    //Holds the links after trimming whitespace. Only clean list is saved
+    const trimmed = link.trim();
+
+    if (trimmed === "") {
+      return { message: "Link field can't be empty" };
+    }
+
+    if (trimmed.length > MAX_LINK_LENGTH) {
+      return { message: `Max link length is ${MAX_LINK_LENGTH} characters` };
+    }
+
+    let url;
+    try {
+      url = new URL(trimmed);
+    } catch {
+      return { message: "Link must be a valid URL" };
+    }
+
+    //Only allows standard link formats http and https
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return { message: "Link must start with http:// or https://" };
+    }
+
+    cleanLinks.push(trimmed);
+  }
+  return { cleanLinks };
+}
+
 export function validateTaskFields(fields, { partial = false } = {}) {
   const clean = {};
 
@@ -154,6 +202,12 @@ export function validateTaskFields(fields, { partial = false } = {}) {
     const checklistResult = validateChecklist(fields.checklist ?? []);
     if (checklistResult.message) return checklistResult;
     clean.checklist = checklistResult.cleanChecklist;
+  }
+
+  if (!partial || Object.prototype.hasOwnProperty.call(fields, "links")) {
+    const linksResult = validateLinks(fields.links ?? []);
+    if (linksResult.message) return linksResult;
+    clean.links = linksResult.cleanLinks;
   }
 
   return { clean };

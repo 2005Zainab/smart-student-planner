@@ -29,6 +29,7 @@ const ALLOWED_FIELDS = [
   "checklist",
   "reminderDate",
   "reminderTime",
+  "links",
 ];
 
 //Add task
@@ -48,6 +49,7 @@ router.post("/", requireAuth, async (req, res) => {
       typeof req.body.reminderTime === "string" && req.body.reminderTime.trim()
         ? req.body.reminderTime.trim()
         : null,
+    links: req.body.links ?? [],
   };
   const validation = validateTaskFields(fields);
   if (validation.message) return res.status(400).json({ message: validation.message });
@@ -107,6 +109,10 @@ router.delete("/:id", requireAuth, async (req, res) => {
         message: "Recurring occurrences must be deleted through the task-series endpoint",
       });
     }
+
+    // Delete the task's uploaded files first
+    const files = taskSnap.data().files ?? [];
+    await Promise.all(files.map(file => db.collection("taskFiles").doc(file.id).delete()));
 
     await taskDoc.delete();
 

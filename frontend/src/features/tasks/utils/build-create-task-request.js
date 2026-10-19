@@ -21,6 +21,7 @@ export function buildCreateTaskRequest(draft) {
     dueDate,
     time: draft.time || null,
     checklist: draft.checklist || [],
+    links: draft.links || [],
   };
 
   // If the draft has a recurrence property, it indicates that the task is part of a recurring series. In this case, the request will be sent to the task-series endpoint with additional properties like rule, endDate, reminderOffsetDays, and reminderTime.

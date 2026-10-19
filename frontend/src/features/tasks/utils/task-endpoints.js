@@ -12,6 +12,7 @@ const OCCURRENCE_FIELDS = [
   "checklist",
   "reminderDate",
   "reminderTime",
+  "links",
 ];
 
 // The form uses "" / undefined for "empty" where the server stores null.
@@ -29,7 +30,7 @@ export const getTaskUrl = task =>
 export const getSeriesUrl = seriesId => `${API_BASE}/task-series/${seriesId}`;
 
 const normalize = (key, value) => {
-  if (key === "checklist") return value ?? [];
+  if (key === "checklist" || key === "links") return value ?? [];
   if (NULLABLE_FIELDS.has(key)) return value === "" || value === undefined ? null : value;
   return value;
 };

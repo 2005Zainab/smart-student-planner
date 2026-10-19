@@ -1,4 +1,4 @@
-import { MoreHorizontal, CheckSquare } from "lucide-react";
+import { MoreHorizontal, CheckSquare, Paperclip } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -99,6 +99,18 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
           <span>
             {task.checklist.filter(i => i.completed).length}/{task.checklist.length}
           </span>
+        </Badge>
+      )}
+
+      {/* Attached files indicator */}
+      {task.files && task.files.length > 0 && (
+        <Badge
+          variant="outline"
+          className="flex items-center gap-1 text-muted-foreground"
+          aria-label={`${task.files.length} attached files`}
+        >
+          <Paperclip className="h-3.5 w-3.5" />
+          <span>{task.files.length}</span>
         </Badge>
       )}
 

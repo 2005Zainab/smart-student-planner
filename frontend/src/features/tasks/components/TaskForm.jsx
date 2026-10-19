@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -16,7 +16,15 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { RecurrenceFields } from "./RecurrenceFields";
+import { TaskFilesCard } from "./TaskFilesCard";
+import { useTaskFiles } from "../hooks/useTaskFiles";
 import { isAfter, startOfDay, startOfToday } from "date-fns";
+
+const MAX_LINKS = 10;
+const MAX_LINK_LENGTH = 500;
+// The draft as text, without the files list, so two drafts can be compared
+const snapshotFields = draft =>
+  JSON.stringify(draft, (key, value) => (key === "files" ? undefined : value));
 
 // TaskForm component is used for creating and editing tasks.
 // It includes fields for task name, subject, description, priority,
@@ -34,13 +42,31 @@ function TaskForm({
   allowRecurrence = false,
   allowSeriesControls = false,
   seriesEnabled,
+  onFilesChange,
 }) {
   const [dateError, setDateError] = useState("");
   const [reminderError, setReminderError] = useState("");
   const [checklistItemInput, setChecklistItemInput] = useState("");
   const [checklistError, setChecklistError] = useState("");
+  const [taskSaving, setTaskSaving] = useState(false);
   // Checklist only shows in view task if the task already has items
   const [checklistToggle, setChecklistToggle] = useState(null);
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkInput, setLinkInput] = useState("");
+  const [linkError, setLinkError] = useState("");
+  // Links only show in view task if the task already has links
+  const [linksToggle, setLinksToggle] = useState(null);
+
+  // Remembers that a file was uploaded or removed (they save straight away) so Save counts it
+  const filesChangedRef = useRef(false);
+  // The fields as they were when the form opened, to tell whether any were edited
+  const [fieldsAtOpen] = useState(() => snapshotFields(draft));
+  // Task files are managed through the useTaskFiles hook, which handles staging, uploading, and removing files.
+  const taskFiles = useTaskFiles(draft, update => {
+    filesChangedRef.current = true;
+    setDraft(prev => ({ ...prev, files: update(prev.files ?? []) }));
+    onFilesChange?.(draft.id, update);
+  });
 
   const reminderDaysAway = draft.reminderDate
     ? differenceInCalendarDays(
@@ -53,6 +79,8 @@ function TaskForm({
   const completedItems = checklist.filter(item => item.completed).length;
   const progress = checklist.length > 0 ? Math.round((completedItems / checklist.length) * 100) : 0;
   const showChecklist = checklistToggle ?? (readOnly && checklist.length > 0);
+  const links = draft.links || [];
+  const showLinks = linksToggle ?? links.length > 0;
 
   const checklistHandleAddItem = () => {
     if (checklist.length >= 10) {
@@ -75,12 +103,56 @@ function TaskForm({
     setChecklistItemInput("");
   };
 
+  const handleAddLink = () => {
+    const trimmed = linkInput.trim();
+
+    if (!trimmed) {
+      setLinkError("Link can't be empty");
+      return;
+    }
+
+    if (links.length >= MAX_LINKS) {
+      setLinkError(`Max links allowed per task is ${MAX_LINKS}`);
+      return;
+    }
+
+    //if user adds a link such as game.com adds https:// to it
+    const withProtocol = /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+    if (withProtocol.length > MAX_LINK_LENGTH) {
+      setLinkError(`Link cannot be more than ${MAX_LINK_LENGTH} characters`);
+      return;
+    }
+
+    let url;
+    try {
+      url = new URL(withProtocol);
+    } catch {
+      setLinkError("Please enter a valid link");
+      return;
+    }
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      setLinkError("Link must begin with http:// or https://");
+      return;
+    }
+
+    setDraft(prev => ({ ...prev, links: [...(prev.links || []), withProtocol] }));
+    setLinkInput("");
+    setLinkError("");
+    setShowLinkInput(false);
+  };
+
   const pausing = draft.repeatEnabled === false && seriesEnabled === true;
   const hidesThisOccurrence =
     pausing && draft.dueDate instanceof Date && isAfter(startOfDay(draft.dueDate), startOfToday());
 
-  const handleSave = event => {
+  const handleSave = async event => {
     event.preventDefault();
+
+    // Ignore a second click while a file upload or a save is still running
+    if (taskFiles.isBusy || taskSaving) return;
+
     setDateError("");
 
     if ((requireDateAndTime || draft.recurrence) && !draft.dueDate) {
@@ -115,7 +187,26 @@ function TaskForm({
       }
     }
 
-    onSave();
+    // Upload files that were chosen but not uploaded yet. If one fails, stay on the form so the
+    // error stays visible, and don't save the task yet.
+    if (taskFiles.stagedFiles.length > 0 && !(await taskFiles.uploadStaged())) {
+      return;
+    }
+
+    // Uploaded or removed files are already saved. If no field was edited, there's nothing
+    // else to send, so just close the form.
+    if (filesChangedRef.current && snapshotFields(draft) === fieldsAtOpen) {
+      onCancel();
+      return;
+    }
+
+    //Disables submit when saving, re-enables after waiting for save to finish, re-enables if save fails
+    setTaskSaving(true);
+    try {
+      await onSave();
+    } finally {
+      setTaskSaving(false);
+    }
   };
 
   const createRecurrence = () => {
@@ -601,7 +692,101 @@ function TaskForm({
             </>
           )}
         </div>
+
+        {/* Links */}
+        {(!readOnly || links.length > 0) && (
+          <div className="space-y-2 rounded-md border p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={showLinks}
+                  id="task-links"
+                  onCheckedChange={checked => setLinksToggle(Boolean(checked))}
+                />
+                <Label htmlFor="task-links">Links</Label>
+              </div>
+              {links.length > 0 && (
+                <span className="text-xs text-muted-foreground">{links.length} added</span>
+              )}
+            </div>
+
+            {showLinks && (
+              <>
+                {links.map((link, index) => (
+                  <div
+                    key={`${index}-${link}`}
+                    className="flex items-center justify-between gap-2 min-w-0"
+                  >
+                    <a
+                      href={link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-w-0 truncate text-sm text-primary underline"
+                    >
+                      {link}
+                    </a>
+                    {!readOnly && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        onClick={() =>
+                          setDraft(prev => ({
+                            ...prev,
+                            links: prev.links.filter((_, i) => i !== index),
+                          }))
+                        }
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+
+                {!readOnly &&
+                  (showLinkInput ? (
+                    <div className="space-y-1">
+                      <div className="flex gap-2">
+                        <Input
+                          autoFocus
+                          placeholder="Paste a link"
+                          maxLength={MAX_LINK_LENGTH}
+                          value={linkInput}
+                          onChange={event => {
+                            setLinkInput(event.target.value);
+                            if (linkError) setLinkError("");
+                          }}
+                          onKeyDown={event => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              handleAddLink();
+                            }
+                          }}
+                        />
+                        <Button type="button" variant="outline" onClick={handleAddLink}>
+                          Done
+                        </Button>
+                      </div>
+                      {linkError && <p className="text-sm text-medium-priority">{linkError}</p>}
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowLinkInput(true)}
+                    >
+                      Add link
+                    </Button>
+                  ))}
+              </>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Files */}
+      <TaskFilesCard taskFiles={taskFiles} readOnly={readOnly} />
 
       {saveError && <p className="text-sm text-destructive">{saveError}</p>}
 
@@ -611,7 +796,9 @@ function TaskForm({
             Cancel
           </Button>
 
-          <Button type="submit">Save task</Button>
+          <Button type="submit" disabled={taskFiles.isBusy || taskSaving}>
+            Save task
+          </Button>
         </div>
       )}
     </form>

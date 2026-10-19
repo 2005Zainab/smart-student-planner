@@ -23,6 +23,7 @@ export function getVirtualOccurrence(series, date, today) {
     occurrenceDate: date,
     ...series.template,
     checklist: buildOccurrenceChecklist(series.template.checklist, occcurrenceId),
+    links: series.template.links ?? [],
     virtual: true,
     dueDate: date,
     status: "To Do",
@@ -89,6 +90,7 @@ export function getOccurrenceFields(body) {
     "checklist",
     "reminderDate",
     "reminderTime",
+    "links",
   ]) {
     if (Object.prototype.hasOwnProperty.call(body, field)) fields[field] = body[field];
   }

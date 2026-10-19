@@ -38,7 +38,7 @@ import { needsScopeChoice, toNullableDateString } from "../utils/occurrence-scop
 function TasksPage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
-  const { patchTask, saveScopedEdit, setSeriesEnabled } = useTaskUpdates(setTasks);
+  const { patchTask, saveScopedEdit, setSeriesEnabled, updateFiles } = useTaskUpdates(setTasks);
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -62,6 +62,7 @@ function TasksPage() {
     reminderDate: undefined,
     reminderTime: "",
     recurrence: null,
+    links: [],
   });
 
   //Open the task form
@@ -83,6 +84,7 @@ function TasksPage() {
         reminderDate: undefined,
         reminderTime: "",
         recurrence: null,
+        links: [],
       };
 
       setEditingTaskId(newTask.id);
@@ -198,9 +200,31 @@ function TasksPage() {
           method: "POST",
           body: JSON.stringify(createRequest.body),
         });
+
         const savedTask = createRequest.recurring ? savedResponse.firstOccurrence : savedResponse;
 
-        setTasks(current => current.map(task => (task.id === editingTaskId ? savedTask : task)));
+        const taskToInsert = createRequest.recurring
+          ? {
+              ...savedTask,
+              seriesPattern: {
+                rule: savedResponse.series?.rule ?? createRequest.body.rule,
+                endDate: savedResponse.series?.endDate
+                  ? parseISO(savedResponse.series.endDate)
+                  : createRequest.body.endDate
+                    ? parseISO(createRequest.body.endDate)
+                    : null,
+                defaultWeekday:
+                  savedTask.dueDate instanceof Date
+                    ? isoWeekday(savedTask.dueDate)
+                    : savedTask.dueDate
+                      ? isoWeekday(parseISO(savedTask.dueDate))
+                      : undefined,
+              },
+              repeatEnabled: savedResponse.series?.enabled ?? true,
+            }
+          : savedTask;
+
+        setTasks(current => current.map(task => (task.id === editingTaskId ? taskToInsert : task)));
 
         toast.add({
           title: "Task Added",
@@ -471,6 +495,7 @@ function TasksPage() {
             allowRecurrence={formMode === "create"}
             allowSeriesControls={true}
             seriesEnabled={editingTask?.series?.enabled}
+            onFilesChange={updateFiles}
           />
         </DialogContent>
       </Dialog>
@@ -507,6 +532,7 @@ function TasksPage() {
               allowRecurrence={formMode === "create"}
               allowSeriesControls={true}
               seriesEnabled={editingTask?.series?.enabled}
+              onFilesChange={updateFiles}
             />
           </div>
         </SheetContent>
