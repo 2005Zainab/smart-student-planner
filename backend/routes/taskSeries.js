@@ -170,6 +170,7 @@ const TEMPLATE_FIELDS = [
   "subject",
   "time",
   "checklist",
+  "links",
   "reminderOffsetDays",
   "reminderTime",
 ];
@@ -386,7 +387,7 @@ function buildTemplateFields(body) {
   }
 
   const contentFields = {};
-  for (const field of ["title", "description", "subject", "checklist"]) {
+  for (const field of ["title", "description", "subject", "checklist", "links"]) {
     if (has(body, field)) contentFields[field] = body[field];
   }
   if (has(body, "time")) {
