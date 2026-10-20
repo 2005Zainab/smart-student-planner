@@ -8,7 +8,7 @@ import { useAiChatContext } from "../context/AiChatContext";
 const SUGGESTIONS = [
   "Plan my day today",
   "What's due this week?",
-  "What should I priorities first?",
+  "What should I prioritise first?",
   "Recommend me some study methods",
 ];
 
