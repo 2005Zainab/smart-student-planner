@@ -142,18 +142,33 @@ function ThemeProvider({ children }) {
     const selectedTheme = themes[currentTheme];
     const root = document.documentElement;
 
-    // List of colours that custom themes can change
+    // Colours used by all app components
     const colourVariables = [
       "--background",
       "--foreground",
       "--card",
       "--card-foreground",
+      "--popover",
+      "--popover-foreground",
       "--primary",
       "--primary-foreground",
+      "--secondary",
+      "--secondary-foreground",
+      "--muted",
+      "--muted-foreground",
+      "--accent",
+      "--accent-foreground",
+      "--border",
+      "--input",
+      "--ring",
       "--sidebar",
       "--sidebar-foreground",
       "--sidebar-primary",
       "--sidebar-primary-foreground",
+      "--sidebar-accent",
+      "--sidebar-accent-foreground",
+      "--sidebar-border",
+      "--sidebar-ring",
     ];
 
     // Remove previous custom colours
@@ -176,17 +191,44 @@ function ThemeProvider({ children }) {
 
     // Apply custom colours and background
     if (selectedTheme.custom) {
+      const background = selectedTheme.background;
+      const foreground = selectedTheme.text;
+      const primary = selectedTheme.primary;
+      const primaryForeground = selectedTheme.primaryText;
+
+      // Derive matching colours from the user's choices
+      const surface = `color-mix(in srgb, ${background} 92%, ${foreground} 8%)`;
+      const subtle = `color-mix(in srgb, ${background} 87%, ${foreground} 13%)`;
+      const hover = `color-mix(in srgb, ${background} 78%, ${foreground} 22%)`;
+      const mutedText = `color-mix(in srgb, ${foreground} 72%, ${background} 28%)`;
+      const border = `color-mix(in srgb, ${foreground} 20%, ${background} 80%)`;
+
       const colours = {
-        "--background": selectedTheme.background,
-        "--foreground": selectedTheme.text,
-        "--card": selectedTheme.background,
-        "--card-foreground": selectedTheme.text,
-        "--primary": selectedTheme.primary,
-        "--primary-foreground": selectedTheme.primaryText,
-        "--sidebar": selectedTheme.background,
-        "--sidebar-foreground": selectedTheme.text,
-        "--sidebar-primary": selectedTheme.primary,
-        "--sidebar-primary-foreground": selectedTheme.primaryText,
+        "--background": background,
+        "--foreground": foreground,
+        "--card": surface,
+        "--card-foreground": foreground,
+        "--popover": surface,
+        "--popover-foreground": foreground,
+        "--primary": primary,
+        "--primary-foreground": primaryForeground,
+        "--secondary": subtle,
+        "--secondary-foreground": foreground,
+        "--muted": subtle,
+        "--muted-foreground": mutedText,
+        "--accent": hover,
+        "--accent-foreground": foreground,
+        "--border": border,
+        "--input": border,
+        "--ring": primary,
+        "--sidebar": surface,
+        "--sidebar-foreground": foreground,
+        "--sidebar-primary": primary,
+        "--sidebar-primary-foreground": primaryForeground,
+        "--sidebar-accent": hover,
+        "--sidebar-accent-foreground": foreground,
+        "--sidebar-border": border,
+        "--sidebar-ring": primary,
       };
 
       Object.entries(colours).forEach(([variable, value]) => {
