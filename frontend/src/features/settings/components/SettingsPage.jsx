@@ -15,7 +15,9 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/shared/auth-provider";
+
 import { getSettings, saveEmailReminders, savePasswordLessEnabled } from "../api/settings-api";
+
 import { useTheme } from "@/theme/theme-provider";
 
 import {
@@ -26,7 +28,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Component for creating and saving custom themes
+// Keep both features from the two branches
+import { ProfilePictureSection } from "./ProfilePictureSection";
 import { CustomThemeSection } from "./CustomThemeSection";
 
 function SettingsPage() {
@@ -37,7 +40,6 @@ function SettingsPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
   const [emailReminders, setEmailReminders] = useState(false);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
@@ -45,7 +47,6 @@ function SettingsPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
-  // Get the current theme and available themes
   const { theme, setTheme, themes } = useTheme();
 
   // Load the user's saved settings
@@ -68,7 +69,7 @@ function SettingsPage() {
     fetchSettings();
   }, [user]);
 
-  // Change the user's username
+  // Change the user's display name
   const changeUsername = async event => {
     event.preventDefault();
     setError("");
@@ -93,12 +94,12 @@ function SettingsPage() {
     setIsLoading(true);
 
     try {
-      // Check the user's password before updating the username
+      // Check the user's password before making changes
       const credential = EmailAuthProvider.credential(user.email, password);
 
       await reauthenticateWithCredential(user, credential);
 
-      // Save the updated username in Firebase
+      // Update the username in Firebase Authentication
       await updateProfile(user, {
         displayName: newUsernameTrimmed,
       });
@@ -128,6 +129,7 @@ function SettingsPage() {
 
     try {
       await sendEmailVerification(user);
+
       setEmailSent(true);
 
       toast.add({
@@ -144,7 +146,7 @@ function SettingsPage() {
     }
   };
 
-  // Check whether the email has been verified
+  // Check whether the user's email is verified
   const checkVerificationStatus = async () => {
     setIsVerifying(true);
 
@@ -158,7 +160,7 @@ function SettingsPage() {
     }
   };
 
-  // Turn password-less sign-in on or off
+  // Enable or disable password-less sign-in
   const togglePasswordLess = async checked => {
     setIsPasswordLessEnabled(checked);
 
@@ -179,7 +181,7 @@ function SettingsPage() {
     }
   };
 
-  // Save the email reminders setting
+  // Save the email reminder setting when changed
   const changeEmailReminders = async checked => {
     setEmailReminders(checked);
 
@@ -193,7 +195,6 @@ function SettingsPage() {
     } catch (err) {
       console.log(err);
 
-      // Return the switch to its previous value if saving fails
       setEmailReminders(!checked);
 
       toast.add({
@@ -205,13 +206,14 @@ function SettingsPage() {
 
   return (
     <main className="flex-1 space-y-6 p-4 md:p-6">
+      {/* Settings page heading */}
       <div>
         <h2 className="text-2xl font-semibold">Settings</h2>
 
         <p className="mt-1 text-muted-foreground">Manage your account settings.</p>
       </div>
 
-      {/* User profile settings */}
+      {/* Existing profile settings */}
       <div className="rounded-xl border bg-card p-6">
         <h3 className="text-lg font-semibold">Profile</h3>
 
@@ -234,7 +236,10 @@ function SettingsPage() {
         </Button>
       </div>
 
-      {/* Password-less sign-in settings */}
+      {/* Profile picture feature from main */}
+      <ProfilePictureSection />
+
+      {/* Sign-in preferences */}
       <div className="rounded-xl border bg-card p-6">
         <h3 className="text-lg font-semibold">Sign-in Preferences</h3>
 
@@ -282,7 +287,7 @@ function SettingsPage() {
         </div>
       </div>
 
-      {/* Theme customisation settings */}
+      {/* Theme customisation */}
       <div className="rounded-xl border bg-card p-6">
         <h3 className="text-lg font-semibold">Customize</h3>
 
@@ -305,11 +310,11 @@ function SettingsPage() {
           </Select>
         </div>
 
-        {/* New custom themes feature */}
+        {/* Custom Themes feature from your branch */}
         <CustomThemeSection />
       </div>
 
-      {/* Dialog for changing username */}
+      {/* Change username dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogTitle>Change username</DialogTitle>
