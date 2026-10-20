@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, memo } from "react";
 import Markdown from "react-markdown";
 import { RotateCcw, SendHorizontal, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ const markdownComponents = {
 };
 /* eslint-enable no-unused-vars */
 
-function MessageBubble({ message, isStreaming }) {
+const MessageBubble = memo(function MessageBubble({ message, isStreaming }) {
   const isUser = message.role === "user";
 
   return (
@@ -49,7 +49,7 @@ function MessageBubble({ message, isStreaming }) {
       </div>
     </div>
   );
-}
+});
 
 function AiChatPage() {
   const {
