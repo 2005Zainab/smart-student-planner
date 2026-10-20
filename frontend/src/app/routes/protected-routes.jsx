@@ -8,6 +8,7 @@ import { TasksPage } from "@/features/tasks/components/TasksPage";
 import { CalendarPage } from "@/features/calendar/components/CalendarPage";
 import { SchedulePage } from "@/features/schedule/components/SchedulePage";
 import { AiChatPage } from "@/features/ai/components/AiChatPage";
+import { TimelinePage } from "@/features/timeline/components/TimelinePage";
 
 function ProtectedRoutes() {
   return (
@@ -18,6 +19,7 @@ function ProtectedRoutes() {
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/schedule" element={<SchedulePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/timeline" element={<TimelinePage />} />
         <Route path="/ai-chat" element={<AiChatPage />} />
       </Route>
     </Route>

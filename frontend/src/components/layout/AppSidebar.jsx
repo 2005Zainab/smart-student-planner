@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   CalendarDays,
   CheckSquare,
+  Clock3,
   LayoutDashboard,
   List,
   Settings,
@@ -62,6 +63,7 @@ const navigation = [
     href: "/schedule",
     icon: List,
   },
+  { label: "Timeline", href: "/timeline", icon: Clock3 },
   { label: "AI Chat", href: "/ai-chat", icon: Sparkles },
 ];
 
