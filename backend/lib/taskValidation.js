@@ -11,6 +11,9 @@ export const STATUS_DISPLAY = {
 const MAX_LINKS = 10;
 const MAX_LINK_LENGTH = 500;
 
+// Allowed Focus Timer durations in minutes
+const ALLOWED_TIMER_MINUTES = [15, 25, 30, 60];
+
 export function normalizeStatus(status) {
   if (typeof status !== "string") return null;
   return STATUS_DISPLAY[status.trim().toLowerCase()] ?? null;
@@ -103,7 +106,7 @@ export function validateChecklist(checklist) {
   return { cleanChecklist };
 }
 
-//Validates links: Text only, allows valid http/https URL within the length and count limits
+// Validates links: Text only, allows valid http/https URLs within the limits
 export function validateLinks(links) {
   if (!Array.isArray(links)) {
     return { message: "Links must be an Array" };
@@ -120,7 +123,7 @@ export function validateLinks(links) {
       return { message: "Invalid data type. Links must be a string" };
     }
 
-    //Holds the links after trimming whitespace. Only clean list is saved
+    // Holds the links after trimming whitespace
     const trimmed = link.trim();
 
     if (trimmed === "") {
@@ -138,81 +141,138 @@ export function validateLinks(links) {
       return { message: "Link must be a valid URL" };
     }
 
-    //Only allows standard link formats http and https
+    // Only allows standard link formats
     if (url.protocol !== "http:" && url.protocol !== "https:") {
       return { message: "Link must start with http:// or https://" };
     }
 
     cleanLinks.push(trimmed);
   }
+
   return { cleanLinks };
 }
 
 export function validateTaskFields(fields, { partial = false } = {}) {
   const clean = {};
 
+  // Validate task title
   if (!partial || Object.prototype.hasOwnProperty.call(fields, "title")) {
-    if (typeof fields.title !== "string") return { message: "Title has to be a string" };
+    if (typeof fields.title !== "string") {
+      return { message: "Title has to be a string" };
+    }
+
     clean.title = fields.title.trim();
-    if (!clean.title) return { message: "Title cannot be empty or blank" };
+
+    if (!clean.title) {
+      return { message: "Title cannot be empty or blank" };
+    }
+
     if (clean.title.length > 200) {
       return { message: "Title cannot be more than 200 characters" };
     }
   }
 
+  // Validate description and subject
   for (const [field, label, maxLength] of [
     ["description", "Description", 1000],
     ["subject", "Subject", 200],
   ]) {
     if (!partial || Object.prototype.hasOwnProperty.call(fields, field)) {
-      if (typeof fields[field] !== "string") return { message: `${label} must be text` };
+      if (typeof fields[field] !== "string") {
+        return { message: `${label} must be text` };
+      }
+
       clean[field] = fields[field].trim();
+
       if (clean[field].length > maxLength) {
         return { message: `${label} cannot be more than ${maxLength} characters` };
       }
     }
   }
 
+  // Validate status
   if (!partial || Object.prototype.hasOwnProperty.call(fields, "status")) {
-    if (typeof fields.status !== "string") return { message: "Status must be text" };
+    if (typeof fields.status !== "string") {
+      return { message: "Status must be text" };
+    }
+
     const normalizedStatus = normalizeStatus(fields.status);
-    if (!normalizedStatus) return { message: "Not a valid status" };
+
+    if (!normalizedStatus) {
+      return { message: "Not a valid status" };
+    }
+
     clean.status = normalizedStatus;
   }
 
+  // Validate due date and reminder date
   for (const field of ["dueDate", "reminderDate"]) {
     if (!partial || Object.prototype.hasOwnProperty.call(fields, field)) {
       const value = fields[field] ?? null;
       const error = validateDate(value, field === "dueDate" ? "Due date" : "Reminder date");
-      if (error) return { message: error };
+
+      if (error) {
+        return { message: error };
+      }
+
       clean[field] = value;
     }
   }
 
+  // Validate task time and reminder time
   for (const field of ["time", "reminderTime"]) {
     if (!partial || Object.prototype.hasOwnProperty.call(fields, field)) {
       const value = fields[field] ?? null;
       const error = validateTime(value, field === "time" ? "Time" : "Reminder time");
-      if (error) return { message: error };
+
+      if (error) {
+        return { message: error };
+      }
+
       clean[field] = value;
     }
   }
 
+  // Validate checklist
   if (!partial || Object.prototype.hasOwnProperty.call(fields, "checklist")) {
     const checklistResult = validateChecklist(fields.checklist ?? []);
-    if (checklistResult.message) return checklistResult;
+
+    if (checklistResult.message) {
+      return checklistResult;
+    }
+
     clean.checklist = checklistResult.cleanChecklist;
   }
 
+  // Validate links
   if (!partial || Object.prototype.hasOwnProperty.call(fields, "links")) {
     const linksResult = validateLinks(fields.links ?? []);
-    if (linksResult.message) return linksResult;
+
+    if (linksResult.message) {
+      return linksResult;
+    }
+
     clean.links = linksResult.cleanLinks;
+  }
+
+  // Validate Focus Timer
+  // null means the user selected "No timer"
+  if (!partial || Object.prototype.hasOwnProperty.call(fields, "timerMinutes")) {
+    const timerMinutes = fields.timerMinutes ?? null;
+
+    if (timerMinutes !== null && !ALLOWED_TIMER_MINUTES.includes(timerMinutes)) {
+      return {
+        message: "Focus timer must be 15, 25, 30, or 60 minutes",
+      };
+    }
+
+    clean.timerMinutes = timerMinutes;
   }
 
   return { clean };
 }
 
+// Validate reminders for recurring tasks
 export function validateRecurringTaskReminderFields(body) {
   const hasOffset = body.reminderOffsetDays !== undefined && body.reminderOffsetDays !== null;
   const hasTime =
@@ -236,6 +296,7 @@ export function validateRecurringTaskReminderFields(body) {
     },
     { partial: false },
   );
+
   if (reminderValidation.message) {
     return { message: reminderValidation.message };
   }

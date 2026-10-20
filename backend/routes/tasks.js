@@ -30,9 +30,10 @@ const ALLOWED_FIELDS = [
   "reminderDate",
   "reminderTime",
   "links",
+  "timerMinutes",
 ];
 
-//Add task
+// Add task
 router.post("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
@@ -50,7 +51,9 @@ router.post("/", requireAuth, async (req, res) => {
         ? req.body.reminderTime.trim()
         : null,
     links: req.body.links ?? [],
+    timerMinutes: req.body.timerMinutes ?? null,
   };
+
   const validation = validateTaskFields(fields);
   if (validation.message) return res.status(400).json({ message: validation.message });
 
@@ -83,13 +86,12 @@ router.post("/", requireAuth, async (req, res) => {
   }
 });
 
-//Deletes tasks from Firestore using Express API route then updates local UI
+// Delete tasks from Firestore
 router.delete("/:id", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
   try {
     const taskDoc = db.collection("tasks").doc(req.params.id);
-
     const taskSnap = await taskDoc.get();
 
     if (!taskSnap.exists) {
@@ -128,7 +130,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
   }
 });
 
-//Edit task
+// Edit task
 router.patch("/:id", requireAuth, async (req, res) => {
   const uid = req.user.uid;
   const updates = {};
@@ -147,11 +149,11 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
   const validation = validateTaskFields(updates, { partial: true });
   if (validation.message) return res.status(400).json({ message: validation.message });
+
   Object.assign(updates, validation.clean);
 
   try {
     const taskDoc = db.collection("tasks").doc(req.params.id);
-
     const taskSnap = await taskDoc.get();
 
     if (!taskSnap.exists) {
@@ -168,6 +170,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     const existingData = taskSnap.data();
     const today = await getUserToday(uid);
+
     const finalReminderDate =
       "reminderDate" in updates ? updates.reminderDate : existingData.reminderDate;
     const finalReminderTime =
@@ -185,7 +188,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     await taskDoc.update(updates);
 
-    //Get updated task so frontend gets new priority
+    // Return the updated task
     const updatedSnap = await taskDoc.get();
 
     return res.status(200).json({
@@ -201,26 +204,25 @@ router.patch("/:id", requireAuth, async (req, res) => {
   }
 });
 
-//View all tasks
+// View all tasks
 router.get("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
   try {
-    const today = await getUserToday(uid); // get the user's "today" date based on their timezone
+    const today = await getUserToday(uid);
+
     const [taskSnapshot, seriesSnapshot] = await Promise.all([
       db.collection("tasks").where("userId", "==", uid).get(),
       db.collection("task_series").where("userId", "==", uid).get(),
     ]);
 
-    // oneOffs are tasks that are not part of a series (not recurring)
-    // A virtual occurrence is an occurrence of a recurring task that hasn't been explicitly created in the database but is inferred from the recurrence rule.
-    // materialized are tasks that are part of a series and have been explicitly created for a specific occurrence date.
-    // The occurrences array will hold both one-off tasks and occurrences of recurring tasks, whether they are materialized or virtual.
+    // Keep one-off tasks and recurring tasks separate
     const oneOffs = [];
     const materialized = new Map();
 
     forEachSnapshot(taskSnapshot, doc => {
       const data = doc.data();
+
       if (data.seriesId && data.occurrenceDate) {
         materialized.set(`${data.seriesId}_${data.occurrenceDate}`, {
           id: doc.id,
@@ -236,16 +238,19 @@ router.get("/", requireAuth, async (req, res) => {
     });
 
     const occurrences = [];
+
     for (const series of readSeries(seriesSnapshot)) {
       const missedAndToday = expandSeries(series, series.segments[0].from, today);
       const next = getNextOccurrence(series, today);
       const candidateDates = new Set(missedAndToday);
+
       if (next) candidateDates.add(next);
 
       for (const doc of materialized.values()) {
         if (doc.data.seriesId === series.id && shouldRenderMaterialized(doc.data, series, today)) {
           candidateDates.add(doc.data.occurrenceDate);
         }
+
         if (
           doc.data.seriesId === series.id &&
           expandSeries(series, doc.data.occurrenceDate, doc.data.occurrenceDate).length
@@ -256,6 +261,7 @@ router.get("/", requireAuth, async (req, res) => {
 
       for (const date of [...candidateDates].sort()) {
         const materializedDoc = materialized.get(`${series.id}_${date}`);
+
         occurrences.push(
           materializedDoc
             ? getMaterializedOccurrence(materializedDoc, series, today)
@@ -274,36 +280,51 @@ router.get("/", requireAuth, async (req, res) => {
   }
 });
 
+// View calendar tasks
 router.get("/calendar", requireAuth, async (req, res) => {
   const uid = req.user.uid;
   const { from, to } = req.query;
 
   if (!from || !to) {
-    return res.status(400).json({ message: "from and to are required" });
+    return res.status(400).json({
+      message: "from and to are required",
+    });
   }
 
   const fromError = validateDate(from, "From date");
   const toError = validateDate(to, "To date");
+
   if (fromError || toError) {
-    return res.status(400).json({ message: fromError || toError });
+    return res.status(400).json({
+      message: fromError || toError,
+    });
   }
+
   if (from > to) {
-    return res.status(400).json({ message: "From date cannot be after to date" });
+    return res.status(400).json({
+      message: "From date cannot be after to date",
+    });
   }
 
   try {
     const today = await getUserToday(uid);
+
     const [taskSnapshot, seriesSnapshot] = await Promise.all([
       db.collection("tasks").where("userId", "==", uid).get(),
       db.collection("task_series").where("userId", "==", uid).get(),
     ]);
+
     const oneOffs = [];
     const materialized = new Map();
 
     forEachSnapshot(taskSnapshot, doc => {
       const data = doc.data();
+
       if (data.seriesId && data.occurrenceDate) {
-        materialized.set(`${data.seriesId}_${data.occurrenceDate}`, { id: doc.id, data });
+        materialized.set(`${data.seriesId}_${data.occurrenceDate}`, {
+          id: doc.id,
+          data,
+        });
       } else if (data.dueDate && isDateInRange(data.dueDate, from, to)) {
         oneOffs.push({
           id: doc.id,
@@ -314,10 +335,13 @@ router.get("/calendar", requireAuth, async (req, res) => {
     });
 
     const occurrences = [];
+
     for (const series of readSeries(seriesSnapshot)) {
       const scheduledDates = new Set(expandSeries(series, from, to));
+
       for (const date of scheduledDates) {
         const materializedDoc = materialized.get(`${series.id}_${date}`);
+
         occurrences.push(
           materializedDoc
             ? getMaterializedOccurrence(materializedDoc, series, today)
@@ -340,7 +364,10 @@ router.get("/calendar", requireAuth, async (req, res) => {
     return res.status(200).json([...oneOffs, ...occurrences]);
   } catch (err) {
     console.log(err);
-    return res.status(500).json({ message: "Failed to fetch calendar tasks" });
+
+    return res.status(500).json({
+      message: "Failed to fetch calendar tasks",
+    });
   }
 });
 
