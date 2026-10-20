@@ -1,29 +1,19 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { themes as defaultThemes } from "./themes";
+import { useAuth } from "@/shared/auth-provider";
 
-// Save theme settings in the browser
+import {
+  getCustomThemes,
+  saveCustomThemeToFirestore,
+  deleteCustomThemeFromFirestore,
+} from "@/features/settings/api/custom-themes-api";
+
 const THEME_STORAGE_KEY = "smart-student-planner-theme";
-const CUSTOM_THEMES_KEY = "smart-student-planner-custom-themes";
 
 const ThemeContext = createContext(null);
+const EMPTY_THEMES = {};
 
-// Load the custom themes saved by the user
-function getSavedCustomThemes() {
-  try {
-    const saved = localStorage.getItem(CUSTOM_THEMES_KEY);
-    const parsed = saved ? JSON.parse(saved) : {};
-
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed;
-    }
-
-    return {};
-  } catch {
-    return {};
-  }
-}
-
-// Check whether the user uploaded a valid image data URL
+// Check whether an uploaded background image is valid
 function isImageDataUrl(image) {
   return (
     typeof image === "string" &&
@@ -31,19 +21,16 @@ function isImageDataUrl(image) {
   );
 }
 
-// Get the background pattern or uploaded image
+// Choose an uploaded image or background pattern
 function getBackgroundPattern(pattern, image) {
-  // Use the uploaded image first if one exists
   if (isImageDataUrl(image)) {
     return `url("${image}")`;
   }
 
-  // Dots pattern
   if (pattern === "dots") {
     return "radial-gradient(circle, var(--custom-pattern-colour) 1px, transparent 1px)";
   }
 
-  // Grid pattern
   if (pattern === "grid") {
     return [
       "linear-gradient(to right, var(--custom-pattern-colour) 1px, transparent 1px)",
@@ -51,7 +38,6 @@ function getBackgroundPattern(pattern, image) {
     ].join(", ");
   }
 
-  // Stripes pattern
   if (pattern === "stripes") {
     return "repeating-linear-gradient(45deg, var(--custom-pattern-colour) 0px, var(--custom-pattern-colour) 1px, transparent 1px, transparent 20px)";
   }
@@ -59,13 +45,42 @@ function getBackgroundPattern(pattern, image) {
   return "none";
 }
 
+// Remember which theme was selected
+function getLastSelectedTheme() {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY) || "light";
+  } catch {
+    return "light";
+  }
+}
+
 function ThemeProvider({ children }) {
-  const [customThemes, setCustomThemes] = useState(getSavedCustomThemes);
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const userId = user?.uid ?? null;
 
-  // Remember the last selected theme
-  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_STORAGE_KEY) || "light");
+  // Store custom themes for the signed-in user
+  const [savedThemes, setSavedThemes] = useState({
+    userId: null,
+    themes: {},
+  });
 
-  // Combine existing themes with saved custom themes
+  // Track Firestore loading and errors
+  const [loadState, setLoadState] = useState({
+    userId: null,
+    error: null,
+  });
+
+  // Track the currently selected theme
+  const [theme, setTheme] = useState(getLastSelectedTheme);
+
+  // Only display themes belonging to the current user
+  const customThemes = userId && savedThemes.userId === userId ? savedThemes.themes : EMPTY_THEMES;
+
+  const isLoading = isAuthLoading || (Boolean(userId) && loadState.userId !== userId);
+
+  const loadError = userId && loadState.userId === userId ? loadState.error : null;
+
+  // Combine built-in themes with custom themes
   const themes = useMemo(
     () => ({
       ...defaultThemes,
@@ -74,10 +89,55 @@ function ThemeProvider({ children }) {
     [customThemes],
   );
 
-  // Use the Light theme if the selected theme no longer exists
-  const currentTheme = themes[theme] ? theme : "light";
+  // Fall back to Light if the theme does not exist
+  const currentTheme = Object.hasOwn(themes, theme) ? theme : "light";
 
-  // Apply the selected theme to the whole website
+  // Load custom themes from Firestore
+  useEffect(() => {
+    if (!userId) return;
+
+    let cancelled = false;
+
+    async function loadThemes() {
+      try {
+        const result = await getCustomThemes();
+
+        if (cancelled) return;
+
+        setSavedThemes({
+          userId,
+          themes: result || {},
+        });
+
+        setLoadState({
+          userId,
+          error: null,
+        });
+      } catch (error) {
+        if (cancelled) return;
+
+        console.error("Failed to load custom themes", error);
+
+        setSavedThemes({
+          userId,
+          themes: {},
+        });
+
+        setLoadState({
+          userId,
+          error: "Could not load your custom themes. Please refresh and try again.",
+        });
+      }
+    }
+
+    loadThemes();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  // Apply the selected theme to the website
   useEffect(() => {
     const selectedTheme = themes[currentTheme];
     const root = document.documentElement;
@@ -96,12 +156,12 @@ function ThemeProvider({ children }) {
       "--sidebar-primary-foreground",
     ];
 
-    // Remove the previous custom theme colours
+    // Remove previous custom colours
     colourVariables.forEach(variable => {
       root.style.removeProperty(variable);
     });
 
-    // Remove any previous custom background
+    // Remove previous background pattern or image
     root.style.removeProperty("--custom-theme-wallpaper");
     root.style.removeProperty("--custom-theme-wallpaper-size");
     root.style.removeProperty("--custom-theme-wallpaper-repeat");
@@ -111,9 +171,10 @@ function ThemeProvider({ children }) {
 
     // Keep the original built-in themes working
     root.dataset.theme = selectedTheme.custom ? "light" : currentTheme;
-    root.classList.toggle("dark", selectedTheme.dark);
 
-    // Apply custom theme styling
+    root.classList.toggle("dark", Boolean(selectedTheme.dark));
+
+    // Apply custom colours and background
     if (selectedTheme.custom) {
       const colours = {
         "--background": selectedTheme.background,
@@ -128,50 +189,58 @@ function ThemeProvider({ children }) {
         "--sidebar-primary-foreground": selectedTheme.primaryText,
       };
 
-      // Apply the custom colours
       Object.entries(colours).forEach(([variable, value]) => {
         if (value) {
           root.style.setProperty(variable, value);
         }
       });
 
-      // Check whether the theme has an uploaded image
+      // Check whether an image is selected
       const hasImage = isImageDataUrl(selectedTheme.backgroundImage);
-
-      // Choose the pattern or image
-      const wallpaper = getBackgroundPattern(selectedTheme.pattern, selectedTheme.backgroundImage);
 
       root.dataset.customTheme = "true";
 
-      root.style.setProperty("--custom-theme-wallpaper", wallpaper);
+      // Apply the image or pattern
+      root.style.setProperty(
+        "--custom-theme-wallpaper",
+        getBackgroundPattern(selectedTheme.pattern, selectedTheme.backgroundImage),
+      );
 
-      // Set different background sizes for images and patterns
+      // Background images cover the screen
+      // Patterns repeat across the screen
       root.style.setProperty("--custom-theme-wallpaper-size", hasImage ? "cover" : "24px 24px");
 
       root.style.setProperty("--custom-theme-wallpaper-repeat", hasImage ? "no-repeat" : "repeat");
 
-      // Make pattern lines slightly transparent
+      // Make patterns slightly transparent
       root.style.setProperty(
         "--custom-pattern-colour",
         "color-mix(in srgb, var(--foreground) 10%, transparent)",
       );
     }
 
-    // Save the currently selected theme
-    localStorage.setItem(THEME_STORAGE_KEY, currentTheme);
-  }, [currentTheme, themes]);
-
-  // Save custom themes whenever they change
-  useEffect(() => {
-    try {
-      localStorage.setItem(CUSTOM_THEMES_KEY, JSON.stringify(customThemes));
-    } catch (error) {
-      console.error("Could not save custom themes", error);
+    // Do not overwrite a saved theme choice
+    // while Firestore is still loading
+    if (!isLoading && !loadError) {
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, currentTheme);
+      } catch (error) {
+        console.error("Failed to remember selected theme", error);
+      }
     }
-  }, [customThemes]);
+  }, [currentTheme, themes, isLoading, loadError]);
 
-  // Create a new custom theme
-  function saveCustomTheme(newTheme) {
+  // Create and save a custom theme in Firestore
+  async function saveCustomTheme(newTheme) {
+    if (!userId) {
+      throw new Error("Please sign in before creating a theme.");
+    }
+
+    if (isLoading || loadError) {
+      throw new Error("Themes are not ready. Please try again.");
+    }
+
+    // Generate a unique theme ID
     const id = `custom-${crypto.randomUUID()}`;
 
     const savedTheme = {
@@ -180,44 +249,78 @@ function ThemeProvider({ children }) {
       dark: false,
     };
 
-    // Add the new theme to the saved custom themes
-    setCustomThemes(previous => ({
-      ...previous,
-      [id]: savedTheme,
-    }));
+    // Wait until Firestore confirms the save
+    const result = await saveCustomThemeToFirestore(id, savedTheme);
+
+    // Update the screen only after a successful save
+    setSavedThemes(previous => {
+      if (previous.userId !== userId) {
+        return previous;
+      }
+
+      return {
+        userId,
+        themes: {
+          ...previous.themes,
+          [id]: result,
+        },
+      };
+    });
+
+    // Select the newly saved theme
+    setTheme(id);
 
     return id;
   }
 
-  // Delete a custom theme
-  function deleteCustomTheme(themeId) {
-    // Only allow custom themes to be deleted
+  // Delete a saved custom theme from Firestore
+  async function deleteCustomTheme(themeId) {
+    if (!userId) {
+      throw new Error("Please sign in before deleting a theme.");
+    }
+
+    if (isLoading || loadError) {
+      throw new Error("Themes are not ready. Please try again.");
+    }
+
+    // Only allow saved custom themes to be deleted
     if (!Object.hasOwn(customThemes, themeId)) {
       return;
     }
 
-    // If the deleted theme is selected, change back to Light
-    if (currentTheme === themeId) {
-      setTheme("light");
-    }
+    // Wait until Firestore confirms deletion
+    await deleteCustomThemeFromFirestore(themeId);
 
-    // Remove the selected theme without deleting the others
-    setCustomThemes(previous => {
-      const updatedThemes = { ...previous };
+    // Remove the deleted theme from the screen
+    setSavedThemes(previous => {
+      if (previous.userId !== userId) {
+        return previous;
+      }
+
+      const updatedThemes = {
+        ...previous.themes,
+      };
+
       delete updatedThemes[themeId];
 
-      return updatedThemes;
+      return {
+        userId,
+        themes: updatedThemes,
+      };
     });
+
+    // Return to Light if the deleted theme was selected
+    setTheme(previous => (previous === themeId ? "light" : previous));
   }
 
-  // Change to another existing theme
+  // Change between built-in and custom themes
   function changeTheme(nextTheme) {
-    if (themes[nextTheme]) {
+    if (Object.hasOwn(themes, nextTheme)) {
       setTheme(nextTheme);
     }
   }
 
-  // Allow other components to use the theme settings
+  // Share theme settings with other components
   const value = {
     theme: currentTheme,
     setTheme: changeTheme,
@@ -225,12 +328,14 @@ function ThemeProvider({ children }) {
     customThemes,
     saveCustomTheme,
     deleteCustomTheme,
+    isLoading,
+    loadError,
   };
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
-// Hook used to access themes in other components
+// Hook for accessing theme settings
 function useTheme() {
   const context = useContext(ThemeContext);
 
