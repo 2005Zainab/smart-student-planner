@@ -9,6 +9,7 @@ import {
   Settings,
   User,
   PanelLeft,
+  Sparkles,
 } from "lucide-react";
 
 import {
@@ -62,11 +63,8 @@ const navigation = [
     href: "/schedule",
     icon: List,
   },
-  {
-    label: "Timeline",
-    href: "/timeline",
-    icon: Clock3,
-  },
+  { label: "Timeline", href: "/timeline", icon: Clock3 },
+  { label: "AI Chat", href: "/ai-chat", icon: Sparkles },
 ];
 
 function AppSidebar() {
@@ -88,7 +86,7 @@ function AppSidebar() {
   // Only show the picture for the current user
   const profilePicture = pictureData.userId === userId ? pictureData.picture : null;
 
-  // Load the saved profile picture when the user signs in
+  // Load the saved picture when the user signs in
   useEffect(() => {
     if (!userId) return;
 
@@ -148,6 +146,7 @@ function AppSidebar() {
 
     return () => {
       cancelled = true;
+
       window.removeEventListener("profile-picture-updated", updateProfilePicture);
     };
   }, [userId]);
@@ -178,7 +177,7 @@ function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          {/* Minimize or expand the sidebar */}
+          {/* Minimize the sidebar */}
           <div className="hidden md:block">
             <SidebarMenu>
               <SidebarMenuItem>
@@ -220,7 +219,7 @@ function AppSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger render={<SidebarMenuButton tooltip="Profile" />}>
-                {/* Show the saved picture or default user icon */}
+                {/* Show the saved picture or default icon */}
                 {profilePicture ? (
                   <img
                     src={profilePicture}
