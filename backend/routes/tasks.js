@@ -1,4 +1,3 @@
-
 import express from "express";
 import { db } from "../shared/firebase.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -32,9 +31,10 @@ const ALLOWED_FIELDS = [
   "reminderDate",
   "reminderTime",
   "links",
+  "timerMinutes",
 ];
 
-// Add task
+// Create a new task
 router.post("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
@@ -45,31 +45,25 @@ router.post("/", requireAuth, async (req, res) => {
     label: req.body.label ?? "",
     status: req.body.status ?? "To Do",
     dueDate: req.body.dueDate ?? null,
-    time:
-      typeof req.body.time === "string" && req.body.time.trim()
-        ? req.body.time.trim()
-        : null,
+    time: typeof req.body.time === "string" && req.body.time.trim() ? req.body.time.trim() : null,
     checklist: req.body.checklist ?? [],
     reminderDate: req.body.reminderDate ?? null,
     reminderTime:
-      typeof req.body.reminderTime === "string" &&
-      req.body.reminderTime.trim()
+      typeof req.body.reminderTime === "string" && req.body.reminderTime.trim()
         ? req.body.reminderTime.trim()
         : null,
     links: req.body.links ?? [],
+    timerMinutes: req.body.timerMinutes ?? null,
   };
 
-  // Validate the task label
-  if (
-    typeof fields.label !== "string" ||
-    fields.label.trim().length > 100
-  ) {
+  // Validate Task Labels
+  if (typeof fields.label !== "string" || fields.label.trim().length > 100) {
     return res.status(400).json({
       message: "Label must be text under 100 characters",
     });
   }
 
-  // Validate all other task fields
+  // Validate task fields, including the Focus Timer
   const validation = validateTaskFields(fields);
 
   if (validation.message) {
@@ -78,11 +72,8 @@ router.post("/", requireAuth, async (req, res) => {
     });
   }
 
-  // Reminder date and time must be set together
-  if (
-    Boolean(fields.reminderDate) !==
-    Boolean(fields.reminderTime)
-  ) {
+  // A reminder requires both date and time
+  if (Boolean(fields.reminderDate) !== Boolean(fields.reminderTime)) {
     return res.status(400).json({
       message: "Date and time is required to set a reminder.",
     });
@@ -95,6 +86,7 @@ router.post("/", requireAuth, async (req, res) => {
     const newTask = {
       ...clean,
       label: fields.label.trim(),
+      timerMinutes: clean.timerMinutes ?? null,
       priority: getPriorityFromDueDate(clean.dueDate, today),
       userId: uid,
     };
@@ -114,7 +106,7 @@ router.post("/", requireAuth, async (req, res) => {
   }
 });
 
-// Delete a task from Firestore
+// Delete an existing task
 router.delete("/:id", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
@@ -128,29 +120,23 @@ router.delete("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    if (taskSnap.data().userId != uid) {
+    if (taskSnap.data().userId !== uid) {
       return res.status(403).json({
-        message:
-          "Unauthorized to delete this task: You do not own this task",
+        message: "Unauthorized to delete this task: You do not own this task",
       });
     }
 
-    // Recurring tasks must use the task-series endpoint
+    // Recurring tasks use the task-series endpoint
     if (taskSnap.data().seriesId) {
       return res.status(400).json({
-        message:
-          "Recurring occurrences must be deleted through the task-series endpoint",
+        message: "Recurring occurrences must be deleted through the task-series endpoint",
       });
     }
 
-    // Delete uploaded files before deleting the task
+    // Remove related uploaded files
     const files = taskSnap.data().files ?? [];
 
-    await Promise.all(
-      files.map(file =>
-        db.collection("taskFiles").doc(file.id).delete(),
-      ),
-    );
+    await Promise.all(files.map(file => db.collection("taskFiles").doc(file.id).delete()));
 
     await taskDoc.delete();
 
@@ -166,12 +152,12 @@ router.delete("/:id", requireAuth, async (req, res) => {
   }
 });
 
-// Edit a task
+// Edit an existing task
 router.patch("/:id", requireAuth, async (req, res) => {
   const uid = req.user.uid;
   const updates = {};
 
-  // Only allow supported fields
+  // Only accept allowed task fields
   for (const key of ALLOWED_FIELDS) {
     if (Object.prototype.hasOwnProperty.call(req.body, key)) {
       updates[key] = req.body[key];
@@ -184,11 +170,10 @@ router.patch("/:id", requireAuth, async (req, res) => {
     });
   }
 
-  // Validate label changes
+  // Validate changes to Task Labels
   if (
     Object.hasOwn(updates, "label") &&
-    (typeof updates.label !== "string" ||
-      updates.label.trim().length > 100)
+    (typeof updates.label !== "string" || updates.label.trim().length > 100)
   ) {
     return res.status(400).json({
       message: "Label must be text under 100 characters",
@@ -199,7 +184,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     updates.label = updates.label.trim();
   }
 
-  // Validate other fields using shared validation
+  // Validate updated fields, including timerMinutes
   const validation = validateTaskFields(updates, {
     partial: true,
   });
@@ -222,10 +207,9 @@ router.patch("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    if (taskSnap.data().userId != uid) {
+    if (taskSnap.data().userId !== uid) {
       return res.status(403).json({
-        message:
-          "Unauthorized to edit this task: You do not own this task",
+        message: "Unauthorized to edit this task: You do not own this task",
       });
     }
 
@@ -233,36 +217,26 @@ router.patch("/:id", requireAuth, async (req, res) => {
     const today = await getUserToday(uid);
 
     const finalReminderDate =
-      "reminderDate" in updates
-        ? updates.reminderDate
-        : existingData.reminderDate;
+      "reminderDate" in updates ? updates.reminderDate : existingData.reminderDate;
 
     const finalReminderTime =
-      "reminderTime" in updates
-        ? updates.reminderTime
-        : existingData.reminderTime;
+      "reminderTime" in updates ? updates.reminderTime : existingData.reminderTime;
 
     // Keep reminder date and time consistent
-    if (
-      Boolean(finalReminderDate) !==
-      Boolean(finalReminderTime)
-    ) {
+    if (Boolean(finalReminderDate) !== Boolean(finalReminderTime)) {
       return res.status(400).json({
         message: "Date and time is required to set a reminder.",
       });
     }
 
-    // Recalculate priority when due date changes
+    // Automatically recalculate priority
     if ("dueDate" in updates) {
-      updates.priority = getPriorityFromDueDate(
-        updates.dueDate,
-        today,
-      );
+      updates.priority = getPriorityFromDueDate(updates.dueDate, today);
     }
 
     await taskDoc.update(updates);
 
-    // Return the updated task to the frontend
+    // Return the updated task
     const updatedSnap = await taskDoc.get();
 
     return res.status(200).json({
@@ -278,21 +252,17 @@ router.patch("/:id", requireAuth, async (req, res) => {
   }
 });
 
-// View all tasks
+// Get all tasks, including recurring occurrences
 router.get("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
   try {
-    // Get today's date in the user's timezone
     const today = await getUserToday(uid);
 
-    const [taskSnapshot, seriesSnapshot] =
-      await Promise.all([
-        db.collection("tasks").where("userId", "==", uid).get(),
-        db.collection("task_series")
-          .where("userId", "==", uid)
-          .get(),
-      ]);
+    const [taskSnapshot, seriesSnapshot] = await Promise.all([
+      db.collection("tasks").where("userId", "==", uid).get(),
+      db.collection("task_series").where("userId", "==", uid).get(),
+    ]);
 
     const oneOffs = [];
     const materialized = new Map();
@@ -301,21 +271,15 @@ router.get("/", requireAuth, async (req, res) => {
       const data = doc.data();
 
       if (data.seriesId && data.occurrenceDate) {
-        materialized.set(
-          `${data.seriesId}_${data.occurrenceDate}`,
-          {
-            id: doc.id,
-            data,
-          },
-        );
+        materialized.set(`${data.seriesId}_${data.occurrenceDate}`, {
+          id: doc.id,
+          data,
+        });
       } else {
         oneOffs.push({
           id: doc.id,
           ...data,
-          priority: getPriorityFromDueDate(
-            data.dueDate,
-            today,
-          ),
+          priority: getPriorityFromDueDate(data.dueDate, today),
         });
       }
     });
@@ -323,11 +287,7 @@ router.get("/", requireAuth, async (req, res) => {
     const occurrences = [];
 
     for (const series of readSeries(seriesSnapshot)) {
-      const missedAndToday = expandSeries(
-        series,
-        series.segments[0].from,
-        today,
-      );
+      const missedAndToday = expandSeries(series, series.segments[0].from, today);
 
       const next = getNextOccurrence(series, today);
       const candidateDates = new Set(missedAndToday);
@@ -336,47 +296,32 @@ router.get("/", requireAuth, async (req, res) => {
         candidateDates.add(next);
       }
 
+      // Include materialized recurring tasks that should appear
       for (const doc of materialized.values()) {
-        if (
-          doc.data.seriesId === series.id &&
-          shouldRenderMaterialized(doc.data, series, today)
-        ) {
+        if (doc.data.seriesId === series.id && shouldRenderMaterialized(doc.data, series, today)) {
           candidateDates.add(doc.data.occurrenceDate);
         }
 
         if (
           doc.data.seriesId === series.id &&
-          expandSeries(
-            series,
-            doc.data.occurrenceDate,
-            doc.data.occurrenceDate,
-          ).length
+          expandSeries(series, doc.data.occurrenceDate, doc.data.occurrenceDate).length
         ) {
           candidateDates.add(doc.data.occurrenceDate);
         }
       }
 
       for (const date of [...candidateDates].sort()) {
-        const materializedDoc = materialized.get(
-          `${series.id}_${date}`,
-        );
+        const materializedDoc = materialized.get(`${series.id}_${date}`);
 
         occurrences.push(
           materializedDoc
-            ? getMaterializedOccurrence(
-                materializedDoc,
-                series,
-                today,
-              )
+            ? getMaterializedOccurrence(materializedDoc, series, today)
             : getVirtualOccurrence(series, date, today),
         );
       }
     }
 
-    return res.status(200).json([
-      ...oneOffs,
-      ...occurrences,
-    ]);
+    return res.status(200).json([...oneOffs, ...occurrences]);
   } catch (err) {
     console.log(err);
 
@@ -386,7 +331,7 @@ router.get("/", requireAuth, async (req, res) => {
   }
 });
 
-// Get tasks for the calendar within a date range
+// Get calendar tasks for a date range
 router.get("/calendar", requireAuth, async (req, res) => {
   const uid = req.user.uid;
   const { from, to } = req.query;
@@ -415,13 +360,10 @@ router.get("/calendar", requireAuth, async (req, res) => {
   try {
     const today = await getUserToday(uid);
 
-    const [taskSnapshot, seriesSnapshot] =
-      await Promise.all([
-        db.collection("tasks").where("userId", "==", uid).get(),
-        db.collection("task_series")
-          .where("userId", "==", uid)
-          .get(),
-      ]);
+    const [taskSnapshot, seriesSnapshot] = await Promise.all([
+      db.collection("tasks").where("userId", "==", uid).get(),
+      db.collection("task_series").where("userId", "==", uid).get(),
+    ]);
 
     const oneOffs = [];
     const materialized = new Map();
@@ -430,24 +372,15 @@ router.get("/calendar", requireAuth, async (req, res) => {
       const data = doc.data();
 
       if (data.seriesId && data.occurrenceDate) {
-        materialized.set(
-          `${data.seriesId}_${data.occurrenceDate}`,
-          {
-            id: doc.id,
-            data,
-          },
-        );
-      } else if (
-        data.dueDate &&
-        isDateInRange(data.dueDate, from, to)
-      ) {
+        materialized.set(`${data.seriesId}_${data.occurrenceDate}`, {
+          id: doc.id,
+          data,
+        });
+      } else if (data.dueDate && isDateInRange(data.dueDate, from, to)) {
         oneOffs.push({
           id: doc.id,
           ...data,
-          priority: getPriorityFromDueDate(
-            data.dueDate,
-            today,
-          ),
+          priority: getPriorityFromDueDate(data.dueDate, today),
         });
       }
     });
@@ -455,58 +388,32 @@ router.get("/calendar", requireAuth, async (req, res) => {
     const occurrences = [];
 
     for (const series of readSeries(seriesSnapshot)) {
-      const scheduledDates = new Set(
-        expandSeries(series, from, to),
-      );
+      const scheduledDates = new Set(expandSeries(series, from, to));
 
       for (const date of scheduledDates) {
-        const materializedDoc = materialized.get(
-          `${series.id}_${date}`,
-        );
+        const materializedDoc = materialized.get(`${series.id}_${date}`);
 
         occurrences.push(
           materializedDoc
-            ? getMaterializedOccurrence(
-                materializedDoc,
-                series,
-                today,
-              )
+            ? getMaterializedOccurrence(materializedDoc, series, today)
             : getVirtualOccurrence(series, date, today),
         );
       }
 
+      // Include materialized recurring tasks within the range
       for (const materializedDoc of materialized.values()) {
         if (
           materializedDoc.data.seriesId === series.id &&
-          isDateInRange(
-            materializedDoc.data.occurrenceDate,
-            from,
-            to,
-          ) &&
-          !scheduledDates.has(
-            materializedDoc.data.occurrenceDate,
-          ) &&
-          shouldRenderMaterialized(
-            materializedDoc.data,
-            series,
-            today,
-          )
+          isDateInRange(materializedDoc.data.occurrenceDate, from, to) &&
+          !scheduledDates.has(materializedDoc.data.occurrenceDate) &&
+          shouldRenderMaterialized(materializedDoc.data, series, today)
         ) {
-          occurrences.push(
-            getMaterializedOccurrence(
-              materializedDoc,
-              series,
-              today,
-            ),
-          );
+          occurrences.push(getMaterializedOccurrence(materializedDoc, series, today));
         }
       }
     }
 
-    return res.status(200).json([
-      ...oneOffs,
-      ...occurrences,
-    ]);
+    return res.status(200).json([...oneOffs, ...occurrences]);
   } catch (err) {
     console.log(err);
 

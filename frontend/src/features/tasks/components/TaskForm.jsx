@@ -28,9 +28,7 @@ const MAX_LINK_LENGTH = 500;
 const snapshotFields = draft =>
   JSON.stringify(draft, (key, value) => (key === "files" ? undefined : value));
 
-// TaskForm component is used for creating and editing tasks.
-// It includes fields for task name, subject, description, priority,
-// status, due date, time, reminder date and time, recurrence settings, and a checklist.
+// Form for creating, editing and viewing tasks
 function TaskForm({
   draft,
   setDraft,
@@ -168,6 +166,7 @@ function TaskForm({
   const links = draft.links || [];
   const showLinks = linksToggle ?? links.length > 0;
 
+  // Add a new checklist item
   const checklistHandleAddItem = () => {
     if (checklist.length >= 10) {
       setChecklistError("10 is maximum number of checklist items");
@@ -196,6 +195,7 @@ function TaskForm({
     setChecklistItemInput("");
   };
 
+  // Add a website link to the task
   const handleAddLink = () => {
     const trimmed = linkInput.trim();
 
@@ -245,6 +245,7 @@ function TaskForm({
   const hidesThisOccurrence =
     pausing && draft.dueDate instanceof Date && isAfter(startOfDay(draft.dueDate), startOfToday());
 
+  // Validate the form before saving
   const handleSave = async event => {
     event.preventDefault();
 
@@ -307,6 +308,7 @@ function TaskForm({
     }
   };
 
+  // Default repeat settings
   const createRecurrence = () => {
     const dueDate = draft.dueDate instanceof Date ? draft.dueDate : new Date();
 
@@ -333,7 +335,6 @@ function TaskForm({
         {/* Task name */}
         <div className="space-y-2">
           <Label htmlFor="task-title">Task name</Label>
-
           <Input
             id="task-title"
             onChange={event =>
@@ -346,18 +347,15 @@ function TaskForm({
             maxLength={200}
             value={draft.title || ""}
           />
-
           {(draft.title?.length || 0) >= 200 && (
             <p className="text-sm text-medium-priority">Title cannot be more than 200 characters</p>
           )}
-
           {titleError && <p className="text-sm text-destructive">{titleError}</p>}
         </div>
 
         {/* Subject */}
         <div className="space-y-2">
           <Label htmlFor="task-subject">Subject</Label>
-
           <Input
             id="task-subject"
             onChange={event =>
@@ -370,7 +368,6 @@ function TaskForm({
             disabled={readOnly}
             value={draft.subject || ""}
           />
-
           {(draft.subject?.length || 0) >= 200 && (
             <p className="text-sm text-medium-priority">
               Subject cannot be more than 200 characters
@@ -443,7 +440,6 @@ function TaskForm({
         {/* Description */}
         <div className="space-y-2">
           <Label htmlFor="task-description">Description</Label>
-
           <Textarea
             id="task-description"
             onChange={event =>
@@ -456,7 +452,6 @@ function TaskForm({
             disabled={readOnly}
             value={draft.description || ""}
           />
-
           {(draft.description?.length || 0) >= 1000 && (
             <p className="text-sm text-medium-priority">
               Description cannot be more than 1000 characters
@@ -467,16 +462,48 @@ function TaskForm({
         {/* Priority */}
         <div className="space-y-1">
           <Label>Priority</Label>
-
           <p className="text-sm text-muted-foreground">
             Priority is automatically calculated from the due date.
           </p>
         </div>
 
+        {/* Focus timer - new feature */}
+        {!recurrence && !draft.seriesId && (
+          <div className="space-y-2 rounded-md border p-4">
+            <Label htmlFor="task-focus-timer">Focus timer</Label>
+
+            <p className="text-sm text-muted-foreground">
+              Choose how long you want to focus on this task.
+            </p>
+
+            <Select
+              disabled={readOnly}
+              value={draft.timerMinutes == null ? "none" : String(draft.timerMinutes)}
+              onValueChange={value =>
+                setDraft(prev => ({
+                  ...prev,
+                  timerMinutes: value === "none" ? null : Number(value),
+                }))
+              }
+            >
+              <SelectTrigger id="task-focus-timer" aria-label="Focus timer" className="w-full">
+                <SelectValue placeholder="Select timer" />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="none">No timer</SelectItem>
+                <SelectItem value="15">15 minutes</SelectItem>
+                <SelectItem value="25">25 minutes</SelectItem>
+                <SelectItem value="30">30 minutes</SelectItem>
+                <SelectItem value="60">60 minutes</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {/* Status */}
         <div className="space-y-2">
           <Label htmlFor="task-status">Status</Label>
-
           <Select
             disabled={readOnly}
             onValueChange={status =>
@@ -499,6 +526,7 @@ function TaskForm({
           </Select>
         </div>
 
+        {/* Dates, times and reminders */}
         <div className="grid gap-4 sm:grid-cols-2">
           {/* Due date */}
           <div className="space-y-2">
@@ -522,7 +550,6 @@ function TaskForm({
                 }
               >
                 <CalendarDays />
-
                 {draft.dueDate ? format(draft.dueDate, "PPP") : "Choose a date"}
               </PopoverTrigger>
 
@@ -553,7 +580,7 @@ function TaskForm({
             )}
           </div>
 
-          {/* Time */}
+          {/* Task time */}
           <div className="space-y-2">
             <Label htmlFor="task-time">
               Time {requireDateAndTime && <span className="text-destructive">*</span>}
@@ -574,7 +601,7 @@ function TaskForm({
             />
           </div>
 
-          {/* Reminder date & time */}
+          {/* Reminder date and reminder time */}
           {!recurrence && (
             <>
               <div className="space-y-2">
@@ -791,7 +818,7 @@ function TaskForm({
 
           {showChecklist && (
             <>
-              {/* Progress bar */}
+              {/* Checklist progress */}
               {checklist.length > 0 && (
                 <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                   <div
@@ -852,6 +879,7 @@ function TaskForm({
                 </div>
               ))}
 
+              {/* Add checklist item */}
               {!readOnly && (
                 <div className="space-y-1">
                   <div className="flex gap-2">
@@ -920,6 +948,7 @@ function TaskForm({
 
             {showLinks && (
               <>
+                {/* Existing links */}
                 {links.map((link, index) => (
                   <div
                     key={`${index}-${link}`}
@@ -952,6 +981,7 @@ function TaskForm({
                   </div>
                 ))}
 
+                {/* Add a new link */}
                 {!readOnly &&
                   (showLinkInput ? (
                     <div className="space-y-1">
@@ -998,12 +1028,13 @@ function TaskForm({
           </div>
         )}
 
-        {/* Files */}
+        {/* Attachments */}
         <TaskFilesCard taskFiles={taskFiles} readOnly={readOnly} />
       </div>
 
       {saveError && <p className="whitespace-pre-line text-sm text-destructive">{saveError}</p>}
 
+      {/* Save and cancel buttons */}
       {!readOnly && (
         <div className="flex justify-end gap-2">
           <Button onClick={onCancel} type="button" variant="outline">

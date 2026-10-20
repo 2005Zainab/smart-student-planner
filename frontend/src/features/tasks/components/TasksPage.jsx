@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { useSearchParams } from "react-router";
 import { Plus } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
@@ -23,9 +24,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
 import { TaskForm } from "./TaskForm";
 import { TaskList } from "./TaskList";
-//import { useTasks } from '../hooks/useTasks';
 import { useTasksContext } from "../context/TasksContext";
 import { httpClient } from "../../../shared/http-client";
 import { buildCreateTaskRequest } from "../utils/build-create-task-request";
@@ -39,11 +40,14 @@ import { needsScopeChoice, toNullableDateString } from "../utils/occurrence-scop
 const isoWeekday = date => (date.getDay() === 0 ? 7 : date.getDay());
 
 function TasksPage() {
-  //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
+
   const { patchTask, saveScopedEdit, setSeriesEnabled, updateFiles } = useTaskUpdates(setTasks);
+
+  // Keep the sidebar search feature from main
   const [searchParams, setSearchParams] = useSearchParams();
   const [handledViewId, setHandledViewId] = useState(null);
+
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -52,16 +56,21 @@ function TasksPage() {
   const [emptyTitleCheck, setEmptyTitleCheck] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [previousStatusLookup, setPreviousStatusLookup] = useState({});
+
   const seriesChangedRef = useRef(false);
   const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
+
+  // Keep the task deletion hook from main
   const { deleteTask, deleteSeries } = useTaskDeletion(setTasks, refetch);
 
+  // Information entered in the task form
   const [draft, setDraft] = useState({
     title: "",
     description: "",
     subject: "",
     label: "",
     priority: "Low",
+    timerMinutes: null,
     status: "To Do",
     dueDate: undefined,
     time: "",
@@ -71,7 +80,7 @@ function TasksPage() {
     links: [],
   });
 
-  //Open the task form
+  // Open the form to create, edit, or view a task
   const openEditor = (task = null, mode = task ? "edit" : "create") => {
     setFormMode(mode);
     setEmptyTitleCheck(null);
@@ -79,12 +88,13 @@ function TasksPage() {
 
     if (mode === "create") {
       const newTask = {
-        id: createTempId(), // Use the createTempId function to generate a temporary ID. Lint errors occurred when using Date.now()
+        id: createTempId(),
         title: "",
         description: "",
         subject: "",
         label: "",
         priority: "Low",
+        timerMinutes: null,
         status: "To Do",
         dueDate: undefined,
         time: "",
@@ -105,6 +115,7 @@ function TasksPage() {
           ? {
               ...task,
               label: task.label ?? "",
+              timerMinutes: task.timerMinutes ?? null,
               dueDate: typeof task.dueDate === "string" ? parseISO(task.dueDate) : task.dueDate,
               time: task.time || "",
               reminderDate:
@@ -129,6 +140,7 @@ function TasksPage() {
               subject: "",
               label: "",
               priority: "Low",
+              timerMinutes: null,
               status: "To Do",
               dueDate: undefined,
               time: "",
@@ -145,7 +157,7 @@ function TasksPage() {
     }
   };
 
-  //Close the task form
+  // Close the task form
   const closeEditor = () => {
     const shouldRefetch = seriesChangedRef.current;
     seriesChangedRef.current = false;
@@ -160,7 +172,7 @@ function TasksPage() {
     setEmptyTitleCheck(null);
     setSaveError(null);
 
-    // Drop ?view= so the URL matches the closed dialog and the same task can be reopened
+    // Remove ?view= when the task dialog closes
     if (searchParams.has("view")) {
       setSearchParams(
         previous => {
@@ -177,19 +189,20 @@ function TasksPage() {
     }
   };
 
-  // Open the view dialog when the URL has ?view=<taskId> (set by the sidebar search).
-  // This adjusts state during render
+  // Open a task from the sidebar search results
   const viewId = searchParams.get("view");
+
   if (viewId !== handledViewId && (!viewId || !isLoading)) {
     setHandledViewId(viewId);
 
     const taskToView = viewId ? tasks.find(task => task.id === viewId) : undefined;
+
     if (taskToView) {
       openEditor(taskToView, "view");
     }
   }
 
-  // Order-insensitive, mirroring the server, so [3, 1] vs a stored [1, 3] isn't a change.
+  // Compare repeat rules even if weekdays have a different order
   const canonicalRule = rule =>
     JSON.stringify(
       Object.keys(rule)
@@ -197,24 +210,32 @@ function TasksPage() {
         .map(key => [key, key === "weekdays" ? [...rule[key]].sort((a, b) => a - b) : rule[key]]),
     );
 
-  // Pattern is only editable while Repeat is ticked, so edits made before unticking are ignored.
+  // Find changes to the recurring task's repeat pattern
   function getPatternChanges(draft, original) {
     const pattern = draft.seriesPattern;
     const stored = original.series;
-    if (draft.repeatEnabled !== true || !pattern || !stored?.rule) return {};
+
+    if (draft.repeatEnabled !== true || !pattern || !stored?.rule) {
+      return {};
+    }
 
     const changes = {};
-    if (canonicalRule(pattern.rule) !== canonicalRule(stored.rule)) changes.rule = pattern.rule;
+
+    if (canonicalRule(pattern.rule) !== canonicalRule(stored.rule)) {
+      changes.rule = pattern.rule;
+    }
 
     const endDate = toNullableDateString(pattern.endDate);
-    if (endDate !== (stored.endDate ?? null)) changes.endDate = endDate;
+
+    if (endDate !== (stored.endDate ?? null)) {
+      changes.endDate = endDate;
+    }
 
     return changes;
   }
 
-  //Save a new task or edit an existing task
+  // Save a new task or edit an existing task
   const saveTask = async (scope = null) => {
-    //Check title is not empty
     if (!draft.title || draft.title.trim() === "") {
       setEmptyTitleCheck("Title Cannot Be Empty");
       return;
@@ -267,7 +288,6 @@ function TasksPage() {
         });
       } catch (err) {
         console.log(err);
-
         setSaveError(err.message || "Failed to add task");
 
         toast.add({
@@ -299,7 +319,15 @@ function TasksPage() {
         if (didSave && scope === "future") seriesChangedRef.current = true;
         if (didSave) savedParts.push("content changes");
 
-        // 2. Repeat pattern (rule / end date), effective today
+        if (didSave && scope === "future") {
+          seriesChangedRef.current = true;
+        }
+
+        if (didSave) {
+          savedParts.push("content changes");
+        }
+
+        // Update the repeat pattern if needed
         if (isOccurrence(original)) {
           const patternChanges = getPatternChanges(draft, original);
 
@@ -312,8 +340,8 @@ function TasksPage() {
             seriesChangedRef.current = true;
             savedParts.push("repeat pattern");
 
-            // Keep local series info current so a retry after a later failure diffs correctly
             const openRule = savedSeries?.segments?.find(segment => segment.until === null)?.rule;
+
             setTasks(current =>
               current.map(task =>
                 task.seriesId === original.seriesId
@@ -337,30 +365,40 @@ function TasksPage() {
           }
         }
 
-        // 3. Pause / resume (unchanged)
+        // Pause or resume recurring tasks
         if (
           isOccurrence(original) &&
           typeof draft.repeatEnabled === "boolean" &&
           draft.repeatEnabled !== original.series?.enabled
         ) {
           seriesChangedRef.current = true;
+
           const saved = await setSeriesEnabled(original.seriesId, draft.repeatEnabled);
+
           const openPause = saved?.pauses?.find(pause => pause.until === null);
+
           const pausedFrom =
             !draft.repeatEnabled && openPause?.from
               ? format(parseISO(openPause.from), "d MMM")
               : null;
+
           toast.add({
             title: draft.repeatEnabled ? "Repeat resumed" : "Repeat paused",
-            ...(pausedFrom ? { description: `From ${pausedFrom}` } : {}),
+            ...(pausedFrom
+              ? {
+                  description: `From ${pausedFrom}`,
+                }
+              : {}),
             type: "success",
           });
         }
       } catch (err) {
         console.log(err);
 
+        // Show what was already saved if another step failed
         const savedNote =
           savedParts.length > 0 ? `Already saved: ${savedParts.join(" and ")}.` : "";
+
         setSaveError([err.message || "Failed to save task", savedNote].filter(Boolean).join("\n"));
 
         return;
@@ -372,9 +410,11 @@ function TasksPage() {
 
   const editingTask = tasks.find(task => task.id === editingTaskId);
 
-  //Save task status when checkbox is clicked
+  // Update task status when the checkbox is clicked
   const toggleTask = async id => {
     const task = tasks.find(existingTask => existingTask.id === id);
+
+    if (!task) return;
 
     const originalStatus = task.status;
 
@@ -387,29 +427,31 @@ function TasksPage() {
         [id]: originalStatus,
       }));
     }
-    // If the task is being marked as completed, clear the reminder date and time
+
     const patchBody =
       newStatus === "Completed"
-        ? { status: newStatus, reminderDate: null, reminderTime: null }
-        : { status: newStatus };
-    // Update the task status in the backend and update the local state
+        ? {
+            status: newStatus,
+            reminderDate: null,
+            reminderTime: null,
+          }
+        : {
+            status: newStatus,
+          };
+
     try {
       await patchTask(task, patchBody);
 
-      //Show undo option when task is completed
       if (newStatus === "Completed") {
         const toastId = toast.add({
           title: "Task Completed",
           description: task.title,
           type: "success",
           timeout: 10000,
-
           actionProps: {
             children: "Undo",
-
             onClick: () => {
               undoCompleted(id, previousStatusLookup[id] ?? originalStatus);
-
               toast.close(toastId);
             },
           },
@@ -420,7 +462,7 @@ function TasksPage() {
     }
   };
 
-  //Change completed task back to previous status
+  // Restore the previous task status
   const undoCompleted = async (id, originalStatus) => {
     const task = tasks.find(existingTask => existingTask.id === id);
 
@@ -429,13 +471,15 @@ function TasksPage() {
     }
 
     try {
-      await patchTask(task, { status: originalStatus });
+      await patchTask(task, {
+        status: originalStatus,
+      });
     } catch (err) {
       console.log(err);
     }
   };
 
-  //Toggles a checklists item completeion state and also saves the checklist
+  // Mark a checklist item complete or incomplete
   const toggleChecklistItem = async (taskId, itemId) => {
     const task = tasks.find(existingTask => existingTask.id === taskId);
 
@@ -444,11 +488,18 @@ function TasksPage() {
     }
 
     const updateChecklist = task.checklist.map(item =>
-      item.id === itemId ? { ...item, completed: !item.completed } : item,
+      item.id === itemId
+        ? {
+            ...item,
+            completed: !item.completed,
+          }
+        : item,
     );
 
     try {
-      const saved = await patchTask(task, { checklist: updateChecklist });
+      const saved = await patchTask(task, {
+        checklist: updateChecklist,
+      });
 
       setDraft(prev => ({
         ...prev,
@@ -459,22 +510,32 @@ function TasksPage() {
     }
   };
 
-  //Deletes tasks from Firestore using Express API route then updates local UI
+  // Find the task that the user wants to delete
   const deletingTask = tasks.find(task => task.id === deleteId);
+
   const deletingOccurrence = isOccurrence(deletingTask);
 
+  // Delete one task or an entire recurring series
   const confirmDelete = async scope => {
     const task = deletingTask;
-    setDeleteId(null); // close before the task disappears from `tasks`
+
+    setDeleteId(null);
 
     try {
       if (task) {
-        if (scope === "series") await deleteSeries(task);
-        else await deleteTask(task);
+        if (scope === "series") {
+          await deleteSeries(task);
+        } else {
+          await deleteTask(task);
+        }
       }
     } catch (err) {
       console.log(err);
-      toast.add({ title: "Failed to delete task", type: "error" });
+
+      toast.add({
+        title: "Failed to delete task",
+        type: "error",
+      });
     } finally {
       setDeleteId(null);
     }
@@ -485,7 +546,6 @@ function TasksPage() {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Tasks</h2>
-
           <p className="mt-1 text-muted-foreground">Keep your coursework moving forward.</p>
         </div>
 
@@ -509,6 +569,7 @@ function TasksPage() {
         </CardContent>
       </Card>
 
+      {/* Task form for desktop */}
       <Dialog open={editorOpen} onOpenChange={open => (open ? setEditorOpen(true) : closeEditor())}>
         <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-2xl">
           <DialogTitle>
@@ -540,6 +601,7 @@ function TasksPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Task form for mobile */}
       <Sheet
         open={mobileEditorOpen}
         onOpenChange={open => (open ? setMobileEditorOpen(true) : closeEditor())}
@@ -578,6 +640,7 @@ function TasksPage() {
         </SheetContent>
       </Sheet>
 
+      {/* Choose which recurring tasks to update */}
       <ScopeDialog
         open={scopeDialogOpen}
         onOpenChange={open => setScopeDialogOpen(open)}
@@ -595,6 +658,7 @@ function TasksPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete task?</AlertDialogTitle>
+
             <AlertDialogDescription>
               This task will be removed from your study plan.
             </AlertDialogDescription>
@@ -602,6 +666,7 @@ function TasksPage() {
 
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
+
             <AlertDialogAction onClick={() => confirmDelete("occurrence")}>
               Delete
             </AlertDialogAction>
