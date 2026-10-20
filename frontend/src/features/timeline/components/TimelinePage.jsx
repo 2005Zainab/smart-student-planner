@@ -183,11 +183,7 @@ function TimelinePage() {
                           Active recurring tasks should not
                           look disabled or completed */}
                       {recurring ? (
-                        <div
-                          className={`w-full rounded-md border bg-card p-4 ${
-                            completed ? "opacity-70" : ""
-                          }`}
-                        >
+                        <div className="w-full rounded-md border border-border bg-card p-4 text-card-foreground">
                           <div className="space-y-2">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className={`font-medium ${completed ? "line-through" : ""}`}>
@@ -195,12 +191,12 @@ function TimelinePage() {
                               </p>
 
                               {completed && (
-                                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                                <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                                   ✓ Completed
                                 </span>
                               )}
 
-                              <span className="rounded-full border px-2 py-0.5 text-xs text-foreground">
+                              <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs text-card-foreground">
                                 Recurring
                               </span>
                             </div>
@@ -222,9 +218,9 @@ function TimelinePage() {
                         <Button
                           type="button"
                           variant="outline"
-                          className={`h-auto w-full justify-start whitespace-normal p-4 ${
-                            completed ? "opacity-70" : ""
-                          } ${isEditing ? "border-primary" : ""}`}
+                          className={`h-auto w-full justify-start whitespace-normal border-border bg-card p-4 text-card-foreground hover:bg-card hover:text-card-foreground ${
+                            isEditing ? "border-primary ring-1 ring-primary" : ""
+                          }`}
                           onClick={() => handleTaskClick(task)}
                           disabled={isSaving}
                           aria-expanded={isEditing}
@@ -237,12 +233,12 @@ function TimelinePage() {
                               </p>
 
                               {completed && (
-                                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                                <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                                   ✓ Completed
                                 </span>
                               )}
 
-                              <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+                              <span className="rounded-full border border-border bg-card px-2 py-0.5 text-xs text-card-foreground">
                                 One-off
                               </span>
                             </div>
@@ -266,7 +262,7 @@ function TimelinePage() {
                           Editor appears directly underneath
                           the selected task, not at the bottom */}
                       {isEditing && (
-                        <div className="rounded-md border bg-card p-4">
+                        <div className="rounded-md border border-border bg-card p-4 text-card-foreground">
                           <h3 className="font-semibold">Move assessment</h3>
 
                           <p className="mt-2 text-sm">{task.title}</p>
@@ -284,7 +280,7 @@ function TimelinePage() {
                             value={newDate}
                             onChange={event => setNewDate(event.target.value)}
                             disabled={isSaving}
-                            className="mt-2 rounded-md border bg-background p-2 text-foreground"
+                            className="mt-2 rounded-md border border-border bg-background p-2 text-foreground"
                           />
 
                           {saveError && (
