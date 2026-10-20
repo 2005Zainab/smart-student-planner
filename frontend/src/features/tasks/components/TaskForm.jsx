@@ -783,12 +783,12 @@ function TaskForm({
             )}
           </div>
         )}
+
+        {/* Files */}
+        <TaskFilesCard taskFiles={taskFiles} readOnly={readOnly} />
       </div>
 
-      {/* Files */}
-      <TaskFilesCard taskFiles={taskFiles} readOnly={readOnly} />
-
-      {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+      {saveError && <p className="whitespace-pre-line text-sm text-destructive">{saveError}</p>}
 
       {!readOnly && (
         <div className="flex justify-end gap-2">

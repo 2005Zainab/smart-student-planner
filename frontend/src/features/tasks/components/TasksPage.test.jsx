@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useState } from "react";
+import { MemoryRouter, useLocation } from "react-router";
 import { TasksPage } from "./TasksPage";
 import { httpClient } from "../../../shared/http-client";
 
@@ -58,6 +59,25 @@ vi.mock("./TaskList", () => ({
   ),
 }));
 
+function LocationProbe() {
+  const location = useLocation();
+  return (
+    <p data-testid="location">
+      {location.pathname}
+      {location.search}
+    </p>
+  );
+}
+
+function renderPage(route = "/tasks") {
+  return render(
+    <MemoryRouter initialEntries={[route]}>
+      <TasksPage />
+      <LocationProbe />
+    </MemoryRouter>,
+  );
+}
+
 describe("TasksPage", () => {
   beforeEach(() => {
     mockTasks = [{ id: "task-1", title: "Finish essay", status: "To Do" }];
@@ -65,18 +85,18 @@ describe("TasksPage", () => {
   });
 
   it("renders existing tasks", () => {
-    render(<TasksPage />);
+    renderPage();
     expect(screen.getByText("Finish essay")).toBeInTheDocument();
   });
 
   it("opens the editor when Add task is clicked", async () => {
-    render(<TasksPage />);
+    renderPage();
     await userEvent.click(screen.getByRole("button", { name: /add task/i }));
     expect(screen.getByTestId("task-form")).toBeInTheDocument();
   });
 
   it("shows a title error and does not call the API when saving a blank title", async () => {
-    render(<TasksPage />);
+    renderPage();
     await userEvent.click(screen.getByRole("button", { name: /add task/i }));
     await userEvent.clear(screen.getByLabelText("title"));
     await userEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -88,7 +108,7 @@ describe("TasksPage", () => {
   it("creates a task via the API and displays it on success", async () => {
     httpClient.mockResolvedValue({ id: "task-2", title: "Read chapter 4", status: "To Do" });
 
-    render(<TasksPage />);
+    renderPage();
     await userEvent.click(screen.getByRole("button", { name: /add task/i }));
     await userEvent.type(screen.getByLabelText("title"), "Read chapter 4");
     await userEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -105,7 +125,7 @@ describe("TasksPage", () => {
   it("shows a save error and keeps the editor open when the API call fails", async () => {
     httpClient.mockRejectedValue(new Error("Failed to fetch"));
 
-    render(<TasksPage />);
+    renderPage();
     await userEvent.click(screen.getByRole("button", { name: /add task/i }));
     await userEvent.type(screen.getByLabelText("title"), "Read chapter 4");
     await userEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -116,7 +136,7 @@ describe("TasksPage", () => {
   it("deletes a task after confirming", async () => {
     httpClient.mockResolvedValue({});
 
-    render(<TasksPage />);
+    renderPage();
     await userEvent.click(screen.getByRole("button", { name: "delete" }));
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
 
@@ -132,7 +152,7 @@ describe("TasksPage", () => {
   it("marks a task completed when toggled", async () => {
     httpClient.mockResolvedValue({});
 
-    render(<TasksPage />);
+    renderPage();
     await userEvent.click(screen.getByRole("button", { name: "toggle" }));
 
     await waitFor(() => expect(httpClient).toHaveBeenCalled());
@@ -150,7 +170,7 @@ describe("TasksPage", () => {
   it("edits a one-off task through /api/tasks/:id", async () => {
     httpClient.mockResolvedValue({ id: "task-1", title: "Finish essay now", status: "To Do" });
 
-    render(<TasksPage />);
+    renderPage();
     await userEvent.click(screen.getByRole("button", { name: "edit" }));
     await userEvent.type(screen.getByLabelText("title"), " now");
     await userEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -161,6 +181,31 @@ describe("TasksPage", () => {
     expect(url).toBe("http://localhost:3000/api/tasks/task-1");
     expect(options.method).toBe("PATCH");
     expect(JSON.parse(options.body)).toMatchObject({ title: "Finish essay now" });
+  });
+
+  it("opens the task's view dialog when the URL has ?view=<id>", async () => {
+    renderPage("/tasks?view=task-1");
+
+    expect(await screen.findByTestId("task-form")).toBeInTheDocument();
+    expect(screen.getByLabelText("title")).toHaveValue("Finish essay");
+  });
+
+  it("opens nothing when ?view= does not match a task", () => {
+    renderPage("/tasks?view=does-not-exist");
+
+    expect(screen.queryByTestId("task-form")).not.toBeInTheDocument();
+  });
+
+  it("removes ?view= from the URL when the dialog is closed", async () => {
+    renderPage("/tasks?view=task-1");
+
+    expect(await screen.findByTestId("task-form")).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent("view=task-1");
+
+    await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    await waitFor(() => expect(screen.queryByTestId("task-form")).not.toBeInTheDocument());
+    expect(screen.getByTestId("location")).not.toHaveTextContent("view=");
   });
 
   describe("recurring occurrences", () => {
@@ -192,7 +237,7 @@ describe("TasksPage", () => {
     it("toggles status through the occurrence endpoint", async () => {
       httpClient.mockResolvedValue({});
 
-      render(<TasksPage />);
+      renderPage();
       await userEvent.click(screen.getByRole("button", { name: "toggle" }));
 
       await waitFor(() => expect(httpClient).toHaveBeenCalled());
@@ -210,7 +255,7 @@ describe("TasksPage", () => {
     it("sends only the changed field when editing", async () => {
       httpClient.mockResolvedValue({ title: "Study hard" });
 
-      render(<TasksPage />);
+      renderPage();
       await userEvent.click(screen.getByRole("button", { name: "edit" }));
       await userEvent.type(screen.getByLabelText("title"), " hard");
       await userEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -224,7 +269,7 @@ describe("TasksPage", () => {
     });
 
     it("sends no request when an untouched occurrence is saved", async () => {
-      render(<TasksPage />);
+      renderPage();
       await userEvent.click(screen.getByRole("button", { name: "edit" }));
       await userEvent.click(screen.getByRole("button", { name: /save/i }));
 
@@ -239,7 +284,7 @@ describe("TasksPage", () => {
         pauses: [{ from: "2026-10-08", until: null }],
       });
 
-      render(<TasksPage />);
+      renderPage();
       await userEvent.click(screen.getByRole("button", { name: "edit" }));
       await userEvent.type(screen.getByLabelText("title"), " hard");
       await userEvent.click(screen.getByRole("button", { name: "toggle repeat" }));
@@ -266,7 +311,7 @@ describe("TasksPage", () => {
         virtual: false,
       });
 
-      render(<TasksPage />);
+      renderPage();
       await userEvent.click(screen.getByRole("button", { name: "edit" }));
       await userEvent.type(screen.getByLabelText("title"), " hard");
       await userEvent.click(screen.getByRole("button", { name: /save/i }));

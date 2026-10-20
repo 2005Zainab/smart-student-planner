@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
+import { useSearchParams } from "react-router";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,15 +30,20 @@ import { useTasksContext } from "../context/TasksContext";
 import { httpClient } from "../../../shared/http-client";
 import { buildCreateTaskRequest } from "../utils/build-create-task-request";
 import { useTaskUpdates } from "../hooks/useTaskUpdates";
+import { useTaskDeletion } from "../hooks/useTaskDeletion";
 import { createTempId } from "../utils/temp-id";
-import { getSeriesUrl, isOccurrence } from "../utils/task-endpoints"; // getOccurrenceChanges no longer used
+import { getSeriesUrl, isOccurrence } from "../utils/task-endpoints";
 import { ScopeDialog } from "./ScopeDialog";
 import { needsScopeChoice, toNullableDateString } from "../utils/occurrence-scope";
+
+const isoWeekday = date => (date.getDay() === 0 ? 7 : date.getDay());
 
 function TasksPage() {
   //const { tasks, setTasks, isLoading, error } = useTasks();
   const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
   const { patchTask, saveScopedEdit, setSeriesEnabled, updateFiles } = useTaskUpdates(setTasks);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [handledViewId, setHandledViewId] = useState(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
@@ -48,6 +54,7 @@ function TasksPage() {
   const [previousStatusLookup, setPreviousStatusLookup] = useState({});
   const seriesChangedRef = useRef(false);
   const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
+  const { deleteTask, deleteSeries } = useTaskDeletion(setTasks, refetch);
 
   const [draft, setDraft] = useState({
     title: "",
@@ -149,12 +156,34 @@ function TasksPage() {
     setEmptyTitleCheck(null);
     setSaveError(null);
 
+    // Drop ?view= so the URL matches the closed dialog and the same task can be reopened
+    if (searchParams.has("view")) {
+      setSearchParams(
+        previous => {
+          const next = new URLSearchParams(previous);
+          next.delete("view");
+          return next;
+        },
+        { replace: true },
+      );
+    }
+
     if (shouldRefetch) {
       refetch();
     }
   };
 
-  const isoWeekday = date => (date.getDay() === 0 ? 7 : date.getDay());
+  // Open the view dialog when the URL has ?view=<taskId> (set by the sidebar search).
+  // This adjusts state during render
+  const viewId = searchParams.get("view");
+  if (viewId !== handledViewId && (!viewId || !isLoading)) {
+    setHandledViewId(viewId);
+
+    const taskToView = viewId ? tasks.find(task => task.id === viewId) : undefined;
+    if (taskToView) {
+      openEditor(taskToView, "view");
+    }
+  }
 
   // Order-insensitive, mirroring the server, so [3, 1] vs a stored [1, 3] isn't a change.
   const canonicalRule = rule =>
@@ -319,8 +348,8 @@ function TasksPage() {
         console.log(err);
 
         const savedNote =
-          savedParts.length > 0 ? ` Already saved: ${savedParts.join(" and ")}.` : "";
-        setSaveError(`${err.message || "Failed to save task"}${savedNote}`);
+          savedParts.length > 0 ? `Already saved: ${savedParts.join(" and ")}.` : "";
+        setSaveError([err.message || "Failed to save task", savedNote].filter(Boolean).join("\n"));
 
         return;
       }
@@ -419,20 +448,21 @@ function TasksPage() {
   };
 
   //Deletes tasks from Firestore using Express API route then updates local UI
-  const deleteTask = async id => {
+  const deletingTask = tasks.find(task => task.id === deleteId);
+  const deletingOccurrence = isOccurrence(deletingTask);
+
+  const confirmDelete = async scope => {
+    const task = deletingTask;
+    setDeleteId(null); // close before the task disappears from `tasks`
+
     try {
-      await httpClient(`http://localhost:3000/api/tasks/${id}`, {
-        method: "DELETE",
-      });
-
-      setTasks(current => current.filter(task => task.id !== id));
-
-      toast.add({
-        title: "Task Deleted",
-        type: "success",
-      });
+      if (task) {
+        if (scope === "series") await deleteSeries(task);
+        else await deleteTask(task);
+      }
     } catch (err) {
       console.log(err);
+      toast.add({ title: "Failed to delete task", type: "error" });
     } finally {
       setDeleteId(null);
     }
@@ -545,11 +575,14 @@ function TasksPage() {
         }}
       />
 
-      <AlertDialog open={deleteId !== null} onOpenChange={open => !open && setDeleteId(null)}>
+      {/* Delete dialog for one-off tasks */}
+      <AlertDialog
+        open={deleteId !== null && !deletingOccurrence}
+        onOpenChange={open => !open && setDeleteId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete task?</AlertDialogTitle>
-
             <AlertDialogDescription>
               This task will be removed from your study plan.
             </AlertDialogDescription>
@@ -557,17 +590,25 @@ function TasksPage() {
 
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-
-            <AlertDialogAction
-              onClick={() => {
-                deleteTask(deleteId);
-              }}
-            >
+            <AlertDialogAction onClick={() => confirmDelete("occurrence")}>
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete dialog for recurring tasks */}
+      <ScopeDialog
+        open={deleteId !== null && deletingOccurrence}
+        onOpenChange={open => !open && setDeleteId(null)}
+        onChoose={confirmDelete}
+        title="Delete recurring task"
+        description="Delete just this occurrence, or the whole series. Deleting the series also removes its completed occurrences."
+        occurrenceLabel="Delete this occurrence"
+        seriesLabel="Delete all occurrences"
+        seriesScope="series"
+        destructive
+      />
     </main>
   );
 }

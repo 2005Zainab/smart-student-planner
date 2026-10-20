@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 import {
   CalendarDays,
   CheckSquare,
@@ -22,6 +24,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
+import { SidebarSearch } from "./SidebarSearch";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +38,9 @@ import { NavLink, useLocation, useNavigate } from "react-router";
 import { useLogout } from "@/features/auth/hooks/use-logout";
 import { useAuth } from "@/shared/auth-provider";
 import { getAuthErrorMessage } from "@/features/auth/utils/get-auth-error-message";
+import { getProfilePicture } from "@/features/settings/api/profile-picture-api";
 
+// Main navigation links
 const navigation = [
   {
     label: "Dashboard",
@@ -70,7 +76,81 @@ function AppSidebar() {
   const navigate = useNavigate();
   const { toggleSidebar } = useSidebar();
 
+  // Store the picture together with the user's ID
+  const [pictureData, setPictureData] = useState({
+    userId: null,
+    picture: null,
+  });
+
+  const userId = user?.uid;
   const userName = user?.displayName ?? user?.email ?? "Student";
+
+  // Only show the picture for the current user
+  const profilePicture = pictureData.userId === userId ? pictureData.picture : null;
+
+  // Load the saved profile picture when the user signs in
+  useEffect(() => {
+    if (!userId) return;
+
+    let cancelled = false;
+
+    async function loadProfilePicture() {
+      try {
+        const result = await getProfilePicture();
+
+        if (!cancelled) {
+          setPictureData({
+            userId,
+            picture: result.profilePicture || null,
+          });
+        }
+      } catch (err) {
+        console.error("Could not load profile picture:", err);
+
+        if (!cancelled) {
+          setPictureData({
+            userId,
+            picture: null,
+          });
+        }
+      }
+    }
+
+    loadProfilePicture();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  // Reload the picture after the user saves or removes it
+  useEffect(() => {
+    if (!userId) return;
+
+    let cancelled = false;
+
+    async function updateProfilePicture() {
+      try {
+        const result = await getProfilePicture();
+
+        if (!cancelled) {
+          setPictureData({
+            userId,
+            picture: result.profilePicture || null,
+          });
+        }
+      } catch (err) {
+        console.error("Could not refresh profile picture:", err);
+      }
+    }
+
+    window.addEventListener("profile-picture-updated", updateProfilePicture);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("profile-picture-updated", updateProfilePicture);
+    };
+  }, [userId]);
 
   // Log the user out
   async function handleLogout() {
@@ -98,7 +178,7 @@ function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          {/* Button to expand or minimize the sidebar */}
+          {/* Minimize or expand the sidebar */}
           <div className="hidden md:block">
             <SidebarMenu>
               <SidebarMenuItem>
@@ -114,7 +194,7 @@ function AppSidebar() {
             </SidebarMenu>
           </div>
 
-          {/* Main navigation */}
+          {/* Main navigation links */}
           <SidebarMenu>
             {navigation.map(({ label, href, icon: Icon }) => (
               <SidebarMenuItem key={href}>
@@ -129,6 +209,9 @@ function AppSidebar() {
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
+
+          {/* Sidebar search feature from main */}
+          <SidebarSearch />
         </SidebarGroup>
       </SidebarContent>
 
@@ -137,12 +220,25 @@ function AppSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger render={<SidebarMenuButton tooltip="Profile" />}>
-                <User />
+                {/* Show the saved picture or default user icon */}
+                {profilePicture ? (
+                  <img
+                    src={profilePicture}
+                    alt="Your profile picture"
+                    className="size-6 shrink-0 rounded-full object-cover"
+                  />
+                ) : (
+                  <User />
+                )}
+
                 <span>{userName}</span>
               </DropdownMenuTrigger>
 
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>Profile</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/settings")}>
+                  <User />
+                  Profile
+                </DropdownMenuItem>
 
                 <DropdownMenuItem onClick={() => navigate("/settings")}>
                   <Settings />
