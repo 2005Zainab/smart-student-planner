@@ -17,7 +17,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // Initialize App Check
-self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+self.FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN; // Set the debug token for development
 initializeAppCheck(app, {
   // if we were to deploy this to an actual live website, we would need to replace this with a real site key
   // For development purposes, we can use a placeholder key, but it will not work in production.
