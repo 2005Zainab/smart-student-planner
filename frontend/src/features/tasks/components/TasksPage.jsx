@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
+import { useSearchParams } from "react-router";
 import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -36,10 +37,16 @@ import { getSeriesUrl, isOccurrence } from "../utils/task-endpoints";
 import { ScopeDialog } from "./ScopeDialog";
 import { needsScopeChoice, toNullableDateString } from "../utils/occurrence-scope";
 
+const isoWeekday = date => (date.getDay() === 0 ? 7 : date.getDay());
+
 function TasksPage() {
   const { tasks, setTasks, isLoading, error, refetch } = useTasksContext();
 
   const { patchTask, saveScopedEdit, setSeriesEnabled, updateFiles } = useTaskUpdates(setTasks);
+
+  // Keep the sidebar search feature from main
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [handledViewId, setHandledViewId] = useState(null);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [mobileEditorOpen, setMobileEditorOpen] = useState(false);
@@ -53,7 +60,7 @@ function TasksPage() {
   const seriesChangedRef = useRef(false);
   const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
 
-  // Keep the new task deletion hook from main
+  // Keep the task deletion hook from main
   const { deleteTask, deleteSeries } = useTaskDeletion(setTasks, refetch);
 
   // Information entered in the task form
@@ -161,14 +168,37 @@ function TasksPage() {
     setEmptyTitleCheck(null);
     setSaveError(null);
 
+    // Remove ?view= when the task dialog closes
+    if (searchParams.has("view")) {
+      setSearchParams(
+        previous => {
+          const next = new URLSearchParams(previous);
+          next.delete("view");
+          return next;
+        },
+        { replace: true },
+      );
+    }
+
     if (shouldRefetch) {
       refetch();
     }
   };
 
-  const isoWeekday = date => (date.getDay() === 0 ? 7 : date.getDay());
+  // Open a task from the sidebar search results
+  const viewId = searchParams.get("view");
 
-  // Compare repeat rules even if weekdays are in a different order
+  if (viewId !== handledViewId && (!viewId || !isLoading)) {
+    setHandledViewId(viewId);
+
+    const taskToView = viewId ? tasks.find(task => task.id === viewId) : undefined;
+
+    if (taskToView) {
+      openEditor(taskToView, "view");
+    }
+  }
+
+  // Compare repeat rules even if weekdays have a different order
   const canonicalRule = rule =>
     JSON.stringify(
       Object.keys(rule)
@@ -471,11 +501,10 @@ function TasksPage() {
 
   const deletingOccurrence = isOccurrence(deletingTask);
 
-  // Delete one task or the entire recurring series
+  // Delete one task or an entire recurring series
   const confirmDelete = async scope => {
     const task = deletingTask;
 
-    // Close the dialog before the task disappears
     setDeleteId(null);
 
     try {
@@ -503,7 +532,6 @@ function TasksPage() {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Tasks</h2>
-
           <p className="mt-1 text-muted-foreground">Keep your coursework moving forward.</p>
         </div>
 

@@ -830,10 +830,10 @@ function TaskForm({
             )}
           </div>
         )}
-      </div>
 
-      {/* Attachments */}
-      <TaskFilesCard taskFiles={taskFiles} readOnly={readOnly} />
+        {/* Attachments */}
+        <TaskFilesCard taskFiles={taskFiles} readOnly={readOnly} />
+      </div>
 
       {saveError && <p className="whitespace-pre-line text-sm text-destructive">{saveError}</p>}
 
