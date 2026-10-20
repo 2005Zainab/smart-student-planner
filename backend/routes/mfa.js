@@ -1,0 +1,173 @@
+import express from "express";
+import { generateSecret, verify, generateURI } from "otplib";
+import QRCode from "qrcode";
+import { db } from "../shared/firebase.js";
+import { requireAuth } from "../middleware/auth.js";
+import { getAuth } from "firebase-admin/auth";
+import jwt from "jsonwebtoken";
+
+const router = express.Router();
+
+const getJwtSecret = () => process.env.JWT_SECRET || "default-dev-mfa-secret-key";
+
+// generates the secret key used for 2fa and makes a qr code url for it.
+router.post("/generate", requireAuth, async (req, res) => {
+  const email = req.user.email;
+  const appName = "Smart Student Planner";
+  const secret = generateSecret();
+  const otpauthurl = generateURI({
+    issuer: appName,
+    label: email,
+    secret: secret,
+  });
+
+  try {
+    const qrCodeUrl = await QRCode.toDataURL(otpauthurl);
+
+    await db
+      .collection("users")
+      .doc(req.user.uid)
+      .collection("settings")
+      .doc("MFA")
+      .set({ tempTwoFactorSecret: secret }, { merge: true });
+
+    res.status(200).json({ qrCodeUrl, secret });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to generate QR code", err });
+  }
+});
+
+// verify the pin received and enable 2fa
+router.post("/verify-setup", requireAuth, async (req, res) => {
+  try {
+    const { token } = req.body;
+    const uid = req.user.uid;
+
+    const userDoc = await db.collection("users").doc(uid).collection("settings").doc("MFA").get();
+    const { tempTwoFactorSecret } = userDoc.data() || {};
+
+    if (!tempTwoFactorSecret) {
+      return res.status(400).json({ message: "2FA generation must be called first" });
+    }
+
+    const result = await verify({ token, secret: tempTwoFactorSecret });
+
+    if (result.valid) {
+      await db.collection("users").doc(req.user.uid).collection("settings").doc("MFA").set(
+        {
+          twoFactorSecret: tempTwoFactorSecret,
+          twoFactorEnabled: true,
+          tempTwoFactorSecret: null,
+        },
+        { merge: true },
+      );
+
+      const userRecord = await getAuth().getUser(uid);
+      const currentClaims = userRecord.customClaims || {};
+
+      await getAuth().setCustomUserClaims(req.user.uid, {
+        ...currentClaims,
+        twoFactorEnabled: true,
+      });
+
+      const mfaCookie = jwt.sign({ uid, mfaVerified: true }, process.env.JWT_SECRET, {
+        expiresIn: "12h",
+      });
+
+      res.cookie("mfa_verified", mfaCookie, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 12 * 60 * 60 * 1000, // 12 hours
+      });
+
+      res.status(200).json({ message: "2FA enabled successfully" });
+    } else {
+      res.status(401).json({ message: "Invalid PIN code" });
+    }
+  } catch (err) {
+    console.error("Error during 2FA verification setup:", err);
+    res.status(500).json({ message: "An internal server error occurred while verifying 2FA." });
+  }
+});
+
+// verifies the pin from the user and responds with the mfa cookie if it is correct
+router.post("/login-verify", requireAuth, async (req, res) => {
+  try {
+    const { token } = req.body;
+    const uid = req.user.uid;
+
+    if (!token) {
+      return res.status(400).json({ message: "2FA token is required" });
+    }
+
+    const userDoc = await db.collection("users").doc(uid).collection("settings").doc("MFA").get();
+    if (!userDoc.exists || !userDoc.data().twoFactorEnabled) {
+      return res.status(400).json({ message: "2FA is not enabled for this account" });
+    }
+
+    const { twoFactorSecret } = userDoc.data() || {};
+
+    if (!twoFactorSecret) {
+      return res.status(400).json({ message: "Secret not found" });
+    }
+
+    const result = await verify({ token, secret: twoFactorSecret, epochTolerance: 30 });
+
+    if (!result.valid) {
+      return res.status(401).json({ message: "Invalid 2FA code" });
+    }
+
+    const secret = getJwtSecret();
+    const mfaCookie = jwt.sign({ uid, mfaVerified: true }, secret, { expiresIn: "12h" });
+
+    res.cookie("mfa_verified", mfaCookie, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 12 * 60 * 60 * 1000, // 12 hours
+    });
+
+    return res.json({ message: "2FA login successful" });
+  } catch (err) {
+    console.error("Login verification error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// removes the 2fa/mfa from the user's account
+router.post("/disable", requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+
+    await db.collection("users").doc(uid).collection("settings").doc("MFA").set(
+      {
+        twoFactorSecret: null,
+        twoFactorEnabled: false,
+        tempTwoFactorSecret: null,
+      },
+      { merge: true },
+    );
+
+    const userRecord = await getAuth().getUser(uid);
+    const currentClaims = userRecord.customClaims || {};
+
+    await getAuth().setCustomUserClaims(uid, {
+      ...currentClaims,
+      twoFactorEnabled: false,
+    });
+
+    res.clearCookie("mfa_verified", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+
+    return res.status(200).json({ message: "2FA disabled successfully" });
+  } catch (err) {
+    console.error("Disabled 2FA error:", err);
+    return res.status(500).json({ message: "Failed to disable 2FA" });
+  }
+});
+
+export default router;

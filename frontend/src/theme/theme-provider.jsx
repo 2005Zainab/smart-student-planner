@@ -23,15 +23,13 @@ function ThemeProvider({ children }) {
 
   const value = {
     theme,
-    setTheme: (nextTheme) => {
+    setTheme: nextTheme => {
       if (themes[nextTheme]) setTheme(nextTheme);
     },
     themes,
   };
 
-  return (
-    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 function useTheme() {

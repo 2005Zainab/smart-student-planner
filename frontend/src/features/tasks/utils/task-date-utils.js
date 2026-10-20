@@ -10,55 +10,48 @@ import {
 } from "date-fns";
 
 /**
- * Returns a Date object representing the task's due date.
- * If the task has no due date, returns null.
- *
- * @param {Object} task - The task object containing a dueDate property.
- * @returns {Date|null} - The Date object representing the task's due date, or null if no due date.
+ * Get the due date of a task.
+ * Return null if the task has no valid due date.
  */
 function getTaskDate(task) {
   if (!task.dueDate) return null;
 
   const date = parseISO(task.dueDate);
+
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
 /**
- * Returns a Date object representing the task's due date and time.
- * If the task has no due date, returns null.
- * If the task has no time, returns the start of the day for the due date.
- *
- * @param {Object} task - The task object containing dueDate and time properties.
- * @returns {Date|null} - The Date object representing the task's due date and time, or null if no due date.
+ * Get the date and time of a task.
+ * If there is no time, use the start of the day.
  */
 function getTaskDateAndTime(task) {
   const taskDate = getTaskDate(task);
+
   if (!taskDate) return null;
 
   if (!task.time) return startOfDay(taskDate);
 
   const [hours, minutes] = task.time.split(":").map(Number);
-  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null;
+
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) {
+    return null;
+  }
 
   taskDate.setHours(hours, minutes, 0, 0);
+
   return taskDate;
 }
 
 /**
- * Checks if a task is incomplete (not completed).
- *
- * @param {Object} task - The task to check.
- * @returns {boolean} - True if the task is incomplete, false otherwise.
+ * Check if a task is not completed.
  */
 function isIncomplete(task) {
   return task.status !== "Completed";
 }
 
 /**
- * Adds a parsed date and time to a task.
- *
- * @param {Object} task - The task to add the parsed date and time to.
- * @returns {Object} - The task with the parsed date and time.
+ * Add the parsed date and time to a task.
  */
 function withTaskDateTime(task) {
   return {
@@ -68,57 +61,75 @@ function withTaskDateTime(task) {
 }
 
 /**
- * Sorts tasks by their parsed date and time in ascending order.
- *
- * @param {Object} firstTask - The first task to compare.
- * @param {Object} secondTask - The second task to compare.
- * @returns {number} - A negative number if the first task is earlier, a positive number if later, or zero if equal.
+ * Compare two tasks by date and time.
+ * Earlier tasks will come first.
  */
 function sortByDateTime(firstTask, secondTask) {
   return firstTask.parsedDateTime - secondTask.parsedDateTime;
 }
 
 /**
- * Returns a list of upcoming tasks within the next 7 days from the reference date.
- *
- * @param {Array} tasks - The list of tasks to filter.
- * @param {Date} referenceDate - The reference date to determine the upcoming tasks (default is today).
- * @returns {Array} - The list of upcoming tasks with days until due.
+ * Get upcoming tasks for the next 7 days.
  */
 function getUpcomingTasks(tasks, referenceDate = new Date()) {
   const startDate = startOfDay(referenceDate);
   const endDate = endOfDay(addDays(startDate, 6));
 
   return tasks
-    .filter((task) => isIncomplete(task) && getTaskDate(task))
+    .filter(task => isIncomplete(task) && getTaskDate(task))
     .map(withTaskDateTime)
     .filter(
-      (task) =>
+      task =>
         task.parsedDateTime &&
         isWithinInterval(task.parsedDateTime, {
           start: startDate,
           end: endDate,
         }),
     )
-    .map((task) => ({
+    .map(task => ({
       ...task,
-      daysUntilDue: differenceInCalendarDays(
-        startOfDay(task.parsedDateTime),
-        startDate,
-      ),
+      daysUntilDue: differenceInCalendarDays(startOfDay(task.parsedDateTime), startDate),
     }))
     .sort(sortByDateTime);
 }
 
 /**
- * Returns a weekly schedule of tasks, grouped by day.
- * @param {Array} tasks - The list of tasks to schedule.
- * @param {Date} referenceDate - The reference date to determine the week (default is today).
- * @returns {Array} - An array of objects representing each day of the week with its tasks.
+ * Get tasks that are overdue.
+ */
+function getOverDueTasks(tasks, referenceDate = new Date()) {
+  const startDate = startOfDay(referenceDate);
+
+  return tasks
+    .filter(
+      task => isIncomplete(task) && differenceInCalendarDays(getTaskDate(task), startDate) < 0,
+    )
+    .map(withTaskDateTime)
+    .filter(
+      task =>
+        task.parsedDateTime &&
+        isWithinInterval(task.parsedDateTime, {
+          start: new Date(0),
+          end: startDate,
+        }),
+    )
+    .map(task => ({
+      ...task,
+      daysUntilDue: differenceInCalendarDays(startOfDay(task.parsedDateTime), startDate),
+    }))
+    .sort(sortByDateTime);
+}
+
+/**
+ * Get tasks for the current week.
+ * Group the tasks by day.
  */
 function getWeeklySchedule(tasks, referenceDate = new Date()) {
-  const weekStart = startOfWeek(referenceDate, { weekStartsOn: 0 });
+  const weekStart = startOfWeek(referenceDate, {
+    weekStartsOn: 0,
+  });
+
   const weekEnd = endOfDay(addDays(weekStart, 6));
+
   const weekDays = Array.from({ length: 7 }, (_, index) => {
     const date = addDays(weekStart, index);
 
@@ -130,10 +141,10 @@ function getWeeklySchedule(tasks, referenceDate = new Date()) {
   });
 
   tasks
-    .filter((task) => isIncomplete(task) && getTaskDate(task))
+    .filter(task => isIncomplete(task) && getTaskDate(task))
     .map(withTaskDateTime)
     .filter(
-      (task) =>
+      task =>
         task.parsedDateTime &&
         isWithinInterval(task.parsedDateTime, {
           start: weekStart,
@@ -141,7 +152,7 @@ function getWeeklySchedule(tasks, referenceDate = new Date()) {
         }),
     )
     .sort(sortByDateTime)
-    .forEach((task) => {
+    .forEach(task => {
       const dayIndex = differenceInCalendarDays(
         startOfDay(task.parsedDateTime),
         startOfDay(weekStart),
@@ -154,18 +165,32 @@ function getWeeklySchedule(tasks, referenceDate = new Date()) {
 }
 
 /**
- * Returns a list of tasks that are incomplete and do not have a due date.
- *
- * @param {Array} tasks - The list of tasks to filter.
- * @returns {Array} - The list of undated tasks.
+ * Get incomplete tasks that have no due date.
  */
 function getUndatedTasks(tasks) {
-  return tasks.filter((task) => isIncomplete(task) && !task.dueDate);
+  return tasks.filter(task => isIncomplete(task) && !task.dueDate);
 }
 
+/**
+ * Get all tasks with valid dates for the Timeline.
+ * Sort them from the earliest date to the latest date.
+ *
+ * Reuse the existing date functions instead of
+ * writing the same sorting code in TimelinePage.
+ */
+function getTimelineTasks(tasks) {
+  return tasks
+    .map(withTaskDateTime)
+    .filter(task => task.parsedDateTime !== null)
+    .sort(sortByDateTime);
+}
+
+// Export functions so other parts of the app can use them.
 export {
   getTaskDateAndTime,
   getUpcomingTasks,
+  getOverDueTasks,
   getUndatedTasks,
   getWeeklySchedule,
+  getTimelineTasks,
 };

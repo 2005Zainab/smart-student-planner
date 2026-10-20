@@ -21,15 +21,15 @@ export function useTasks() {
     }
   }, []);
 
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) {
-                fetchTasks();
-            }
-        });
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, user => {
+      if (user) {
+        fetchTasks();
+      }
+    });
 
-        return () => unsubscribe();
-    }, [fetchTasks]);
+    return () => unsubscribe();
+  }, [fetchTasks]);
 
   return { tasks, setTasks, isLoading, error, refetch: fetchTasks };
 }

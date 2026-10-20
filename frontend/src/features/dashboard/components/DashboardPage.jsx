@@ -5,83 +5,123 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/shared/auth-provider";
-import { useTasks } from "@/features/tasks/hooks/useTasks";
+import { useTasksContext } from "@/features/tasks/context/TasksContext";
 import {
   getUpcomingTasks,
+  getOverDueTasks,
   getUndatedTasks,
   getWeeklySchedule,
 } from "@/features/tasks/utils/task-date-utils";
 
+// Displays a saved task label without overflowing its container.
+function TaskLabel({ label, compact = false }) {
+  if (typeof label !== "string" || !label.trim()) {
+    return null;
+  }
+
+  const name = label.trim();
+
+  return (
+    <Badge variant="secondary" className="inline-flex max-w-full min-w-0" title={name}>
+      <span className={compact ? "block max-w-20 truncate" : "block max-w-40 truncate"}>
+        {name}
+      </span>
+    </Badge>
+  );
+}
+
 function DashboardPage() {
   const { user } = useAuth();
-  const { tasks, isLoading, error } = useTasks();
+  const { tasks, isLoading, error } = useTasksContext();
+
   const userName = user?.displayName ?? user?.email ?? "Student";
+
   const upcomingTasks = getUpcomingTasks(tasks);
+  const overdueTasks = getOverDueTasks(tasks);
+
+  const dashboardTasks = [...overdueTasks, ...upcomingTasks].sort((a, b) => {
+    const dateA = a.parsedDateTime || new Date(0);
+    const dateB = b.parsedDateTime || new Date(0);
+
+    return dateA - dateB;
+  });
+
   const undatedTasks = getUndatedTasks(tasks);
   const weeklySchedule = getWeeklySchedule(tasks);
 
   return (
     <main className="flex-1 space-y-6 p-4 md:p-6">
+      {/* Dashboard greeting */}
       <section>
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Good morning, {userName}
-        </h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Good morning, {userName}</h2>
+
         <div className="mt-1 flex items-baseline justify-between">
-          <p className="text-muted-foreground">
-            Here is what is on your study plan today.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {format(new Date(), "EEEE, MMMM d")}
-          </p>
+          <p className="text-muted-foreground">Here is what is on your study plan today.</p>
+
+          <p className="text-sm text-muted-foreground">{format(new Date(), "EEEE, MMMM d")}</p>
         </div>
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_2fr]">
+        {/* Tasks to Prioritize */}
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle>Tasks to Prioritize</CardTitle>
+
             <Link
               to="/tasks"
-              className={buttonVariants({ variant: "outline", size: "sm" })}
+              className={buttonVariants({
+                variant: "outline",
+                size: "sm",
+              })}
             >
               View all
             </Link>
           </CardHeader>
+
           <CardContent className="space-y-2">
             {isLoading ? (
               <div className="space-y-2">
-                {[1, 2, 3].map((item) => (
+                {[1, 2, 3].map(item => (
                   <Skeleton className="h-16 w-full" key={item} />
                 ))}
               </div>
             ) : error ? (
               <p className="text-sm text-destructive">Unable to load tasks.</p>
-            ) : upcomingTasks.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No upcoming tasks in the next seven days.
-              </p>
+            ) : dashboardTasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No tasks to prioritize.</p>
             ) : (
-              upcomingTasks.map((task) => (
-                <div
-                  className="flex items-start gap-3 rounded-lg border p-3"
-                  key={task.id}
-                >
+              dashboardTasks.map(task => (
+                <div className="flex items-start gap-3 rounded-lg border p-3" key={task.id}>
                   <div className="min-w-0 flex-1">
                     <p className="break-words whitespace-normal text-sm font-medium">
                       {task.title}
                     </p>
+
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {task.subject || "No subject"} ·{" "}
-                      {format(task.parsedDateTime, "MMM d")}
+                      {task.subject || "No subject"} · {format(task.parsedDateTime, "MMM d")}
                     </p>
+
                     <p className="mt-1 text-xs text-muted-foreground">
                       {task.daysUntilDue === 0
                         ? "Due today"
                         : task.daysUntilDue === 1
                           ? "Due tomorrow"
-                          : `Due in ${task.daysUntilDue} days`}
+                          : task.daysUntilDue < 0
+                            ? `Overdue by ${Math.abs(task.daysUntilDue)} day${
+                                Math.abs(task.daysUntilDue) > 1 ? "s" : ""
+                              }`
+                            : `Due in ${task.daysUntilDue} day${task.daysUntilDue > 1 ? "s" : ""}`}
                     </p>
+
+                    {/* Task Labels: prioritize section */}
+                    {task.label && (
+                      <div className="mt-2 flex min-w-0">
+                        <TaskLabel label={task.label} />
+                      </div>
+                    )}
                   </div>
+
                   <Badge
                     variant={
                       task.priority === "High"
@@ -98,24 +138,31 @@ function DashboardPage() {
                 </div>
               ))
             )}
+
+            {/* Tasks without deadlines */}
             {!isLoading && !error && undatedTasks.length > 0 && (
               <div className="border-t pt-3">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  Without deadlines
-                </p>
-                {undatedTasks.map((task) => (
-                  <div
-                    className="flex items-start gap-3 rounded-lg border p-3"
-                    key={task.id}
-                  >
+                <p className="mb-2 text-xs font-medium text-muted-foreground">Without deadlines</p>
+
+                {undatedTasks.map(task => (
+                  <div className="flex items-start gap-3 rounded-lg border p-3" key={task.id}>
                     <div className="min-w-0 flex-1">
                       <p className="break-words whitespace-normal text-sm font-medium">
                         {task.title}
                       </p>
+
                       <p className="mt-1 text-xs text-muted-foreground">
                         {task.subject || "No subject"}
                       </p>
+
+                      {/* Task Labels: undated tasks */}
+                      {task.label && (
+                        <div className="mt-2 flex min-w-0">
+                          <TaskLabel label={task.label} />
+                        </div>
+                      )}
                     </div>
+
                     <Badge
                       variant={
                         task.priority === "High"
@@ -136,42 +183,53 @@ function DashboardPage() {
           </CardContent>
         </Card>
 
+        {/* Weekly Schedule */}
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle>Weekly Schedule</CardTitle>
+
             <Link
               to="/schedule"
-              className={buttonVariants({ variant: "outline", size: "sm" })}
+              className={buttonVariants({
+                variant: "outline",
+                size: "sm",
+              })}
             >
               View all
             </Link>
           </CardHeader>
+
           <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-7">
             {weeklySchedule.map(({ date, label, tasks: dayTasks }) => (
               <div
                 className={`rounded-lg p-3 ${
-                  isToday(date)
-                    ? "bg-primary/10 ring-2 ring-primary"
-                    : "bg-muted/50"
+                  isToday(date) ? "bg-primary/10 ring-2 ring-primary" : "bg-muted/50"
                 }`}
                 key={label}
               >
                 <p className="truncate text-sm font-medium">{label}</p>
+
                 <div className="mt-3 space-y-2">
                   {dayTasks.length > 0 ? (
-                    dayTasks.map((task) => (
-                      <div key={task.id}>
+                    dayTasks.map(task => (
+                      <div key={task.id} className="min-w-0">
                         <p
                           className="truncate text-xs font-medium leading-relaxed"
                           title={task.title}
                         >
                           {task.title}
                         </p>
+
                         <p className="text-xs leading-relaxed text-muted-foreground">
-                          {task.time
-                            ? format(task.parsedDateTime, "h:mm a")
-                            : "No time set"}
+                          {task.time ? format(task.parsedDateTime, "h:mm a") : "No time set"}
                         </p>
+
+                        {/* Task Labels: weekly schedule */}
+                        {task.label && (
+                          <div className="mt-1 min-w-0">
+                            <TaskLabel label={task.label} compact />
+                          </div>
+                        )}
                       </div>
                     ))
                   ) : (

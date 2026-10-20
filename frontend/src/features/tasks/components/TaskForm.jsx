@@ -1,19 +1,12 @@
-import { format } from "date-fns";
+import { format, differenceInCalendarDays, parseISO } from "date-fns";
 import { CalendarDays, X } from "lucide-react";
-import { useEffect, useState } from "react";
-
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-
+import { Checkbox } from "@/components/ui/checkbox";
+import { useEffect, useRef, useState } from "react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -21,10 +14,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
 import { Textarea } from "@/components/ui/textarea";
 import { httpClient } from "../../../shared/http-client";
+import { RecurrenceFields } from "./RecurrenceFields";
+import { TaskFilesCard } from "./TaskFilesCard";
+import { useTaskFiles } from "../hooks/useTaskFiles";
+import { isAfter, startOfDay, startOfToday } from "date-fns";
 
+const MAX_LINKS = 10;
+const MAX_LINK_LENGTH = 500;
+
+// The draft as text, without the files list, so two drafts can be compared
+const snapshotFields = draft =>
+  JSON.stringify(draft, (key, value) => (key === "files" ? undefined : value));
+
+// TaskForm component is used for creating and editing tasks.
+// It includes fields for task name, subject, description, priority,
+// status, due date, time, reminder date and time, recurrence settings, and a checklist.
 function TaskForm({
   draft,
   setDraft,
@@ -35,128 +41,147 @@ function TaskForm({
   readOnly = false,
   requireDateAndTime = false,
   onToggleChecklistItem,
+  allowRecurrence = false,
+  allowSeriesControls = false,
+  seriesEnabled,
+  onFilesChange,
 }) {
-  const [dateError, setDateError] = useState("");
-  const [reminderError, setReminderError] =
-    useState("");
-
-  //Store the labels that belong to the user
+  // Task Labels - load and create reusable user labels
   const [labels, setLabels] = useState([]);
-
-  //Used when the user creates a new label
   const [newLabel, setNewLabel] = useState("");
-  const [labelError, setLabelError] =
-    useState("");
+  const [labelError, setLabelError] = useState("");
+  const [labelSaving, setLabelSaving] = useState(false);
 
-  //Checklist states
-  const [
-    checklistItemInput,
-    setChecklistItemInput,
-  ] = useState("");
-
-  const [
-    checklistError,
-    setChecklistError,
-  ] = useState("");
-
-  const checklist = draft.checklist || [];
-
-  const completedItems = checklist.filter(
-    (item) => item.completed,
-  ).length;
-
-  const progress =
-    checklist.length > 0
-      ? Math.round(
-          (completedItems /
-            checklist.length) *
-            100,
-        )
-      : 0;
-
-  //Load saved labels from the backend
   useEffect(() => {
-    const loadLabels = async () => {
-      try {
-        const savedLabels =
-          await httpClient(
-            "http://localhost:3000/api/labels",
-          );
+    let active = true;
 
-        setLabels(savedLabels);
+    async function loadLabels() {
+      try {
+        const savedLabels = await httpClient("http://localhost:3000/api/labels");
+
+        if (active) {
+          setLabels(Array.isArray(savedLabels) ? savedLabels : []);
+        }
       } catch (err) {
-        console.log(err);
+        console.error("Failed to load labels:", err);
+
+        if (active) {
+          setLabelError("Unable to load saved labels.");
+        }
       }
-    };
+    }
 
     loadLabels();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  //Create a new reusable label
   const createLabel = async () => {
+    const name = newLabel.trim();
     setLabelError("");
 
-    if (!newLabel.trim()) {
-      setLabelError(
-        "Label cannot be empty",
-      );
+    if (!name) {
+      setLabelError("Label cannot be empty");
       return;
     }
 
+    if (name.length > 100) {
+      setLabelError("Label cannot be more than 100 characters");
+      return;
+    }
+
+    if (labels.some(label => label.name?.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      setLabelError("A label with this name already exists.");
+      return;
+    }
+
+    if (labelSaving) return;
+
+    setLabelSaving(true);
+
     try {
-      const savedLabel =
-        await httpClient(
-          "http://localhost:3000/api/labels",
-          {
-            method: "POST",
-            body: JSON.stringify({
-              name: newLabel,
-            }),
-          },
-        );
+      const savedLabel = await httpClient("http://localhost:3000/api/labels", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
 
-      //Add the new label to the dropdown
-      setLabels((current) => [
-        ...current,
-        savedLabel,
-      ]);
+      setLabels(current => [...current, savedLabel]);
 
-      //Select the new label for this task
-      setDraft((prev) => ({
+      setDraft(prev => ({
         ...prev,
         label: savedLabel.name,
       }));
 
       setNewLabel("");
     } catch (err) {
-      console.log(err);
-
-      setLabelError(
-        err.message ||
-          "Failed to create label",
-      );
+      console.error("Failed to create label:", err);
+      setLabelError(err.message || "Failed to create label");
+    } finally {
+      setLabelSaving(false);
     }
   };
 
-  //Add an item to the checklist
+  const [dateError, setDateError] = useState("");
+  const [reminderError, setReminderError] = useState("");
+  const [checklistItemInput, setChecklistItemInput] = useState("");
+  const [checklistError, setChecklistError] = useState("");
+  const [taskSaving, setTaskSaving] = useState(false);
+  const [checklistToggle, setChecklistToggle] = useState(null);
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkInput, setLinkInput] = useState("");
+  const [linkError, setLinkError] = useState("");
+  const [linksToggle, setLinksToggle] = useState(null);
+
+  // Remembers when a file was uploaded or removed.
+  const filesChangedRef = useRef(false);
+
+  // Fields as they were when the form opened.
+  const [fieldsAtOpen] = useState(() => snapshotFields(draft));
+
+  // Files are managed through the team's existing hook.
+  const taskFiles = useTaskFiles(draft, update => {
+    filesChangedRef.current = true;
+
+    setDraft(prev => ({
+      ...prev,
+      files: update(prev.files ?? []),
+    }));
+
+    onFilesChange?.(draft.id, update);
+  });
+
+  const reminderDaysAway = draft.reminderDate
+    ? differenceInCalendarDays(
+        draft.reminderDate instanceof Date ? draft.reminderDate : parseISO(draft.reminderDate),
+        new Date(),
+      )
+    : null;
+
+  const checklist = draft.checklist || [];
+  const completedItems = checklist.filter(item => item.completed).length;
+  const progress = checklist.length > 0 ? Math.round((completedItems / checklist.length) * 100) : 0;
+
+  const showChecklist = checklistToggle ?? (readOnly && checklist.length > 0);
+
+  const links = draft.links || [];
+  const showLinks = linksToggle ?? links.length > 0;
+
   const checklistHandleAddItem = () => {
     if (checklist.length >= 10) {
-      setChecklistError(
-        "10 is maximum number of checklist items",
-      );
+      setChecklistError("10 is maximum number of checklist items");
       return;
     }
 
     if (!checklistItemInput.trim()) {
-      setChecklistError(
-        "Checklist item cannot be empty",
-      );
+      setChecklistError("Checklist item cannot be empty");
       return;
     }
 
     setChecklistError("");
 
-    setDraft((prev) => ({
+    setDraft(prev => ({
       ...prev,
       checklist: [
         ...(prev.checklist || []),
@@ -171,205 +196,222 @@ function TaskForm({
     setChecklistItemInput("");
   };
 
-  const handleSave = (event) => {
+  const handleAddLink = () => {
+    const trimmed = linkInput.trim();
+
+    if (!trimmed) {
+      setLinkError("Link can't be empty");
+      return;
+    }
+
+    if (links.length >= MAX_LINKS) {
+      setLinkError(`Max links allowed per task is ${MAX_LINKS}`);
+      return;
+    }
+
+    const withProtocol = /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+    if (withProtocol.length > MAX_LINK_LENGTH) {
+      setLinkError(`Link cannot be more than ${MAX_LINK_LENGTH} characters`);
+      return;
+    }
+
+    let url;
+
+    try {
+      url = new URL(withProtocol);
+    } catch {
+      setLinkError("Please enter a valid link");
+      return;
+    }
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      setLinkError("Link must begin with http:// or https://");
+      return;
+    }
+
+    setDraft(prev => ({
+      ...prev,
+      links: [...(prev.links || []), withProtocol],
+    }));
+
+    setLinkInput("");
+    setLinkError("");
+    setShowLinkInput(false);
+  };
+
+  const pausing = draft.repeatEnabled === false && seriesEnabled === true;
+
+  const hidesThisOccurrence =
+    pausing && draft.dueDate instanceof Date && isAfter(startOfDay(draft.dueDate), startOfToday());
+
+  const handleSave = async event => {
     event.preventDefault();
+
+    if (taskFiles.isBusy || taskSaving) return;
 
     setDateError("");
 
-    if (
-      requireDateAndTime &&
-      !draft.dueDate
-    ) {
-      setDateError(
-        "Due date is required for adding task to schedule.",
-      );
+    if ((requireDateAndTime || draft.recurrence) && !draft.dueDate) {
+      setDateError("Due date is required for adding task to schedule.");
       return;
     }
 
     setReminderError("");
 
-    const hasReminderDate = Boolean(
-      draft.reminderDate,
-    );
+    const hasReminderDate = draft.recurrence
+      ? draft.recurrence.reminderOffsetDays !== null &&
+        draft.recurrence.reminderOffsetDays !== undefined
+      : Boolean(draft.reminderDate);
 
-    const hasReminderTime = Boolean(
-      draft.reminderTime,
-    );
+    const hasReminderTime = draft.recurrence
+      ? Boolean(draft.recurrence.reminderTime)
+      : Boolean(draft.reminderTime);
 
-    if (
-      hasReminderDate !==
-      hasReminderTime
-    ) {
-      setReminderError(
-        "Date and time is required to set a reminder.",
-      );
+    if (hasReminderDate !== hasReminderTime) {
+      setReminderError("Date and time is required to set a reminder.");
       return;
     }
 
-    //Check reminder is not in the past
-    if (
-      hasReminderDate &&
-      hasReminderTime
-    ) {
+    if (!draft.recurrence && hasReminderDate && hasReminderTime) {
       const reminderDateOnly =
         draft.reminderDate instanceof Date
-          ? format(
-              draft.reminderDate,
-              "yyyy-MM-dd",
-            )
+          ? format(draft.reminderDate, "yyyy-MM-dd")
           : draft.reminderDate;
 
-      const reminderDateTime =
-        new Date(
-          `${reminderDateOnly}T${draft.reminderTime}:00`,
-        );
+      const reminderDateTime = new Date(`${reminderDateOnly}T${draft.reminderTime}:00`);
 
-      if (
-        reminderDateTime <=
-        new Date()
-      ) {
-        setReminderError(
-          "Reminders cannot be set in the past.",
-        );
+      if (reminderDateTime <= new Date()) {
+        setReminderError("Reminders cannot be set in the past.");
         return;
       }
     }
 
-    onSave();
+    // Upload files chosen but not yet uploaded.
+    if (taskFiles.stagedFiles.length > 0 && !(await taskFiles.uploadStaged())) {
+      return;
+    }
+
+    // File-only edits are saved separately.
+    if (filesChangedRef.current && snapshotFields(draft) === fieldsAtOpen) {
+      onCancel();
+      return;
+    }
+
+    setTaskSaving(true);
+
+    try {
+      await onSave();
+    } finally {
+      setTaskSaving(false);
+    }
   };
 
+  const createRecurrence = () => {
+    const dueDate = draft.dueDate instanceof Date ? draft.dueDate : new Date();
+
+    const isoWeekday = dueDate.getDay() === 0 ? 7 : dueDate.getDay();
+
+    return {
+      rule: {
+        type: "daily",
+        interval: 1,
+      },
+      endDate: null,
+      reminderOffsetDays: null,
+      reminderTime: "",
+      defaultWeekday: isoWeekday,
+    };
+  };
+
+  const recurrence = draft.recurrence;
+  const isOccurrenceDraft = Boolean(draft.seriesId);
+
   return (
-    <form
-      className="space-y-4"
-      onSubmit={handleSave}
-    >
-      <div className="space-y-2">
-        <Label htmlFor="task-title">
-          Task name
-        </Label>
-
-        <Input
-          id="task-title"
-          onChange={(event) =>
-            setDraft((prev) => ({
-              ...prev,
-              title:
-                event.target.value,
-            }))
-          }
-          disabled={readOnly}
-          maxLength={200}
-          value={draft.title || ""}
-        />
-
-        {(draft.title?.length || 0) >=
-          200 && (
-          <p className="text-sm text-medium-priority">
-            Title cannot be more than
-            200 characters
-          </p>
-        )}
-
-        {titleError && (
-          <p className="text-sm text-destructive">
-            {titleError}
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="task-description">
-          Description
-        </Label>
-
-        <Textarea
-          id="task-description"
-          onChange={(event) =>
-            setDraft((prev) => ({
-              ...prev,
-              description:
-                event.target.value,
-            }))
-          }
-          maxLength={1000}
-          disabled={readOnly}
-          value={
-            draft.description || ""
-          }
-        />
-
-        {(draft.description?.length ||
-          0) >= 1000 && (
-          <p className="text-sm text-medium-priority">
-            Description cannot be more
-            than 1000 characters
-          </p>
-        )}
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
+    <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={handleSave}>
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1">
+        {/* Task name */}
         <div className="space-y-2">
-          <Label htmlFor="task-subject">
-            Subject
-          </Label>
+          <Label htmlFor="task-title">Task name</Label>
+
+          <Input
+            id="task-title"
+            onChange={event =>
+              setDraft(prev => ({
+                ...prev,
+                title: event.target.value,
+              }))
+            }
+            disabled={readOnly}
+            maxLength={200}
+            value={draft.title || ""}
+          />
+
+          {(draft.title?.length || 0) >= 200 && (
+            <p className="text-sm text-medium-priority">Title cannot be more than 200 characters</p>
+          )}
+
+          {titleError && <p className="text-sm text-destructive">{titleError}</p>}
+        </div>
+
+        {/* Subject */}
+        <div className="space-y-2">
+          <Label htmlFor="task-subject">Subject</Label>
 
           <Input
             id="task-subject"
-            onChange={(event) =>
-              setDraft((prev) => ({
+            onChange={event =>
+              setDraft(prev => ({
                 ...prev,
-                subject:
-                  event.target.value,
+                subject: event.target.value,
               }))
             }
             maxLength={200}
             disabled={readOnly}
-            required
-            value={
-              draft.subject || ""
-            }
+            value={draft.subject || ""}
           />
 
-          {(draft.subject?.length ||
-            0) >= 200 && (
+          {(draft.subject?.length || 0) >= 200 && (
             <p className="text-sm text-medium-priority">
-              Subject cannot be more than
-              200 characters
+              Subject cannot be more than 200 characters
             </p>
           )}
         </div>
 
+        {/* Task Labels */}
         <div className="space-y-2">
-          <Label htmlFor="task-label">
-            Label
-          </Label>
+          <Label htmlFor="task-label">Label</Label>
 
           <Select
             disabled={readOnly}
-            value={draft.label || ""}
-            onValueChange={(label) =>
-              setDraft((prev) => ({
+            value={draft.label || "__no_label__"}
+            onValueChange={value =>
+              setDraft(prev => ({
                 ...prev,
-                label,
+                label: value === "__no_label__" ? "" : value,
               }))
             }
           >
-            <SelectTrigger
-              className="w-full"
-              id="task-label"
-            >
+            <SelectTrigger className="w-full min-w-0" id="task-label">
               <SelectValue placeholder="Choose a label" />
             </SelectTrigger>
 
             <SelectContent>
-              {labels.map((label) => (
-                <SelectItem
-                  key={label.id}
-                  value={label.name}
-                >
-                  {label.name}
-                </SelectItem>
-              ))}
+              <SelectItem value="__no_label__">No label (remove label)</SelectItem>
+
+              {labels.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-muted-foreground">
+                  No labels yet. Create a label below first.
+                </div>
+              ) : (
+                labels.map(label => (
+                  <SelectItem key={label.id} value={label.name}>
+                    <span className="block max-w-[220px] truncate" title={label.name}>
+                      {label.name}
+                    </span>
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
 
@@ -377,457 +419,598 @@ function TaskForm({
             <div className="flex gap-2">
               <Input
                 value={newLabel}
-                onChange={(event) =>
-                  setNewLabel(
-                    event.target.value,
-                  )
-                }
+                onChange={event => {
+                  setNewLabel(event.target.value);
+                  setLabelError("");
+                }}
                 maxLength={100}
                 placeholder="Create new label"
               />
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={createLabel}
-              >
-                Add
+              <Button type="button" variant="outline" disabled={labelSaving} onClick={createLabel}>
+                {labelSaving ? "Adding..." : "Add"}
               </Button>
             </div>
           )}
 
           {labelError && (
-            <p className="text-sm text-destructive">
+            <p role="alert" className="text-sm text-destructive">
               {labelError}
             </p>
           )}
         </div>
-      </div>
 
-      <div className="space-y-1">
-        <Label>Priority</Label>
-
-        <p className="text-sm text-muted-foreground">
-          Priority is automatically
-          calculated from the due date.
-        </p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Description */}
         <div className="space-y-2">
-          <Label htmlFor="task-due-date">
-            Due date{" "}
-            {requireDateAndTime && (
-              <span className="text-destructive">
-                *
-              </span>
-            )}
-          </Label>
+          <Label htmlFor="task-description">Description</Label>
 
-          <Popover>
-            <PopoverTrigger
-              render={
-                <Button
-                  className={`w-full justify-start font-normal ${
-                    dateError
-                      ? "border-destructive"
-                      : ""
-                  }`}
-                  disabled={readOnly}
-                  id="task-due-date"
-                  type="button"
-                  variant="outline"
-                />
-              }
-            >
-              <CalendarDays />
+          <Textarea
+            id="task-description"
+            onChange={event =>
+              setDraft(prev => ({
+                ...prev,
+                description: event.target.value,
+              }))
+            }
+            maxLength={1000}
+            disabled={readOnly}
+            value={draft.description || ""}
+          />
 
-              {draft.dueDate
-                ? format(
-                    draft.dueDate,
-                    "PPP",
-                  )
-                : "Choose a date"}
-            </PopoverTrigger>
-
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                onSelect={(dueDate) => {
-                  setDraft(
-                    (prev) => ({
-                      ...prev,
-                      dueDate,
-                    }),
-                  );
-
-                  if (dueDate) {
-                    setDateError("");
-                  }
-                }}
-                selected={
-                  draft.dueDate
-                }
-              />
-            </PopoverContent>
-          </Popover>
-
-          {dateError && (
-            <p className="text-sm text-destructive">
-              {dateError}
+          {(draft.description?.length || 0) >= 1000 && (
+            <p className="text-sm text-medium-priority">
+              Description cannot be more than 1000 characters
             </p>
           )}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="task-time">
-            Time{" "}
-            {requireDateAndTime && (
-              <span className="text-destructive">
-                *
-              </span>
-            )}
-          </Label>
+        {/* Priority */}
+        <div className="space-y-1">
+          <Label>Priority</Label>
 
-          <Input
-            id="task-time"
-            type="time"
-            required={
-              requireDateAndTime
-            }
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                time:
-                  event.target.value,
-              }))
-            }
-            disabled={readOnly}
-            value={draft.time || ""}
-          />
+          <p className="text-sm text-muted-foreground">
+            Priority is automatically calculated from the due date.
+          </p>
         </div>
 
+        {/* Status */}
         <div className="space-y-2">
-          <Label htmlFor="task-status">
-            Status
-          </Label>
+          <Label htmlFor="task-status">Status</Label>
 
           <Select
             disabled={readOnly}
-            onValueChange={(status) =>
-              setDraft((prev) => ({
+            onValueChange={status =>
+              setDraft(prev => ({
                 ...prev,
                 status,
               }))
             }
-            value={
-              draft.status ||
-              "To Do"
-            }
+            value={draft.status || "To Do"}
           >
-            <SelectTrigger
-              aria-label="Status"
-              className="w-full"
-              id="task-status"
-            >
+            <SelectTrigger aria-label="Status" className="w-full" id="task-status">
               <SelectValue />
             </SelectTrigger>
 
             <SelectContent>
-              <SelectItem value="To Do">
-                To Do
-              </SelectItem>
-
-              <SelectItem value="In Progress">
-                In Progress
-              </SelectItem>
-
-              <SelectItem value="Completed">
-                Completed
-              </SelectItem>
+              <SelectItem value="To Do">To Do</SelectItem>
+              <SelectItem value="In Progress">In Progress</SelectItem>
+              <SelectItem value="Completed">Completed</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="task-reminder-date">
-            Reminder date
-          </Label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Due date */}
+          <div className="space-y-2">
+            <Label htmlFor="task-due-date">
+              Due date
+              {(requireDateAndTime || recurrence) && <span className="text-destructive">*</span>}
+            </Label>
 
-          <Popover>
-            <PopoverTrigger
-              render={
-                <Button
-                  className="w-full justify-start font-normal"
-                  disabled={readOnly}
-                  id="task-reminder-date"
-                  type="button"
-                  variant="outline"
-                />
-              }
-            >
-              <CalendarDays />
+            <Popover>
+              <PopoverTrigger
+                render={
+                  <Button
+                    className={`w-full justify-start font-normal ${
+                      dateError ? "border-destructive" : ""
+                    }`}
+                    disabled={readOnly || isOccurrenceDraft}
+                    id="task-due-date"
+                    type="button"
+                    variant="outline"
+                  />
+                }
+              >
+                <CalendarDays />
 
-              {draft.reminderDate
-                ? format(
-                    draft.reminderDate,
-                    "PPP",
-                  )
-                : "Choose a date"}
-            </PopoverTrigger>
+                {draft.dueDate ? format(draft.dueDate, "PPP") : "Choose a date"}
+              </PopoverTrigger>
 
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                onSelect={(
-                  reminderDate,
-                ) =>
-                  setDraft(
-                    (prev) => ({
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  onSelect={dueDate => {
+                    setDraft(prev => ({
                       ...prev,
-                      reminderDate,
-                    }),
-                  )
-                }
-                selected={
-                  draft.reminderDate
-                }
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
+                      dueDate,
+                    }));
 
-        <div className="space-y-2">
-          <Label htmlFor="task-reminder-time">
-            Reminder time
-          </Label>
+                    if (dueDate) {
+                      setDateError("");
+                    }
+                  }}
+                  selected={draft.dueDate}
+                />
+              </PopoverContent>
+            </Popover>
 
-          <Input
-            id="task-reminder-time"
-            type="time"
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                reminderTime:
-                  event.target.value,
-              }))
-            }
-            disabled={readOnly}
-            value={
-              draft.reminderTime ||
-              ""
-            }
-          />
-        </div>
+            {dateError && <p className="text-sm text-destructive">{dateError}</p>}
 
-        {typeof Notification !==
-          "undefined" &&
-          Notification.permission ===
-            "denied" && (
+            {isOccurrenceDraft && !readOnly && (
+              <p className="text-sm text-muted-foreground">
+                A recurring occurrence can't be moved to another date.
+              </p>
+            )}
+          </div>
+
+          {/* Time */}
+          <div className="space-y-2">
+            <Label htmlFor="task-time">
+              Time {requireDateAndTime && <span className="text-destructive">*</span>}
+            </Label>
+
+            <Input
+              id="task-time"
+              type="time"
+              required={requireDateAndTime}
+              onChange={event =>
+                setDraft(prev => ({
+                  ...prev,
+                  time: event.target.value,
+                }))
+              }
+              disabled={readOnly}
+              value={draft.time || ""}
+            />
+          </div>
+
+          {/* Reminder date & time */}
+          {!recurrence && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="task-reminder-date">Reminder date</Label>
+
+                <Popover>
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        className="w-full justify-start font-normal"
+                        disabled={readOnly}
+                        id="task-reminder-date"
+                        type="button"
+                        variant="outline"
+                      />
+                    }
+                  >
+                    <CalendarDays />
+                    {draft.reminderDate ? format(draft.reminderDate, "PPP") : "Choose a date"}
+                  </PopoverTrigger>
+
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      onSelect={reminderDate =>
+                        setDraft(prev => ({
+                          ...prev,
+                          reminderDate,
+                        }))
+                      }
+                      selected={draft.reminderDate}
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                {reminderDaysAway !== null && (
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    (
+                    {reminderDaysAway > 0
+                      ? `${reminderDaysAway} day${reminderDaysAway !== 1 ? "s" : ""} away`
+                      : reminderDaysAway === 0
+                        ? "today"
+                        : `${Math.abs(reminderDaysAway)} day${
+                            reminderDaysAway !== -1 ? "s" : ""
+                          } ago`}
+                    )
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="task-reminder-time">Reminder time</Label>
+
+                <Input
+                  id="task-reminder-time"
+                  type="time"
+                  onChange={event =>
+                    setDraft(prev => ({
+                      ...prev,
+                      reminderTime: event.target.value,
+                    }))
+                  }
+                  disabled={readOnly}
+                  value={draft.reminderTime || ""}
+                />
+              </div>
+            </>
+          )}
+
+          {typeof Notification !== "undefined" && Notification.permission === "denied" && (
             <p className="text-sm text-muted-foreground">
-              Notifications are blocked
-              in your browser: reminders
-              won't show a popup.
+              Notifications are blocked in your browser: reminders won't show a popup.
             </p>
           )}
 
-        {reminderError && (
-          <p className="text-sm text-destructive">
-            {reminderError}
-          </p>
-        )}
-      </div>
-
-      {/* Checklist */}
-      <div className="space-y-2">
-        {/* Header with a counter */}
-        <div className="flex items-center justify-between">
-          <Label>Checklist</Label>
-
-          {checklist.length > 0 && (
-            <span className="text-xs text-muted-foreground">
-              {completedItems} of{" "}
-              {checklist.length} completed
-            </span>
-          )}
+          {reminderError && <p className="text-sm text-destructive">{reminderError}</p>}
         </div>
 
-        {/* Progress bar */}
-        {checklist.length > 0 && (
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full bg-primary transition-all duration-300 ease-in-out"
-              style={{
-                width: `${progress}%`,
-              }}
+        {/* Recurrence */}
+        {allowRecurrence && (
+          <div className="space-y-4 rounded-md border p-4">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={Boolean(recurrence)}
+                disabled={readOnly}
+                id="task-repeat"
+                onCheckedChange={checked =>
+                  setDraft(prev => ({
+                    ...prev,
+                    recurrence: checked ? createRecurrence() : null,
+                  }))
+                }
+              />
+
+              <Label htmlFor="task-repeat">Repeat</Label>
+            </div>
+
+            <RecurrenceFields
+              recurrence={recurrence}
+              dueDate={draft.dueDate}
+              readOnly={readOnly}
+              onChange={changes =>
+                setDraft(prev => ({
+                  ...prev,
+                  recurrence: {
+                    ...prev.recurrence,
+                    ...changes,
+                  },
+                }))
+              }
+              onRuleChange={rule =>
+                setDraft(prev => ({
+                  ...prev,
+                  recurrence: {
+                    ...prev.recurrence,
+                    rule,
+                  },
+                }))
+              }
             />
           </div>
         )}
 
-        {checklist.map((item) => (
-          <div
-            key={item.id}
-            className="group flex min-w-0 items-center justify-between gap-2 rounded-md p-1.5 transition-colors hover:bg-muted/50"
-          >
-            <div className="flex min-w-0 items-center gap-2">
-              <Checkbox
-                checked={
-                  item.completed
-                }
-                className="cursor-pointer"
-                onCheckedChange={() => {
-                  if (readOnly) {
-                    if (
-                      onToggleChecklistItem
-                    ) {
-                      onToggleChecklistItem(
-                        item.id,
-                      );
-                    }
-                  } else {
-                    setDraft(
-                      (prev) => ({
-                        ...prev,
-                        checklist:
-                          (
-                            prev.checklist ||
-                            []
-                          ).map(
-                            (i) =>
-                              i.id ===
-                              item.id
-                                ? {
-                                    ...i,
-                                    completed:
-                                      !i.completed,
-                                  }
-                                : i,
-                          ),
-                      }),
-                    );
-                  }
-                }}
-              />
-
-              <span className="min-w-0 flex-1 wrap-anywhere text-sm">
-                {item.text}
-              </span>
-            </div>
-
-            {!readOnly && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="cursor-pointer transition-opacity group-focus-within:opacity-100"
-                onClick={() =>
-                  setDraft(
-                    (prev) => ({
+        {/* Existing recurring series controls */}
+        {allowSeriesControls && draft.seriesId && typeof draft.repeatEnabled === "boolean" && (
+          <div className="space-y-4 rounded-md border p-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={draft.repeatEnabled}
+                  disabled={readOnly}
+                  id="task-series-repeat"
+                  onCheckedChange={checked =>
+                    setDraft(prev => ({
                       ...prev,
-                      checklist: (
-                        prev.checklist ||
-                        []
-                      ).filter(
-                        (i) =>
-                          i.id !==
-                          item.id,
-                      ),
-                    }),
-                  )
-                }
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        ))}
-
-        {!readOnly && (
-          <div className="space-y-1">
-            <div className="flex gap-2">
-              <Label
-                htmlFor="new-checklist-item"
-                className="sr-only"
-              >
-                Add a checklist item
-              </Label>
-
-              <Input
-                id="new-checklist-item"
-                placeholder="Add a checklist item"
-                maxLength={100}
-                value={
-                  checklistItemInput
-                }
-                onChange={(event) => {
-                  setChecklistItemInput(
-                    event.target.value,
-                  );
-
-                  if (
-                    checklistError
-                  ) {
-                    setChecklistError(
-                      "",
-                    );
+                      repeatEnabled: checked,
+                    }))
                   }
-                }}
-                onKeyDown={(event) => {
-                  if (
-                    event.key ===
-                    "Enter"
-                  ) {
-                    event.preventDefault();
-                    checklistHandleAddItem();
-                  }
-                }}
-              />
+                />
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={
-                  checklistHandleAddItem
-                }
-              >
-                Add
-              </Button>
+                <Label htmlFor="task-series-repeat">Repeat</Label>
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                Unticking pauses this series from tomorrow. Today's occurrence stays. Re-tick to
+                resume.
+              </p>
+
+              {hidesThisOccurrence && (
+                <p className="text-sm text-medium-priority">This occurrence will be hidden too.</p>
+              )}
+
+              {draft.repeatEnabled !== seriesEnabled && (
+                <p className="text-sm text-muted-foreground">
+                  {draft.repeatEnabled ? "Resumes today" : "Pauses from tomorrow"}
+                </p>
+              )}
             </div>
 
-            {checklistError && (
-              <p className="text-sm text-medium-priority">
-                {checklistError}
-              </p>
-            )}
-
-            {checklistItemInput.length >=
-              100 && (
-              <p className="text-sm text-medium-priority">
-                Checklist item cannot be
-                more than 100 characters
-              </p>
+            {draft.repeatEnabled && draft.seriesPattern && (
+              <RecurrenceFields
+                recurrence={draft.seriesPattern}
+                dueDate={draft.dueDate}
+                showReminder={false}
+                readOnly={readOnly}
+                onChange={changes =>
+                  setDraft(prev => ({
+                    ...prev,
+                    seriesPattern: {
+                      ...prev.seriesPattern,
+                      ...changes,
+                    },
+                  }))
+                }
+                onRuleChange={rule =>
+                  setDraft(prev => ({
+                    ...prev,
+                    seriesPattern: {
+                      ...prev.seriesPattern,
+                      rule,
+                    },
+                  }))
+                }
+              />
             )}
           </div>
         )}
+
+        {draft.seriesId && !allowSeriesControls && (
+          <p className="text-sm text-muted-foreground">
+            Part of a repeating series. Change repeat settings on the Tasks page.
+          </p>
+        )}
+
+        {/* Checklist */}
+        <div className="space-y-2 rounded-md border p-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={showChecklist}
+                id="task-checklist"
+                onCheckedChange={checked => setChecklistToggle(Boolean(checked))}
+              />
+
+              <Label htmlFor="task-checklist">Checklist</Label>
+            </div>
+
+            {checklist.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {completedItems} of {checklist.length} completed
+              </span>
+            )}
+          </div>
+
+          {showChecklist && (
+            <>
+              {/* Progress bar */}
+              {checklist.length > 0 && (
+                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-300 ease-in-out"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              )}
+
+              {(draft.checklist || []).map(item => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between gap-2 min-w-0 p-1.5 rounded-md hover:bg-muted/50 transition-colors group"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Checkbox
+                      checked={item.completed}
+                      className="cursor-pointer"
+                      disabled={false}
+                      onCheckedChange={() => {
+                        if (readOnly) {
+                          onToggleChecklistItem(item.id);
+                        } else {
+                          setDraft(prev => ({
+                            ...prev,
+                            checklist: prev.checklist.map(i =>
+                              i.id === item.id
+                                ? {
+                                    ...i,
+                                    completed: !i.completed,
+                                  }
+                                : i,
+                            ),
+                          }));
+                        }
+                      }}
+                    />
+
+                    <span className="flex-1 min-w-0 wrap-anywhere text-sm">{item.text}</span>
+                  </div>
+
+                  {!readOnly && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      className="cursor-pointer group-focus-within:opacity-100 transition-opacity"
+                      onClick={() =>
+                        setDraft(prev => ({
+                          ...prev,
+                          checklist: prev.checklist.filter(i => i.id !== item.id),
+                        }))
+                      }
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+
+              {!readOnly && (
+                <div className="space-y-1">
+                  <div className="flex gap-2">
+                    <Label htmlFor="new-checklist-item" className="sr-only">
+                      Add a checklist item
+                    </Label>
+
+                    <Input
+                      id="new-checklist-item"
+                      placeholder="Add a checklist item"
+                      maxLength={100}
+                      value={checklistItemInput}
+                      onChange={event => {
+                        setChecklistItemInput(event.target.value);
+
+                        if (checklistError) {
+                          setChecklistError("");
+                        }
+                      }}
+                      onKeyDown={event => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          checklistHandleAddItem();
+                        }
+                      }}
+                    />
+
+                    <Button type="button" variant="outline" onClick={checklistHandleAddItem}>
+                      Add
+                    </Button>
+                  </div>
+
+                  {checklistError && (
+                    <p className="text-sm text-medium-priority">{checklistError}</p>
+                  )}
+
+                  {checklistItemInput.length >= 100 && (
+                    <p className="text-sm text-medium-priority">
+                      Checklist item cannot be more than 100 characters
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Links */}
+        {(!readOnly || links.length > 0) && (
+          <div className="space-y-2 rounded-md border p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={showLinks}
+                  id="task-links"
+                  onCheckedChange={checked => setLinksToggle(Boolean(checked))}
+                />
+
+                <Label htmlFor="task-links">Links</Label>
+              </div>
+
+              {links.length > 0 && (
+                <span className="text-xs text-muted-foreground">{links.length} added</span>
+              )}
+            </div>
+
+            {showLinks && (
+              <>
+                {links.map((link, index) => (
+                  <div
+                    key={`${index}-${link}`}
+                    className="flex items-center justify-between gap-2 min-w-0"
+                  >
+                    <a
+                      href={link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-w-0 truncate text-sm text-primary underline"
+                    >
+                      {link}
+                    </a>
+
+                    {!readOnly && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        onClick={() =>
+                          setDraft(prev => ({
+                            ...prev,
+                            links: prev.links.filter((_, i) => i !== index),
+                          }))
+                        }
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+
+                {!readOnly &&
+                  (showLinkInput ? (
+                    <div className="space-y-1">
+                      <div className="flex gap-2">
+                        <Input
+                          autoFocus
+                          placeholder="Paste a link"
+                          maxLength={MAX_LINK_LENGTH}
+                          value={linkInput}
+                          onChange={event => {
+                            setLinkInput(event.target.value);
+
+                            if (linkError) {
+                              setLinkError("");
+                            }
+                          }}
+                          onKeyDown={event => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              handleAddLink();
+                            }
+                          }}
+                        />
+
+                        <Button type="button" variant="outline" onClick={handleAddLink}>
+                          Done
+                        </Button>
+                      </div>
+
+                      {linkError && <p className="text-sm text-medium-priority">{linkError}</p>}
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowLinkInput(true)}
+                    >
+                      Add link
+                    </Button>
+                  ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Files */}
+        <TaskFilesCard taskFiles={taskFiles} readOnly={readOnly} />
       </div>
 
-      {saveError && (
-        <p className="text-sm text-destructive">
-          {saveError}
-        </p>
-      )}
+      {saveError && <p className="whitespace-pre-line text-sm text-destructive">{saveError}</p>}
 
       {!readOnly && (
         <div className="flex justify-end gap-2">
-          <Button
-            onClick={onCancel}
-            type="button"
-            variant="outline"
-          >
+          <Button onClick={onCancel} type="button" variant="outline">
             Cancel
           </Button>
 
-          <Button type="submit">
+          <Button type="submit" disabled={taskFiles.isBusy || taskSaving}>
             Save task
           </Button>
         </div>

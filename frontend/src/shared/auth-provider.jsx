@@ -1,12 +1,7 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-} from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./auth";
+import { syncTimezone } from "./sync-timezone";
 
 const AuthContext = createContext(undefined);
 
@@ -15,7 +10,10 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async firebaseUser => {
+      if (firebaseUser) await syncTimezone(firebaseUser.uid);
+      // Ignore a stale result if auth changed while we were awaiting.
+      if (auth.currentUser?.uid !== firebaseUser?.uid) return;
       setUser(firebaseUser);
       setIsLoading(false);
     });
@@ -33,9 +31,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, refreshUser }}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={{ user, isLoading, refreshUser }}>{children}</AuthContext.Provider>
   );
 };
 
