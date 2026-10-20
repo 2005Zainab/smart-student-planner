@@ -39,50 +39,55 @@ router.post("/generate", requireAuth, async (req, res) => {
 
 // verify the pin received and enable 2fa
 router.post("/verify-setup", requireAuth, async (req, res) => {
-  const { token } = req.body;
-  const uid = req.user.uid;
+  try {
+    const { token } = req.body;
+    const uid = req.user.uid;
 
-  const userDoc = await db.collection("users").doc(uid).collection("settings").doc("MFA").get();
-  const { tempTwoFactorSecret } = userDoc.data() || {};
+    const userDoc = await db.collection("users").doc(uid).collection("settings").doc("MFA").get();
+    const { tempTwoFactorSecret } = userDoc.data() || {};
 
-  if (!tempTwoFactorSecret) {
-    return res.status(400).json({ message: "2FA generation must be called first" });
-  }
+    if (!tempTwoFactorSecret) {
+      return res.status(400).json({ message: "2FA generation must be called first" });
+    }
 
-  const result = await verify({ token, secret: tempTwoFactorSecret });
+    const result = await verify({ token, secret: tempTwoFactorSecret });
 
-  if (result.valid) {
-    await db.collection("users").doc(req.user.uid).collection("settings").doc("MFA").set(
-      {
-        twoFactorSecret: tempTwoFactorSecret,
+    if (result.valid) {
+      await db.collection("users").doc(req.user.uid).collection("settings").doc("MFA").set(
+        {
+          twoFactorSecret: tempTwoFactorSecret,
+          twoFactorEnabled: true,
+          tempTwoFactorSecret: null,
+        },
+        { merge: true },
+      );
+
+      const userRecord = await getAuth().getUser(uid);
+      const currentClaims = userRecord.customClaims || {};
+
+      await getAuth().setCustomUserClaims(req.user.uid, {
+        ...currentClaims,
         twoFactorEnabled: true,
-        tempTwoFactorSecret: null,
-      },
-      { merge: true },
-    );
+      });
 
-    const userRecord = await getAuth().getUser(uid);
-    const currentClaims = userRecord.customClaims || {};
+      const mfaCookie = jwt.sign({ uid, mfaVerified: true }, process.env.JWT_SECRET, {
+        expiresIn: "12h",
+      });
 
-    await getAuth().setCustomUserClaims(req.user.uid, {
-      ...currentClaims,
-      twoFactorEnabled: true,
-    });
+      res.cookie("mfa_verified", mfaCookie, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 12 * 60 * 60 * 1000, // 12 hours
+      });
 
-    const mfaCookie = jwt.sign({ uid, mfaVerified: true }, process.env.JWT_SECRET, {
-      expiresIn: "12h",
-    });
-
-    res.cookie("mfa_verified", mfaCookie, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 12 * 60 * 60 * 1000, // 12 hours
-    });
-
-    res.status(200).json({ message: "2FA enabled successfully" });
-  } else {
-    res.status(401).json({ message: "Invalid PIN code" });
+      res.status(200).json({ message: "2FA enabled successfully" });
+    } else {
+      res.status(401).json({ message: "Invalid PIN code" });
+    }
+  } catch (err) {
+    console.error("Error during 2FA verification setup:", err);
+    res.status(500).json({ message: "An internal server error occurred while verifying 2FA." });
   }
 });
 
@@ -107,7 +112,7 @@ router.post("/login-verify", requireAuth, async (req, res) => {
       return res.status(400).json({ message: "Secret not found" });
     }
 
-    const result = await verify({ token, secret: twoFactorSecret });
+    const result = await verify({ token, secret: twoFactorSecret, epochTolerance: 30 });
 
     if (!result.valid) {
       return res.status(401).json({ message: "Invalid 2FA code" });

@@ -168,6 +168,17 @@ describe("MFA Backend Routes", () => {
       expect(decoded.uid).toBe("test-user-1");
       expect(decoded.mfaVerified).toBe(true);
     });
+
+    // NEW TEST CASE HERE:
+    it("returns 500 if an internal server error occurs during verification", async () => {
+      // Simulate a database connection failure or timeout
+      mfaDocMock.get.mockRejectedValue(new Error("Simulated Firestore connection failure"));
+
+      const res = await request(app).post("/api/mfa/verify-setup").send({ token: "123456" });
+
+      expect(res.status).toBe(500);
+      expect(res.body.message).toBe("An internal server error occurred while verifying 2FA.");
+    });
   });
 
   // ---------------------------------------------------------------------------

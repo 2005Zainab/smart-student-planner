@@ -205,6 +205,10 @@ function LoginPage() {
                   </Button>
                 </div>
               </form>
+
+              <p className="mt-6 text-center text-sm text-muted-foreground">
+                Having trouble getting your code? Contact our support.
+              </p>
             </CardContent>
           </>
         ) : (
