@@ -29,8 +29,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// New profile picture component
+// Keep both features from the two branches
 import { ProfilePictureSection } from "./ProfilePictureSection";
+import { CustomThemeSection } from "./CustomThemeSection";
 
 function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -45,11 +46,11 @@ function SettingsPage() {
 
   const [isPasswordLessEnabled, setIsPasswordLessEnabled] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-
   const [emailSent, setEmailSent] = useState(false);
 
   const { theme, setTheme, themes } = useTheme();
 
+  // Two-Factor Authentication settings
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [is2FADialogOpen, setIs2FADialogOpen] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
@@ -58,7 +59,6 @@ function SettingsPage() {
   const [mfaError, setMfaError] = useState("");
   const [isMfaLoading, setIsMfaLoading] = useState(false);
 
-  // load the user's settings.
   // Load the user's existing settings
   useEffect(() => {
     async function fetchSettings() {
@@ -82,6 +82,7 @@ function SettingsPage() {
     fetchSettings();
   }, [user]);
 
+  // Start setting up Two-Factor Authentication
   const start2FAEnrollment = async () => {
     setIs2FADialogOpen(true);
     setIsMfaLoading(true);
@@ -104,6 +105,7 @@ function SettingsPage() {
     }
   };
 
+  // Verify the authenticator code
   const handleVerify2FA = async e => {
     e.preventDefault();
     setMfaError("");
@@ -129,8 +131,10 @@ function SettingsPage() {
     }
   };
 
+  // Disable Two-Factor Authentication
   const handleDisable2FA = async () => {
     setIsMfaLoading(true);
+
     try {
       await disable2FA();
 
@@ -145,6 +149,7 @@ function SettingsPage() {
       });
     } catch (err) {
       console.error("Disable 2FA error:", err);
+
       toast.add({
         title: "Failed to disable 2FA",
         type: "error",
@@ -321,10 +326,10 @@ function SettingsPage() {
         </Button>
       </div>
 
-      {/* New customisable profile picture feature */}
+      {/* Profile Picture feature */}
       <ProfilePictureSection />
 
-      {/* Existing sign-in preferences */}
+      {/* Sign-in preferences */}
       <div className="rounded-xl border bg-card p-6">
         <h3 className="text-lg font-semibold">Sign-in Preferences</h3>
 
@@ -352,9 +357,11 @@ function SettingsPage() {
           )}
         </div>
 
+        {/* Two-Factor Authentication */}
         <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <p className="font-medium">Two-Factor Authentication (TOTP)</p>
+
             <p className="text-sm text-muted-foreground">
               Secure your account with a code from an authenticator app.
             </p>
@@ -372,7 +379,7 @@ function SettingsPage() {
         </div>
       </div>
 
-      {/* Existing notification settings */}
+      {/* Notification settings */}
       <div className="rounded-xl border bg-card p-6">
         <h3 className="text-lg font-semibold">Notifications</h3>
 
@@ -391,12 +398,13 @@ function SettingsPage() {
         </div>
       </div>
 
-      {/* Existing theme customisation */}
+      {/* Theme customisation */}
       <div className="rounded-xl border bg-card p-6">
         <h3 className="text-lg font-semibold">Customize</h3>
 
         <p className="mt-1 text-sm text-muted-foreground">Choose a theme for your Planner</p>
 
+        {/* Existing theme selection */}
         <div className="mt-4 max-w-xs">
           <Select value={theme} onValueChange={setTheme}>
             <SelectTrigger aria-label="Theme" className="w-full" id="theme-select">
@@ -412,9 +420,12 @@ function SettingsPage() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Your Custom Themes feature */}
+        <CustomThemeSection />
       </div>
 
-      {/* Existing change username dialog */}
+      {/* Change username dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogTitle>Change username</DialogTitle>
@@ -468,9 +479,11 @@ function SettingsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Two-Factor Authentication setup dialog */}
       <Dialog open={is2FADialogOpen} onOpenChange={setIs2FADialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogTitle>Set up Two-Factor Authentication</DialogTitle>
+
           <DialogDescription>
             Scan this QR code with your authenticator app, then enter the 6 digit code below to
             verify it.
@@ -484,8 +497,10 @@ function SettingsPage() {
                 <div className="rounded-md border p-2 bg-white">
                   {qrCodeUrl && <img src={qrCodeUrl} alt="2FA QR Code" className="h-48 w-48" />}
                 </div>
+
                 <p className="text-xs text-muted-foreground break-all px-8 text-center">
-                  If you can't scan the QR code, enter this secret manually: <br />
+                  If you can't scan the QR code, enter this secret manually:
+                  <br />
                   <strong className="font-mono text-foreground mt-1 block">{mfaSecret}</strong>
                 </p>
               </>
@@ -495,6 +510,7 @@ function SettingsPage() {
           <form className="space-y-4" onSubmit={handleVerify2FA}>
             <div className="space-y-2">
               <label htmlFor="mfa-pin">6-digit Authenticator Code</label>
+
               <Input
                 id="mfa-pin"
                 placeholder="000000"
@@ -517,6 +533,7 @@ function SettingsPage() {
               >
                 Cancel
               </Button>
+
               <Button type="submit" disabled={isMfaLoading || mfaPin?.length !== 6}>
                 {isMfaLoading ? "Verifying..." : "Verify & Enable"}
               </Button>
