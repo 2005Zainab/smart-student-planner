@@ -37,7 +37,7 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
   const taskDueDate = task.dueDate ? new Date(task.dueDate) : null;
   const today = new Date();
 
-  // Check if this task has a timer
+  // Check whether this task has a Focus Timer
   const hasTimer =
     Number.isInteger(task.timerMinutes) && task.timerMinutes >= 1 && task.timerMinutes <= 180;
 
@@ -89,7 +89,11 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
             onClick={event => event.stopPropagation()}
             onKeyDown={event => event.stopPropagation()}
           >
-            <FocusTimer key={`${task.id}-${task.timerMinutes}`} minutes={task.timerMinutes} />
+            <FocusTimer
+              key={`${task.id}-${task.timerMinutes}`}
+              taskId={task.id}
+              minutes={task.timerMinutes}
+            />
           </div>
         )}
       </div>
@@ -118,7 +122,6 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
       {task.checklist && task.checklist.length > 0 && (
         <Badge variant="outline" className="flex items-center gap-1 text-muted-foreground">
           <CheckSquare className="h-3.5 w-3.5" />
-
           <span>
             {task.checklist.filter(item => item.completed).length}/{task.checklist.length}
           </span>
