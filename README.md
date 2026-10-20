@@ -17,7 +17,7 @@ Smart Student Planner is a web app that helps students plan their studies, track
   - Overview of workload 
   - Preset and custom themes
   - Sidebar with toggle
-  - Ai chatbot for schedule recommendations
+  - Ai chatbot for schedule and study recommendations
 
 - Calendar, Timeline, Schedule
   -  Calendar view of assignments
