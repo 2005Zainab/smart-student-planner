@@ -17,6 +17,7 @@ import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/shared/auth-provider";
 
 import { getSettings, saveEmailReminders, savePasswordLessEnabled } from "../api/settings-api";
+import { disable2FA, generate2FA, verify2FASetup } from "../api/mfa-api";
 
 import { useTheme } from "@/theme/theme-provider";
 
@@ -49,7 +50,16 @@ function SettingsPage() {
 
   const { theme, setTheme, themes } = useTheme();
 
-  // Load the user's saved settings
+  // Two-Factor Authentication settings
+  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+  const [is2FADialogOpen, setIs2FADialogOpen] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [mfaSecret, setMfaSecret] = useState("");
+  const [mfaPin, setMfaPin] = useState("");
+  const [mfaError, setMfaError] = useState("");
+  const [isMfaLoading, setIsMfaLoading] = useState(false);
+
+  // Load the user's existing settings
   useEffect(() => {
     async function fetchSettings() {
       if (!user) return;
@@ -59,6 +69,9 @@ function SettingsPage() {
 
         setEmailReminders(data.emailReminders === true);
         setIsPasswordLessEnabled(data.passwordLessEnabled === true);
+
+        const tokenResult = await user.getIdTokenResult();
+        setIs2FAEnabled(tokenResult?.claims.twoFactorEnabled === true);
       } catch (err) {
         console.error("Failed to fetch user settings", err);
       } finally {
@@ -68,6 +81,83 @@ function SettingsPage() {
 
     fetchSettings();
   }, [user]);
+
+  // Start setting up Two-Factor Authentication
+  const start2FAEnrollment = async () => {
+    setIs2FADialogOpen(true);
+    setIsMfaLoading(true);
+    setMfaError("");
+    setMfaPin("");
+    setQrCodeUrl("");
+    setMfaSecret("");
+
+    try {
+      await user.getIdToken(true);
+
+      const { qrCodeUrl, secret } = await generate2FA();
+      setQrCodeUrl(qrCodeUrl);
+      setMfaSecret(secret);
+    } catch (err) {
+      console.error("Failed to generate 2FA:", err);
+      setMfaError("Failed to load QR code. Please try again.");
+    } finally {
+      setIsMfaLoading(false);
+    }
+  };
+
+  // Verify the authenticator code
+  const handleVerify2FA = async e => {
+    e.preventDefault();
+    setMfaError("");
+    setIsMfaLoading(true);
+
+    try {
+      await verify2FASetup(mfaPin);
+
+      await user.getIdToken(true);
+      const tokenResult = await user.getIdTokenResult(true);
+      setIs2FAEnabled(tokenResult?.claims?.twoFactorEnabled === true);
+
+      toast.add({
+        title: "Two-Factor Authentication enabled!",
+        type: "success",
+      });
+
+      setIs2FADialogOpen(false);
+    } catch {
+      setMfaError("Invalid PIN. Please check your app and try again.");
+    } finally {
+      setIsMfaLoading(false);
+    }
+  };
+
+  // Disable Two-Factor Authentication
+  const handleDisable2FA = async () => {
+    setIsMfaLoading(true);
+
+    try {
+      await disable2FA();
+
+      setIs2FAEnabled(false);
+
+      await user.getIdToken(true);
+      await user.getIdTokenResult(true);
+
+      toast.add({
+        title: "Two-Factor Authentication disabled!",
+        type: "success",
+      });
+    } catch (err) {
+      console.error("Disable 2FA error:", err);
+
+      toast.add({
+        title: "Failed to disable 2FA",
+        type: "error",
+      });
+    } finally {
+      setIsMfaLoading(false);
+    }
+  };
 
   // Change the user's display name
   const changeUsername = async event => {
@@ -236,7 +326,7 @@ function SettingsPage() {
         </Button>
       </div>
 
-      {/* Profile picture feature from main */}
+      {/* Profile Picture feature */}
       <ProfilePictureSection />
 
       {/* Sign-in preferences */}
@@ -264,6 +354,27 @@ function SettingsPage() {
             <Button variant="secondary" onClick={handleVerifyEmail} disabled={isVerifying}>
               {isVerifying ? "Sending..." : "Verify Email to Enable"}
             </Button>
+          )}
+        </div>
+
+        {/* Two-Factor Authentication */}
+        <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="font-medium">Two-Factor Authentication (TOTP)</p>
+
+            <p className="text-sm text-muted-foreground">
+              Secure your account with a code from an authenticator app.
+            </p>
+          </div>
+
+          {isLoadingSettings ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : is2FAEnabled ? (
+            <Button variant="destructive" onClick={handleDisable2FA} disabled={isMfaLoading}>
+              {isMfaLoading ? "Disabling..." : "Disable 2FA"}
+            </Button>
+          ) : (
+            <Button onClick={start2FAEnrollment}>Enable 2FA</Button>
           )}
         </div>
       </div>
@@ -310,7 +421,7 @@ function SettingsPage() {
           </Select>
         </div>
 
-        {/* Custom Themes feature from your branch */}
+        {/* Your Custom Themes feature */}
         <CustomThemeSection />
       </div>
 
@@ -362,6 +473,69 @@ function SettingsPage() {
 
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Two-Factor Authentication setup dialog */}
+      <Dialog open={is2FADialogOpen} onOpenChange={setIs2FADialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogTitle>Set up Two-Factor Authentication</DialogTitle>
+
+          <DialogDescription>
+            Scan this QR code with your authenticator app, then enter the 6 digit code below to
+            verify it.
+          </DialogDescription>
+
+          <div className="flex flex-col items-center justify-center space-y-4 py-4">
+            {isMfaLoading && !qrCodeUrl ? (
+              <p className="text-sm text-muted-foreground py-10">Generating secure code...</p>
+            ) : (
+              <>
+                <div className="rounded-md border p-2 bg-white">
+                  {qrCodeUrl && <img src={qrCodeUrl} alt="2FA QR Code" className="h-48 w-48" />}
+                </div>
+
+                <p className="text-xs text-muted-foreground break-all px-8 text-center">
+                  If you can't scan the QR code, enter this secret manually:
+                  <br />
+                  <strong className="font-mono text-foreground mt-1 block">{mfaSecret}</strong>
+                </p>
+              </>
+            )}
+          </div>
+
+          <form className="space-y-4" onSubmit={handleVerify2FA}>
+            <div className="space-y-2">
+              <label htmlFor="mfa-pin">6-digit Authenticator Code</label>
+
+              <Input
+                id="mfa-pin"
+                placeholder="000000"
+                maxLength={6}
+                value={mfaPin}
+                onChange={e => setMfaPin(e.target.value.replace(/\D/g, ""))}
+                disabled={isMfaLoading}
+                className="text-center tracking-widest text-lg font-mono"
+              />
+            </div>
+
+            {mfaError && <p className="text-sm text-destructive">{mfaError}</p>}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIs2FADialogOpen(false)}
+                disabled={isMfaLoading}
+              >
+                Cancel
+              </Button>
+
+              <Button type="submit" disabled={isMfaLoading || mfaPin?.length !== 6}>
+                {isMfaLoading ? "Verifying..." : "Verify & Enable"}
               </Button>
             </div>
           </form>
