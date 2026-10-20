@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { httpClient } from "../../../shared/http-client";
 import { RecurrenceFields } from "./RecurrenceFields";
 import { TaskFilesCard } from "./TaskFilesCard";
 import { useTaskFiles } from "../hooks/useTaskFiles";
@@ -23,7 +24,7 @@ import { isAfter, startOfDay, startOfToday } from "date-fns";
 const MAX_LINKS = 10;
 const MAX_LINK_LENGTH = 500;
 
-// Save a copy of the form data so we can check what has changed
+// The draft as text, without the files list, so two drafts can be compared
 const snapshotFields = draft =>
   JSON.stringify(draft, (key, value) => (key === "files" ? undefined : value));
 
@@ -43,6 +44,83 @@ function TaskForm({
   seriesEnabled,
   onFilesChange,
 }) {
+  // Task Labels - load and create reusable user labels
+  const [labels, setLabels] = useState([]);
+  const [newLabel, setNewLabel] = useState("");
+  const [labelError, setLabelError] = useState("");
+  const [labelSaving, setLabelSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadLabels() {
+      try {
+        const savedLabels = await httpClient("http://localhost:3000/api/labels");
+
+        if (active) {
+          setLabels(Array.isArray(savedLabels) ? savedLabels : []);
+        }
+      } catch (err) {
+        console.error("Failed to load labels:", err);
+
+        if (active) {
+          setLabelError("Unable to load saved labels.");
+        }
+      }
+    }
+
+    loadLabels();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const createLabel = async () => {
+    const name = newLabel.trim();
+    setLabelError("");
+
+    if (!name) {
+      setLabelError("Label cannot be empty");
+      return;
+    }
+
+    if (name.length > 100) {
+      setLabelError("Label cannot be more than 100 characters");
+      return;
+    }
+
+    if (labels.some(label => label.name?.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      setLabelError("A label with this name already exists.");
+      return;
+    }
+
+    if (labelSaving) return;
+
+    setLabelSaving(true);
+
+    try {
+      const savedLabel = await httpClient("http://localhost:3000/api/labels", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+
+      setLabels(current => [...current, savedLabel]);
+
+      setDraft(prev => ({
+        ...prev,
+        label: savedLabel.name,
+      }));
+
+      setNewLabel("");
+    } catch (err) {
+      console.error("Failed to create label:", err);
+      setLabelError(err.message || "Failed to create label");
+    } finally {
+      setLabelSaving(false);
+    }
+  };
+
   const [dateError, setDateError] = useState("");
   const [reminderError, setReminderError] = useState("");
   const [checklistItemInput, setChecklistItemInput] = useState("");
@@ -54,13 +132,21 @@ function TaskForm({
   const [linkError, setLinkError] = useState("");
   const [linksToggle, setLinksToggle] = useState(null);
 
+  // Remembers when a file was uploaded or removed.
   const filesChangedRef = useRef(false);
+
+  // Fields as they were when the form opened.
   const [fieldsAtOpen] = useState(() => snapshotFields(draft));
 
-  // Handle task attachments
+  // Files are managed through the team's existing hook.
   const taskFiles = useTaskFiles(draft, update => {
     filesChangedRef.current = true;
-    setDraft(prev => ({ ...prev, files: update(prev.files ?? []) }));
+
+    setDraft(prev => ({
+      ...prev,
+      files: update(prev.files ?? []),
+    }));
+
     onFilesChange?.(draft.id, update);
   });
 
@@ -74,7 +160,9 @@ function TaskForm({
   const checklist = draft.checklist || [];
   const completedItems = checklist.filter(item => item.completed).length;
   const progress = checklist.length > 0 ? Math.round((completedItems / checklist.length) * 100) : 0;
+
   const showChecklist = checklistToggle ?? (readOnly && checklist.length > 0);
+
   const links = draft.links || [];
   const showLinks = linksToggle ?? links.length > 0;
 
@@ -91,13 +179,19 @@ function TaskForm({
     }
 
     setChecklistError("");
+
     setDraft(prev => ({
       ...prev,
       checklist: [
         ...(prev.checklist || []),
-        { id: `temp-${Date.now()}`, text: checklistItemInput.trim(), completed: false },
+        {
+          id: `temp-${Date.now()}`,
+          text: checklistItemInput.trim(),
+          completed: false,
+        },
       ],
     }));
+
     setChecklistItemInput("");
   };
 
@@ -123,6 +217,7 @@ function TaskForm({
     }
 
     let url;
+
     try {
       url = new URL(withProtocol);
     } catch {
@@ -135,7 +230,11 @@ function TaskForm({
       return;
     }
 
-    setDraft(prev => ({ ...prev, links: [...(prev.links || []), withProtocol] }));
+    setDraft(prev => ({
+      ...prev,
+      links: [...(prev.links || []), withProtocol],
+    }));
+
     setLinkInput("");
     setLinkError("");
     setShowLinkInput(false);
@@ -189,10 +288,12 @@ function TaskForm({
       }
     }
 
+    // Upload files chosen but not yet uploaded.
     if (taskFiles.stagedFiles.length > 0 && !(await taskFiles.uploadStaged())) {
       return;
     }
 
+    // File-only edits are saved separately.
     if (filesChangedRef.current && snapshotFields(draft) === fieldsAtOpen) {
       onCancel();
       return;
@@ -210,6 +311,7 @@ function TaskForm({
   // Default repeat settings
   const createRecurrence = () => {
     const dueDate = draft.dueDate instanceof Date ? draft.dueDate : new Date();
+
     const isoWeekday = dueDate.getDay() === 0 ? 7 : dueDate.getDay();
 
     return {
@@ -269,6 +371,68 @@ function TaskForm({
           {(draft.subject?.length || 0) >= 200 && (
             <p className="text-sm text-medium-priority">
               Subject cannot be more than 200 characters
+            </p>
+          )}
+        </div>
+
+        {/* Task Labels */}
+        <div className="space-y-2">
+          <Label htmlFor="task-label">Label</Label>
+
+          <Select
+            disabled={readOnly}
+            value={draft.label || "__no_label__"}
+            onValueChange={value =>
+              setDraft(prev => ({
+                ...prev,
+                label: value === "__no_label__" ? "" : value,
+              }))
+            }
+          >
+            <SelectTrigger className="w-full min-w-0" id="task-label">
+              <SelectValue placeholder="Choose a label" />
+            </SelectTrigger>
+
+            <SelectContent>
+              <SelectItem value="__no_label__">No label (remove label)</SelectItem>
+
+              {labels.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-muted-foreground">
+                  No labels yet. Create a label below first.
+                </div>
+              ) : (
+                labels.map(label => (
+                  <SelectItem key={label.id} value={label.name}>
+                    <span className="block max-w-[220px] truncate" title={label.name}>
+                      {label.name}
+                    </span>
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+
+          {!readOnly && (
+            <div className="flex gap-2">
+              <Input
+                value={newLabel}
+                onChange={event => {
+                  setNewLabel(event.target.value);
+                  setLabelError("");
+                }}
+                maxLength={100}
+                placeholder="Create new label"
+              />
+
+              <Button type="button" variant="outline" disabled={labelSaving} onClick={createLabel}>
+                {labelSaving ? "Adding..." : "Add"}
+              </Button>
+            </div>
+          )}
+
+          {labelError && (
+            <p role="alert" className="text-sm text-destructive">
+              {labelError}
             </p>
           )}
         </div>
@@ -462,7 +626,12 @@ function TaskForm({
                   <PopoverContent className="w-auto p-0">
                     <Calendar
                       mode="single"
-                      onSelect={reminderDate => setDraft(prev => ({ ...prev, reminderDate }))}
+                      onSelect={reminderDate =>
+                        setDraft(prev => ({
+                          ...prev,
+                          reminderDate,
+                        }))
+                      }
                       selected={draft.reminderDate}
                     />
                   </PopoverContent>
@@ -475,7 +644,9 @@ function TaskForm({
                       ? `${reminderDaysAway} day${reminderDaysAway !== 1 ? "s" : ""} away`
                       : reminderDaysAway === 0
                         ? "today"
-                        : `${Math.abs(reminderDaysAway)} day${reminderDaysAway !== -1 ? "s" : ""} ago`}
+                        : `${Math.abs(reminderDaysAway)} day${
+                            reminderDaysAway !== -1 ? "s" : ""
+                          } ago`}
                     )
                   </span>
                 )}
@@ -488,7 +659,10 @@ function TaskForm({
                   id="task-reminder-time"
                   type="time"
                   onChange={event =>
-                    setDraft(prev => ({ ...prev, reminderTime: event.target.value }))
+                    setDraft(prev => ({
+                      ...prev,
+                      reminderTime: event.target.value,
+                    }))
                   }
                   disabled={readOnly}
                   value={draft.reminderTime || ""}
@@ -506,7 +680,7 @@ function TaskForm({
           {reminderError && <p className="text-sm text-destructive">{reminderError}</p>}
         </div>
 
-        {/* Recurring task settings */}
+        {/* Recurrence */}
         {allowRecurrence && (
           <div className="space-y-4 rounded-md border p-4">
             <div className="flex items-center gap-2">
@@ -521,6 +695,7 @@ function TaskForm({
                   }))
                 }
               />
+
               <Label htmlFor="task-repeat">Repeat</Label>
             </div>
 
@@ -550,7 +725,7 @@ function TaskForm({
           </div>
         )}
 
-        {/* Change existing recurring tasks */}
+        {/* Existing recurring series controls */}
         {allowSeriesControls && draft.seriesId && typeof draft.repeatEnabled === "boolean" && (
           <div className="space-y-4 rounded-md border p-4">
             <div className="space-y-2">
@@ -560,9 +735,13 @@ function TaskForm({
                   disabled={readOnly}
                   id="task-series-repeat"
                   onCheckedChange={checked =>
-                    setDraft(prev => ({ ...prev, repeatEnabled: checked }))
+                    setDraft(prev => ({
+                      ...prev,
+                      repeatEnabled: checked,
+                    }))
                   }
                 />
+
                 <Label htmlFor="task-series-repeat">Repeat</Label>
               </div>
 
@@ -591,13 +770,19 @@ function TaskForm({
                 onChange={changes =>
                   setDraft(prev => ({
                     ...prev,
-                    seriesPattern: { ...prev.seriesPattern, ...changes },
+                    seriesPattern: {
+                      ...prev.seriesPattern,
+                      ...changes,
+                    },
                   }))
                 }
                 onRuleChange={rule =>
                   setDraft(prev => ({
                     ...prev,
-                    seriesPattern: { ...prev.seriesPattern, rule },
+                    seriesPattern: {
+                      ...prev.seriesPattern,
+                      rule,
+                    },
                   }))
                 }
               />
@@ -620,6 +805,7 @@ function TaskForm({
                 id="task-checklist"
                 onCheckedChange={checked => setChecklistToggle(Boolean(checked))}
               />
+
               <Label htmlFor="task-checklist">Checklist</Label>
             </div>
 
@@ -642,7 +828,6 @@ function TaskForm({
                 </div>
               )}
 
-              {/* Existing checklist items */}
               {(draft.checklist || []).map(item => (
                 <div
                   key={item.id}
@@ -660,7 +845,12 @@ function TaskForm({
                           setDraft(prev => ({
                             ...prev,
                             checklist: prev.checklist.map(i =>
-                              i.id === item.id ? { ...i, completed: !i.completed } : i,
+                              i.id === item.id
+                                ? {
+                                    ...i,
+                                    completed: !i.completed,
+                                  }
+                                : i,
                             ),
                           }));
                         }
@@ -704,7 +894,10 @@ function TaskForm({
                       value={checklistItemInput}
                       onChange={event => {
                         setChecklistItemInput(event.target.value);
-                        if (checklistError) setChecklistError("");
+
+                        if (checklistError) {
+                          setChecklistError("");
+                        }
                       }}
                       onKeyDown={event => {
                         if (event.key === "Enter") {
@@ -744,6 +937,7 @@ function TaskForm({
                   id="task-links"
                   onCheckedChange={checked => setLinksToggle(Boolean(checked))}
                 />
+
                 <Label htmlFor="task-links">Links</Label>
               </div>
 
@@ -799,7 +993,10 @@ function TaskForm({
                           value={linkInput}
                           onChange={event => {
                             setLinkInput(event.target.value);
-                            if (linkError) setLinkError("");
+
+                            if (linkError) {
+                              setLinkError("");
+                            }
                           }}
                           onKeyDown={event => {
                             if (event.key === "Enter") {

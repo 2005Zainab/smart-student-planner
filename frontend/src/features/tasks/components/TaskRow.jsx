@@ -1,22 +1,25 @@
 import { MoreHorizontal, CheckSquare, Paperclip } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { differenceInCalendarDays } from "date-fns";
 import { isOccurrence } from "../utils/task-endpoints";
 
-// Import the Focus Timer component
+// Focus Timer feature from main
 import { FocusTimer } from "./FocusTimer";
 
 function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
-  // Show placeholders while tasks are loading
+  // Show placeholders while tasks are loading.
   if (isLoading) {
     return (
       <div className="flex items-start gap-3 p-4">
@@ -35,18 +38,21 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
   }
 
   const taskDueDate = task.dueDate ? new Date(task.dueDate) : null;
+
   const today = new Date();
 
-  // Check whether this task has a Focus Timer
+  // Check whether this task has a Focus Timer.
   const hasTimer =
     Number.isInteger(task.timerMinutes) && task.timerMinutes >= 1 && task.timerMinutes <= 180;
+
+  // Task Labels: get the assigned label safely.
+  const taskLabel = typeof task.label === "string" ? task.label.trim() : "";
 
   return (
     <div
       className="flex cursor-pointer items-start gap-3 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={onView}
       onKeyDown={event => {
-        // Only open the task when the task row itself receives the keyboard event
         if (event.target !== event.currentTarget) return;
 
         if (event.key === "Enter" || event.key === " ") {
@@ -67,6 +73,7 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
 
       {/* Task information */}
       <div className="min-w-0 flex-1">
+        {/* Task title */}
         <p
           className={
             task.status === "Completed"
@@ -77,12 +84,22 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
           {task.title}
         </p>
 
+        {/* Recurring task and subject */}
         <p className="mt-1 text-sm text-muted-foreground">
           {isOccurrence(task) && <Badge variant="ghost">Recurring Task</Badge>}{" "}
           {task.subject && ` ${task.subject}`}
         </p>
 
-        {/* Show the Focus Timer inside the task */}
+        {/* Task Labels: preserve your feature */}
+        {taskLabel && (
+          <div className="mt-2 flex min-w-0">
+            <Badge className="inline-flex max-w-full min-w-0" variant="outline" title={taskLabel}>
+              <span className="block max-w-40 truncate">{taskLabel}</span>
+            </Badge>
+          </div>
+        )}
+
+        {/* Focus Timer: preserve your teammate's feature */}
         {hasTimer && (
           <div
             className="mt-3 max-w-sm"
@@ -122,6 +139,7 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
       {task.checklist && task.checklist.length > 0 && (
         <Badge variant="outline" className="flex items-center gap-1 text-muted-foreground">
           <CheckSquare className="h-3.5 w-3.5" />
+
           <span>
             {task.checklist.filter(item => item.completed).length}/{task.checklist.length}
           </span>
@@ -136,6 +154,7 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
           aria-label={`${task.files.length} attached files`}
         >
           <Paperclip className="h-3.5 w-3.5" />
+
           <span>{task.files.length}</span>
         </Badge>
       )}
@@ -163,6 +182,7 @@ function TaskRow({ task, onEdit, onDelete, onToggle, onView, isLoading }) {
           onKeyDown={event => event.stopPropagation()}
         >
           <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+
           <DropdownMenuItem onClick={onDelete}>Delete</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

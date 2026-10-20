@@ -23,6 +23,7 @@ const ALLOWED_FIELDS = [
   "title",
   "description",
   "subject",
+  "label",
   "status",
   "dueDate",
   "time",
@@ -33,7 +34,7 @@ const ALLOWED_FIELDS = [
   "timerMinutes",
 ];
 
-// Add task
+// Create a new task
 router.post("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
@@ -41,6 +42,7 @@ router.post("/", requireAuth, async (req, res) => {
     title: req.body.title,
     description: req.body.description ?? "",
     subject: req.body.subject ?? "",
+    label: req.body.label ?? "",
     status: req.body.status ?? "To Do",
     dueDate: req.body.dueDate ?? null,
     time: typeof req.body.time === "string" && req.body.time.trim() ? req.body.time.trim() : null,
@@ -54,11 +56,27 @@ router.post("/", requireAuth, async (req, res) => {
     timerMinutes: req.body.timerMinutes ?? null,
   };
 
-  const validation = validateTaskFields(fields);
-  if (validation.message) return res.status(400).json({ message: validation.message });
+  // Validate Task Labels
+  if (typeof fields.label !== "string" || fields.label.trim().length > 100) {
+    return res.status(400).json({
+      message: "Label must be text under 100 characters",
+    });
+  }
 
+  // Validate task fields, including the Focus Timer
+  const validation = validateTaskFields(fields);
+
+  if (validation.message) {
+    return res.status(400).json({
+      message: validation.message,
+    });
+  }
+
+  // A reminder requires both date and time
   if (Boolean(fields.reminderDate) !== Boolean(fields.reminderTime)) {
-    return res.status(400).json({ message: "Date and time is required to set a reminder." });
+    return res.status(400).json({
+      message: "Date and time is required to set a reminder.",
+    });
   }
 
   try {
@@ -67,6 +85,8 @@ router.post("/", requireAuth, async (req, res) => {
 
     const newTask = {
       ...clean,
+      label: fields.label.trim(),
+      timerMinutes: clean.timerMinutes ?? null,
       priority: getPriorityFromDueDate(clean.dueDate, today),
       userId: uid,
     };
@@ -86,7 +106,7 @@ router.post("/", requireAuth, async (req, res) => {
   }
 });
 
-// Delete tasks from Firestore
+// Delete an existing task
 router.delete("/:id", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
@@ -100,20 +120,22 @@ router.delete("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    if (taskSnap.data().userId != uid) {
+    if (taskSnap.data().userId !== uid) {
       return res.status(403).json({
         message: "Unauthorized to delete this task: You do not own this task",
       });
     }
 
+    // Recurring tasks use the task-series endpoint
     if (taskSnap.data().seriesId) {
       return res.status(400).json({
         message: "Recurring occurrences must be deleted through the task-series endpoint",
       });
     }
 
-    // Delete the task's uploaded files first
+    // Remove related uploaded files
     const files = taskSnap.data().files ?? [];
+
     await Promise.all(files.map(file => db.collection("taskFiles").doc(file.id).delete()));
 
     await taskDoc.delete();
@@ -130,11 +152,12 @@ router.delete("/:id", requireAuth, async (req, res) => {
   }
 });
 
-// Edit task
+// Edit an existing task
 router.patch("/:id", requireAuth, async (req, res) => {
   const uid = req.user.uid;
   const updates = {};
 
+  // Only accept allowed task fields
   for (const key of ALLOWED_FIELDS) {
     if (Object.prototype.hasOwnProperty.call(req.body, key)) {
       updates[key] = req.body[key];
@@ -147,8 +170,30 @@ router.patch("/:id", requireAuth, async (req, res) => {
     });
   }
 
-  const validation = validateTaskFields(updates, { partial: true });
-  if (validation.message) return res.status(400).json({ message: validation.message });
+  // Validate changes to Task Labels
+  if (
+    Object.hasOwn(updates, "label") &&
+    (typeof updates.label !== "string" || updates.label.trim().length > 100)
+  ) {
+    return res.status(400).json({
+      message: "Label must be text under 100 characters",
+    });
+  }
+
+  if (Object.hasOwn(updates, "label")) {
+    updates.label = updates.label.trim();
+  }
+
+  // Validate updated fields, including timerMinutes
+  const validation = validateTaskFields(updates, {
+    partial: true,
+  });
+
+  if (validation.message) {
+    return res.status(400).json({
+      message: validation.message,
+    });
+  }
 
   Object.assign(updates, validation.clean);
 
@@ -162,7 +207,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
       });
     }
 
-    if (taskSnap.data().userId != uid) {
+    if (taskSnap.data().userId !== uid) {
       return res.status(403).json({
         message: "Unauthorized to edit this task: You do not own this task",
       });
@@ -173,15 +218,18 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     const finalReminderDate =
       "reminderDate" in updates ? updates.reminderDate : existingData.reminderDate;
+
     const finalReminderTime =
       "reminderTime" in updates ? updates.reminderTime : existingData.reminderTime;
 
+    // Keep reminder date and time consistent
     if (Boolean(finalReminderDate) !== Boolean(finalReminderTime)) {
       return res.status(400).json({
         message: "Date and time is required to set a reminder.",
       });
     }
 
+    // Automatically recalculate priority
     if ("dueDate" in updates) {
       updates.priority = getPriorityFromDueDate(updates.dueDate, today);
     }
@@ -204,7 +252,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
   }
 });
 
-// View all tasks
+// Get all tasks, including recurring occurrences
 router.get("/", requireAuth, async (req, res) => {
   const uid = req.user.uid;
 
@@ -216,7 +264,6 @@ router.get("/", requireAuth, async (req, res) => {
       db.collection("task_series").where("userId", "==", uid).get(),
     ]);
 
-    // Keep one-off tasks and recurring tasks separate
     const oneOffs = [];
     const materialized = new Map();
 
@@ -241,11 +288,15 @@ router.get("/", requireAuth, async (req, res) => {
 
     for (const series of readSeries(seriesSnapshot)) {
       const missedAndToday = expandSeries(series, series.segments[0].from, today);
+
       const next = getNextOccurrence(series, today);
       const candidateDates = new Set(missedAndToday);
 
-      if (next) candidateDates.add(next);
+      if (next) {
+        candidateDates.add(next);
+      }
 
+      // Include materialized recurring tasks that should appear
       for (const doc of materialized.values()) {
         if (doc.data.seriesId === series.id && shouldRenderMaterialized(doc.data, series, today)) {
           candidateDates.add(doc.data.occurrenceDate);
@@ -280,7 +331,7 @@ router.get("/", requireAuth, async (req, res) => {
   }
 });
 
-// View calendar tasks
+// Get calendar tasks for a date range
 router.get("/calendar", requireAuth, async (req, res) => {
   const uid = req.user.uid;
   const { from, to } = req.query;
@@ -349,6 +400,7 @@ router.get("/calendar", requireAuth, async (req, res) => {
         );
       }
 
+      // Include materialized recurring tasks within the range
       for (const materializedDoc of materialized.values()) {
         if (
           materializedDoc.data.seriesId === series.id &&

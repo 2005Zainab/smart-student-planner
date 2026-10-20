@@ -68,6 +68,7 @@ function TasksPage() {
     title: "",
     description: "",
     subject: "",
+    label: "",
     priority: "Low",
     timerMinutes: null,
     status: "To Do",
@@ -91,6 +92,7 @@ function TasksPage() {
         title: "",
         description: "",
         subject: "",
+        label: "",
         priority: "Low",
         timerMinutes: null,
         status: "To Do",
@@ -112,6 +114,7 @@ function TasksPage() {
         task
           ? {
               ...task,
+              label: task.label ?? "",
               timerMinutes: task.timerMinutes ?? null,
               dueDate: typeof task.dueDate === "string" ? parseISO(task.dueDate) : task.dueDate,
               time: task.time || "",
@@ -135,6 +138,7 @@ function TasksPage() {
               title: "",
               description: "",
               subject: "",
+              label: "",
               priority: "Low",
               timerMinutes: null,
               status: "To Do",
@@ -243,6 +247,10 @@ function TasksPage() {
     if (formMode === "create") {
       const createRequest = buildCreateTaskRequest(draft);
 
+      if (!createRequest.recurring) {
+        createRequest.body.label = draft.label || "";
+      }
+
       try {
         const savedResponse = await httpClient(createRequest.url, {
           method: "POST",
@@ -302,8 +310,14 @@ function TasksPage() {
       const savedParts = [];
 
       try {
-        // Save changes to this task or its recurring series
-        const didSave = await saveScopedEdit(original, draft, scope);
+        // 1. Content: this occurrence only, or the series template ("future")
+        const didSave = await saveScopedEdit(
+          original,
+          { ...draft, label: draft.label ?? "" },
+          scope,
+        );
+        if (didSave && scope === "future") seriesChangedRef.current = true;
+        if (didSave) savedParts.push("content changes");
 
         if (didSave && scope === "future") {
           seriesChangedRef.current = true;

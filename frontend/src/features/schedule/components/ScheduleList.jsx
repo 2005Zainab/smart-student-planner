@@ -24,25 +24,28 @@ function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
       </div>
     );
   }
-  // Use the parsedDateTime we generated in the SchedulePage, with a fallback just in case
+
+  // Use the parsedDateTime generated in SchedulePage.
   let displayTime = "No time";
+
   if (task.parsedDateTime) {
     displayTime = task.parsedDateTime.toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
     });
   } else if (task.dueTime) {
-    // Fallback if parsedDateTime isn't available for some reason
     const [hours, minutes] = task.dueTime.split(":");
     const d = new Date();
+
     d.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+
     displayTime = d.toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
     });
   }
 
-  // Determine the accent color based on priority
+  // Determine accent colour based on priority.
   const borderAccent =
     task.priority === "High"
       ? "border-l-high-priority"
@@ -51,6 +54,9 @@ function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
         : task.priority === "Low"
           ? "border-l-low-priority"
           : "border-l-primary/40";
+
+  // Task Labels: safely get the saved label name.
+  const taskLabel = typeof task.label === "string" ? task.label.trim() : "";
 
   return (
     <div
@@ -82,7 +88,21 @@ function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
         >
           {task.title}
         </p>
+
         <p className="mt-1 text-sm text-muted-foreground line-clamp-1">{task.subject}</p>
+
+        {/* Task Labels: show assigned label on Schedule */}
+        {taskLabel && (
+          <div className="mt-2 flex min-w-0 items-center gap-2">
+            <Badge
+              variant="secondary"
+              className="inline-flex max-w-full min-w-0 items-center"
+              title={taskLabel}
+            >
+              <span className="block max-w-40 truncate">{taskLabel}</span>
+            </Badge>
+          </div>
+        )}
       </div>
 
       {/* Badges and Actions */}
@@ -97,6 +117,7 @@ function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
           </Badge>
         )}
 
+        {/* Attachments indicator */}
         {task.files && task.files.length > 0 && (
           <Badge
             variant="outline"
@@ -107,6 +128,8 @@ function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
             <span>{task.files.length}</span>
           </Badge>
         )}
+
+        {/* Priority badge */}
         <Badge
           variant={
             task.priority === "High"
@@ -121,10 +144,13 @@ function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
         >
           {task.priority}
         </Badge>
+
+        {/* Status badge */}
         <Badge variant="outline" className="hidden sm:inline-flex">
           {task.status}
         </Badge>
 
+        {/* Edit and Delete menu */}
         <DropdownMenu>
           <DropdownMenuTrigger
             onClick={event => event.stopPropagation()}
@@ -134,12 +160,14 @@ function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
           >
             <MoreHorizontal />
           </DropdownMenuTrigger>
+
           <DropdownMenuContent
             align="end"
             onClick={event => event.stopPropagation()}
             onKeyDown={event => event.stopPropagation()}
           >
             <DropdownMenuItem onClick={() => onEdit(task)}>Edit</DropdownMenuItem>
+
             <DropdownMenuItem onClick={() => onDelete(task.id)}>Delete</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -148,12 +176,11 @@ function ScheduleRow({ task, onEdit, onDelete, onView, isLoading }) {
   );
 }
 
-// The main list component that maps over the tasks
+// Main Schedule list component.
 function ScheduleList({ tasks, isLoading, onEdit, onDelete, onView }) {
   if (isLoading) {
     return (
       <div className="divide-y">
-        {/* Render a few skeleton rows while loading */}
         {[...Array(3)].map((_, i) => (
           <ScheduleRow key={i} isLoading={true} />
         ))}

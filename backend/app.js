@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import tasksRoute from "./routes/tasks.js";
+import labelsRoute from "./routes/labels.js";
 import settingsRoute from "./routes/settings.js";
 import remindersRoute from "./routes/reminders.js";
 import taskSeriesRoute from "./routes/taskSeries.js";
@@ -30,6 +31,7 @@ app.use((req, res, next) => {
 
 app.use("/api/tasks/:id/files", taskFilesRoute);
 app.use("/api/tasks", tasksRoute);
+app.use("/api/labels", labelsRoute);
 app.use("/api/settings", settingsRoute);
 app.use("/api/reminders", remindersRoute);
 app.use("/api/task-series", taskSeriesRoute);
