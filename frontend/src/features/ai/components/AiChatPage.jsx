@@ -9,7 +9,7 @@ const SUGGESTIONS = [
   "Plan my day today",
   "What's due this week?",
   "What should I priorities first?",
-  "Recommend me some study methods"
+  "Recommend me some study methods",
 ];
 
 // Tailwind's reset strips list and heading styles, so style Markdown elements explicitly.
